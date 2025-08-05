@@ -34,6 +34,9 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  local_auth: ^2.3.0    # 생체 인증 패키지
+  flutter_secure_storage: ^9.2.4    # Secure Storage 접근 패키지(OS별 암호화된 시스템 보안 공간에 저장)
+  http: ^1.4.0
 
 dev_dependencies:
   flutter_test:

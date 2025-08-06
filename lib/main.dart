@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:reframe/pages/auth/join_page.dart';
 import 'package:reframe/pages/auth/login_page.dart';
 import 'package:reframe/pages/auth/splash_page.dart';
+import 'package:reframe/pages/deposit/deposit_list_page.dart';
+import 'package:reframe/pages/deposit/deposit_main_page.dart';
 import 'package:reframe/pages/home_page.dart';
 
 void main() {
@@ -21,6 +23,10 @@ class MyApp extends StatelessWidget {
         "/home": (context) => const HomePage(),
         "/join": (context) => const JoinPage(),
         "/login": (context) => const LoginPage(),
+
+        // ✅ 예적금 테스트용 페이지 라우트
+        "/depositList": (context) => DepositListPage(),
+        "/depositMain": (context) => DepositMainPage(),
       },
     );
   }

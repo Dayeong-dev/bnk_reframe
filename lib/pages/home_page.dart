@@ -58,7 +58,10 @@ class _HomePageState extends State<HomePage> {
               );
               if (!mounted) return;
               if (didAuthenticate) {
-                await _secureStorage.write(key: 'biometricEnabled', value: 'true');
+                await _secureStorage.write(
+                  key: 'biometricEnabled',
+                  value: 'true',
+                );
                 if (!mounted) return;
 
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -75,9 +78,9 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _initSecureStorage() async {
     await _secureStorage.deleteAll();
-    ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Secure Storage를 지웠습니다."))
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("Secure Storage를 지웠습니다.")));
   }
 
   @override
@@ -90,17 +93,26 @@ class _HomePageState extends State<HomePage> {
           children: [
             Text("메인 화면"),
             ElevatedButton(
-                onPressed: _initSecureStorage,
-                child: Text("Secure Storage 초기화")
+              onPressed: _initSecureStorage,
+              child: Text("Secure Storage 초기화"),
             ),
             ElevatedButton(
-                onPressed: () {
-                  Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => SplashPage())
-                  );
-                },
-                child: Text("Splash 화면으로 이동")
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => SplashPage()),
+                );
+              },
+              child: Text("Splash 화면으로 이동"),
+            ),
+            // ✅ 여기 예적금 버튼 2개 추가!
+            ElevatedButton(
+              onPressed: () => Navigator.pushNamed(context, "/depositList"),
+              child: Text("예적금 전체 목록"),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pushNamed(context, "/depositMain"),
+              child: Text("예적금 메인 페이지"),
             ),
           ],
         ),

@@ -114,6 +114,10 @@ class _HomePageState extends State<HomePage> {
               onPressed: () => Navigator.pushNamed(context, "/depositMain"),
               child: Text("예적금 메인 페이지"),
             ),
+            ElevatedButton(
+              onPressed: () => Navigator.pushNamed(context, "/step-debug"),
+              child: Text("걸음 수 테스트"),
+            ),
           ],
         ),
       ),

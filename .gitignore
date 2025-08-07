@@ -164,5 +164,7 @@ app.*.symbols
 .gclient_previous_custom_vars
 .gclient_previous_sync_commits
 
-# Mac
-.DS_Store
+# Firebase 관련
+firebase.json
+*.firebase
+.firebaserc

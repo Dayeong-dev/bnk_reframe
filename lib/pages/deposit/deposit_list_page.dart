@@ -4,6 +4,10 @@ import 'package:reframe/pages/deposit/deposit_detail_page.dart';
 import 'package:reframe/service/deposit_service.dart' as DepositService;
 
 class DepositListPage extends StatefulWidget {
+  final String initialCategory;
+
+  const DepositListPage({super.key, this.initialCategory = '전체'});
+
   @override
   State<DepositListPage> createState() => _DepositListPageState();
 }
@@ -24,7 +28,11 @@ class _DepositListPageState extends State<DepositListPage> {
   @override
   void initState() {
     super.initState();
-    loadProducts();
+    // ✅ 여기! 전달받은 카테고리 초기화
+    selectedIndex = categories.indexOf(widget.initialCategory);
+    if (selectedIndex == -1) selectedIndex = 0;
+
+    loadProducts(); // 전체 목록 불러오고 필터링
   }
 
   void loadProducts() async {

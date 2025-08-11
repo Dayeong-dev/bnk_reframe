@@ -396,10 +396,10 @@ class _DepositMainPageState extends State<DepositMainPage> {
     final scaffold = Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         elevation: 0,
         backgroundColor: Colors.transparent,
         foregroundColor: _ink,
-        titleSpacing: 0,
         title: const Text(
           'BNK 예적금',
           style: TextStyle(fontWeight: FontWeight.w800),

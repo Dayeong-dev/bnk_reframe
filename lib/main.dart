@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:reframe/app/app_shell.dart';
 import 'package:reframe/pages/auth/join_page.dart';
 import 'package:reframe/pages/auth/login_page.dart';
 import 'package:reframe/pages/auth/splash_page.dart';

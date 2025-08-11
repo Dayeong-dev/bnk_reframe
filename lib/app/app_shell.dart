@@ -4,6 +4,7 @@ import 'package:reframe/pages/deposit/deposit_main_page.dart';
 import 'package:reframe/pages/home_page.dart';
 
 import '../constants/color.dart';
+import '../pages/savings_test/screens/start_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -37,7 +38,7 @@ class _AppShellState extends State<AppShell> {
         children: [
           SafeArea(child: HomePage()),
           SafeArea(child: DepositMainPage()),
-          SafeArea(child: DepositListPage()),
+          SafeArea(child: StartScreen()),
           SafeArea(child: DepositListPage())
         ],
       ),

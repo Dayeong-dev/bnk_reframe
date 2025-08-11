@@ -6,6 +6,8 @@ import 'package:reframe/pages/deposit/deposit_list_page.dart';
 import 'package:reframe/pages/deposit/deposit_main_page.dart';
 import 'package:reframe/pages/home_page.dart';
 import 'package:reframe/pages/walk/step_debug_page.dart';
+import 'package:reframe/pages/savings_test/saving_test_page.dart';
+
 
 void main() {
   runApp(const MyApp());
@@ -29,6 +31,7 @@ class MyApp extends StatelessWidget {
         "/depositList": (context) => DepositListPage(),
         "/depositMain": (context) => DepositMainPage(),
         "/step-debug": (context) => StepDebugPage(),
+        "/savings": (context) => SavingsTestPage()
       },
     );
   }

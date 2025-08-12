@@ -3,7 +3,7 @@ import '../model/deposit_product.dart';
 
 final Dio dio = Dio();
 const String baseUrl =
-    'http://192.168.100.155:8090/deposit/api'; //192.168.123.103 집 192.168.100.124 학원
+    'http://192.168.100.135:8090/deposit/api'; //192.168.123.103 집 192.168.100.124 학원
 
 // ✅ 1. 상품 상세
 Future<DepositProduct> fetchProduct(int id) async {

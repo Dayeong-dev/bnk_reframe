@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:reframe/app/app_shell.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -33,12 +34,12 @@ class _SplashPageState extends State<SplashPage> {
       );
 
       if (didAuthenticate) {
-        Navigator.pushReplacementNamed(context, "/home");
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AppShell()));
         return;
       }
     }
     // Navigator.pushReplacementNamed(context, "/login");
-    Navigator.pushReplacementNamed(context, "/home");
+    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AppShell()));
 
     if (!mounted) {
       return;

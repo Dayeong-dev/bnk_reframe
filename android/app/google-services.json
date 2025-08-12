@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "326925590248",
+    "project_id": "bnk-app-push",
+    "storage_bucket": "bnk-app-push.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:326925590248:android:668632d5d2a9aefe55735d",
+        "android_client_info": {
+          "package_name": "com.example.ex11_page"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC9MUdq_vapNafXp5nAxRbxKPGmyxZL09w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:326925590248:android:dc8eaa1b46cc28a855735d",
+        "android_client_info": {
+          "package_name": "com.example.reframe"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC9MUdq_vapNafXp5nAxRbxKPGmyxZL09w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

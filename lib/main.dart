@@ -6,19 +6,33 @@ import 'package:reframe/pages/deposit/deposit_list_page.dart';
 import 'package:reframe/pages/deposit/deposit_main_page.dart';
 import 'package:reframe/pages/home_page.dart';
 import 'package:reframe/pages/walk/step_debug_page.dart';
+import 'package:reframe/service/firebase_service.dart';
 
-void main() {
-  runApp(const MyApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 1) Firebase/FCM/Analytics 초기화 (필수만)
+  final firebaseService = await FirebaseService.init(
+    baseUrl: FirebaseService.defaultBaseUrl, // 필요 시 운영/개발 분리
+    forceRefreshToken: true,                 // 패키지/프로젝트 이관 직후 권장
+  );
+
+  runApp(MyApp(firebaseService: firebaseService));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, required this.firebaseService});
+  final FirebaseService firebaseService;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: "BNK 부산은행",
+      title: "BNK 부산은행",  
       debugShowCheckedModeBanner: false,
+
+       // 화면 전환 자동 추적 (Analytics)
+      navigatorObservers: [firebaseService.routeObserver],
+
       home: SplashPage(),
       routes: {
         "/home": (context) => const HomePage(),

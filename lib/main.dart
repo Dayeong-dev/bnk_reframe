@@ -9,6 +9,7 @@ import 'package:reframe/pages/home_page.dart';
 import 'package:reframe/pages/walk/step_debug_page.dart';
 import 'package:reframe/pages/savings_test/saving_test_page.dart';
 import 'package:reframe/pages/chat/bnk_chat_page.dart';
+import 'package:reframe/pages/customer/more_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -34,6 +35,7 @@ class MyApp extends StatelessWidget {
         "/step-debug": (context) => StepDebugPage(),
         "/savings": (context) => SavingsTestPage(), 
         "/chat-debug": (context) => BnkChatPage(),
+        "/more-page": (context) => MorePage(),
       },
     );
   }

@@ -170,6 +170,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
       context,
       MaterialPageRoute(
         builder: (_) => DepositDetailPage(productId: product.productId),
+        settings: const RouteSettings(name: 'go_to_deposit_detail_page'),
       ),
     );
   }
@@ -396,10 +397,10 @@ class _DepositMainPageState extends State<DepositMainPage> {
     final scaffold = Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         elevation: 0,
         backgroundColor: Colors.transparent,
         foregroundColor: _ink,
-        titleSpacing: 0,
         title: const Text(
           'BNK 예적금',
           style: TextStyle(fontWeight: FontWeight.w800),
@@ -414,6 +415,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
                 context,
                 MaterialPageRoute(
                   builder: (_) => const DepositListPage(initialCategory: '전체'),
+                  settings: const RouteSettings(name: 'go_to_deposit_list_page'),
                 ),
               );
             },
@@ -631,6 +633,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
                     MaterialPageRoute(
                       builder: (_) =>
                           const DepositListPage(initialCategory: '예금'),
+                          settings: const RouteSettings(name: 'go_to_deposit_list_page'),
                     ),
                   );
                 },
@@ -651,6 +654,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
                     MaterialPageRoute(
                       builder: (_) =>
                           const DepositListPage(initialCategory: '적금'),
+                          settings: const RouteSettings(name: 'go_to_deposit_list_page'),
                     ),
                   );
                 },
@@ -671,6 +675,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
                     MaterialPageRoute(
                       builder: (_) =>
                           const DepositListPage(initialCategory: '입출금'),
+                          settings: const RouteSettings(name: 'go_to_deposit_list_page'),
                     ),
                   );
                 },
@@ -970,6 +975,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
                 MaterialPageRoute(
                   builder: (_) =>
                       DepositListPage(initialCategory: item['label'] as String),
+                      settings: const RouteSettings(name: 'go_to_deposit_list_page'),
                 ),
               );
             },

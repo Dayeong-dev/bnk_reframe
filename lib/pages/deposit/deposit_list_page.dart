@@ -400,6 +400,7 @@ class _DepositListPageState extends State<DepositListPage>
         context,
         MaterialPageRoute(
           builder: (_) => DepositDetailPage(productId: item.productId),
+          settings: const RouteSettings(name: 'go_to_deposit_detail_page'),
         ),
       ),
       child: Container(
@@ -533,6 +534,7 @@ class _DepositListPageState extends State<DepositListPage>
           context,
           MaterialPageRoute(
             builder: (_) => DepositDetailPage(productId: item.productId),
+            settings: const RouteSettings(name: 'go_to_deposit_detail_page'),
           ),
         ),
         child: Padding(

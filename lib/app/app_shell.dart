@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:reframe/pages/customer/more_page.dart';
 import 'package:reframe/pages/deposit/deposit_list_page.dart';
 import 'package:reframe/pages/deposit/deposit_main_page.dart';
 import 'package:reframe/pages/home_page.dart';
@@ -40,7 +39,7 @@ class _AppShellState extends State<AppShell> {
           SafeArea(child: HomePage()),
           SafeArea(child: DepositMainPage()),
           SafeArea(child: StartScreen()),
-          SafeArea(child: MorePage())
+          SafeArea(child: DepositListPage())
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(

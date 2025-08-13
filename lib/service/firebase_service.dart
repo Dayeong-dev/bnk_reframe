@@ -4,51 +4,77 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_analytics/observer.dart'; // ✅ 공식 옵저버
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
-import '../firebase_options.dart'; // flutterfire configure 로 생성된 파일
+import '../firebase_options.dart';
 
-// 백그라운드 수신 핸들러(최상위 함수 필수)
+// 백그라운드 수신 핸들러
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  // 필요 시 최소 로깅/저장만 (UI 금지)
 }
 
-/// Analytics 화면 전환 로깅용 커스텀 옵저버 (observer.dart 대체)
+/// (보조) 커스텀 라우트 옵저버
 class AnalyticsRouteObserver extends NavigatorObserver {
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
-  void _log(Route<dynamic>? route) {
+
+  Future<void> _log(Route<dynamic>? route) async {
     final name = route?.settings.name;
     if (name != null && name.isNotEmpty) {
-      _analytics.logScreenView(screenName: name);
+      // screenClass도 함께 넣어주면 더 깔끔
+      await _analytics.logScreenView(
+        screenName: name,
+        screenClass: route.runtimeType.toString(),
+      );
     }
   }
+
   @override
-  void didPush(Route route, Route? previousRoute) { _log(route); super.didPush(route, previousRoute); }
+  void didPush(Route route, Route? previousRoute) {
+    _log(route);
+    super.didPush(route, previousRoute);
+  }
+
   @override
-  void didReplace({Route? newRoute, Route? oldRoute}) { _log(newRoute); super.didReplace(newRoute: newRoute, oldRoute: oldRoute); }
+  void didReplace({Route? newRoute, Route? oldRoute}) {
+    _log(newRoute);
+    super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
+  }
+
   @override
-  void didPop(Route route, Route? previousRoute) { _log(previousRoute); super.didPop(route, previousRoute); }
+  void didPop(Route route, Route? previousRoute) {
+    _log(previousRoute);
+    super.didPop(route, previousRoute);
+  }
 }
 
 class FirebaseService {
-  FirebaseService._(this.analytics, this.routeObserver, this._baseUrl);
+  FirebaseService._(
+    this.analytics,
+    this.analyticsObserver,
+    this.routeObserver,
+    this._baseUrl,
+  );
 
   final FirebaseAnalytics analytics;
-  final AnalyticsRouteObserver routeObserver;
+  final FirebaseAnalyticsObserver analyticsObserver; // ✅ 공식
+  final AnalyticsRouteObserver routeObserver;        // ✅ 보조(백업)
   final String _baseUrl;
 
-  /// 실습용 고정 서버 IP (요청하신 값)
+  /// 실습용 고정 서버 IP
   static String get defaultBaseUrl => 'http://localhost:8080';
+
+  /// 외부에서 Navigator에 바로 붙일 수 있게 제공
+  List<NavigatorObserver> get observers => [analyticsObserver, routeObserver];
 
   /// main()에서 한 번만 호출
   static Future<FirebaseService> init({
     String? baseUrl,
-    bool forceRefreshToken = true, // 패키지/프로젝트 이관 후 권장
+    bool forceRefreshToken = true,
   }) async {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
@@ -58,14 +84,18 @@ class FirebaseService {
     await _prepareAndRegisterFcmToken(resolved, forceRefreshToken);
 
     final analytics = FirebaseAnalytics.instance;
-    final observer = AnalyticsRouteObserver();
-    return FirebaseService._(analytics, observer, resolved);
+    final analyticsObs = FirebaseAnalyticsObserver(analytics: analytics); // ✅
+    final routeObs = AnalyticsRouteObserver();
+
+    return FirebaseService._(analytics, analyticsObs, routeObs, resolved);
   }
 
   // ─ internal ─
   static Future<void> _requestNotificationPermission() async {
     final status = await Permission.notification.status;
-    if (!status.isGranted) { await Permission.notification.request(); }
+    if (!status.isGranted) {
+      await Permission.notification.request();
+    }
   }
 
   static Future<void> _prepareAndRegisterFcmToken(
@@ -91,7 +121,6 @@ class FirebaseService {
       await _registerTokenToServer(baseUrl, t);
     });
 
-    // 포그라운드/클릭 리스너: 필요 시 로직 확장
     FirebaseMessaging.onMessage.listen((_) {});
     FirebaseMessaging.onMessageOpenedApp.listen((_) {});
   }
@@ -102,14 +131,13 @@ class FirebaseService {
   ) async {
     final url = Uri.parse('$baseUrl/api/v1/fcm/register');
     try {
-      // TODO: userId는 로그인 연동 후 교체
       await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'userId': 'user9999', 'token': token}),
       );
     } catch (_) {
-      // 네트워크 예외는 조용히 처리(정책에 따라 재시도 구현 가능)
+      // 네트워크 예외는 조용히 처리
     }
   }
 }

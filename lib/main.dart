@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:reframe/app/app_shell.dart';
 import 'package:reframe/pages/auth/join_page.dart';
 import 'package:reframe/pages/auth/login_page.dart';
 import 'package:reframe/pages/auth/splash_page.dart';
@@ -14,10 +13,9 @@ import 'package:reframe/pages/chat/bnk_chat_page.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1) Firebase/FCM/Analytics 초기화 (필수만)
   final firebaseService = await FirebaseService.init(
-    baseUrl: FirebaseService.defaultBaseUrl, // 필요 시 운영/개발 분리
-    forceRefreshToken: true,                 // 패키지/프로젝트 이관 직후 권장
+    baseUrl: FirebaseService.defaultBaseUrl,
+    forceRefreshToken: true,
   );
 
   runApp(MyApp(firebaseService: firebaseService));
@@ -30,11 +28,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: "BNK 부산은행",  
+      title: "BNK 부산은행",
       debugShowCheckedModeBanner: false,
 
-       // 화면 전환 자동 추적 (Analytics)
-      navigatorObservers: [firebaseService.routeObserver],
+      // ✅ 공식 + 보조 옵저버를 한 번에 연결
+      navigatorObservers: firebaseService.observers,
 
       home: SplashPage(),
       routes: {
@@ -42,11 +40,10 @@ class MyApp extends StatelessWidget {
         "/join": (context) => const JoinPage(),
         "/login": (context) => const LoginPage(),
 
-        // ✅ 예적금 테스트용 페이지 라우트
-        "/depositList": (context) => DepositListPage(),
+        "/depositList": (context) => const DepositListPage(), // ← 이름으로 집계
         "/depositMain": (context) => DepositMainPage(),
         "/step-debug": (context) => StepDebugPage(),
-        "/savings": (context) => SavingsTestPage(), 
+        "/savings": (context) => SavingsTestPage(),
         "/chat-debug": (context) => BnkChatPage(),
       },
     );

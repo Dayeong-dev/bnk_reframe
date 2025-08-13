@@ -131,3 +131,15 @@ firebase.json
 .gclient_previous_custom_vars
 .gclient_previous_sync_commits
 pubspec.lock
+
+# 1) ios 전체 무시
+ios/**
+
+# 2) Runner 폴더만 잠시 무시 해제(파일에 도달하려면 필요)
+!ios/Runner/
+
+# 3) Runner 안은 다시 전부 무시
+ios/Runner/**
+
+# 4) 그중 Info.plist만 추적
+!ios/Runner/Info.plist

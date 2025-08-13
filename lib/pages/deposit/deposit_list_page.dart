@@ -547,7 +547,7 @@ class _DepositListPageState extends State<DepositListPage>
                 children: [
                   // 순위 + 메달
                   SizedBox(
-                    width: 50, // 필요하면 32~40으로 줄여도 OK
+                    width: 45, // 필요하면 32~40으로 줄여도 OK
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [

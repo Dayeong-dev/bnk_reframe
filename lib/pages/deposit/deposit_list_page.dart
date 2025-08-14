@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:reframe/model/deposit_product.dart';
 import 'package:reframe/pages/deposit/deposit_detail_page.dart';
 import 'package:reframe/service/deposit_service.dart' as DepositService;
+import 'package:firebase_analytics/firebase_analytics.dart';
 
 /// 예적금 목록 (아이콘 자동 추천 버전)
 class DepositListPage extends StatefulWidget {
@@ -32,6 +33,66 @@ class _DepositListPageState extends State<DepositListPage>
   static const _bg = Color(0xFFF5F7FA);
 
   late final PageController _pageController;
+
+  // ① Analytics 인스턴스
+final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
+
+// ② 리스트 노출(임프레션) 중복 방지용 SIG
+String? _lastImpressionSig;
+
+// ③ 상품 타입(카테고리 보정) 유틸
+String _productTypeOf(DepositProduct e) {
+  final c = (e.category ?? '').trim();
+  return c == '입출금자유' ? '입출금' : (c.isEmpty ? '기타' : c);
+}
+
+// ④ 로깅 함수들
+Future<void> _logCategoryView(int index) async {
+  final cat = categories[index];
+  await _analytics.logEvent(name: 'category_view', parameters: {
+    'category': cat,                         // 전체/예금/적금/입출금
+    'view_mode': _gridMode ? 'grid' : 'list' // 현재 보기 방식
+  });
+}
+
+Future<void> _logSearch(String query) async {
+  if (query.trim().isEmpty) return;
+  await _analytics.logEvent(name: 'search', parameters: {
+    'q': query.trim(),
+    'category': categories[selectedIndex],
+  });
+}
+
+Future<void> _logProductClick(DepositProduct item, int index, {required String source}) async {
+  // 목록에서 상세로 들어가기 직전 클릭 이벤트
+  await _analytics.logEvent(name: 'product_list_click', parameters: {
+    'product_id': '${item.productId}',
+    'product_type': _productTypeOf(item),
+    'category': item.category ?? '',
+    'pos': index + 1,                        // 현재 화면 내 노출 순번(1-base)
+    'source': source,                        // grid | list
+  });
+}
+
+void _scheduleImpressionLog(List<DepositProduct> visible, int pageIndex) {
+  // 현재 화면에 보이는 상품 묶음 임프레션(중복 방지)
+  final ids = visible.map((e) => e.productId).map((v) => '$v').join(',');
+  final sig = '$pageIndex|${_gridMode ? 'grid' : 'list'}|$ids';
+  if (_lastImpressionSig == sig) return; // 같은 화면 구성이라면 재전송 X
+  _lastImpressionSig = sig;
+
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    // 최대 20개까지만 CSV로 전송(길이 방어)
+    final shortCsv = visible.take(20).map((e) => '${e.productId}').join(',');
+    await _analytics.logEvent(name: 'product_list_impression', parameters: {
+      'category': categories[pageIndex],
+      'variant': _gridMode ? 'grid' : 'list',
+      'count': visible.length,
+      'items': shortCsv, // "123,456,789,..."
+    });
+  });
+}
+
 
   @override
   void initState() {
@@ -131,6 +192,7 @@ class _DepositListPageState extends State<DepositListPage>
                     onChanged: (v) {
                       searchQuery = v.trim();
                       _applyFilter();
+                      _logSearch(searchQuery); // ← 추가
                     },
                     onSubmitted: (v) {
                       searchQuery = v.trim();
@@ -396,13 +458,25 @@ class _DepositListPageState extends State<DepositListPage>
     final name = (item.name ?? '').replaceAll('<br>', '\n');
 
     return InkWell(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => DepositDetailPage(productId: item.productId),
-          settings: const RouteSettings(name: '/deposit/detail'),
-        ),
-      ),
+      // onTap: () => Navigator.push(
+      //   context,
+      //   MaterialPageRoute(
+      //     builder: (_) => DepositDetailPage(productId: item.productId),
+      //     settings: const RouteSettings(name: '/deposit/detail'),
+      //   ),
+      // ),
+      onTap: () async {
+        // 클릭 로깅 → 상세 이동
+        await _logProductClick(item, index, source: 'grid');
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DepositDetailPage(productId: item.productId),
+            settings: const RouteSettings(name: '/deposit/detail'),
+          ),
+        );
+      },
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -530,13 +604,24 @@ class _DepositListPageState extends State<DepositListPage>
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => DepositDetailPage(productId: item.productId),
-            settings: const RouteSettings(name: '/deposit/detail'),
-          ),
-        ),
+        // onTap: () => Navigator.push(
+        //   context,
+        //   MaterialPageRoute(
+        //     builder: (_) => DepositDetailPage(productId: item.productId),
+        //     settings: const RouteSettings(name: '/deposit/detail'),
+        //   ),
+        // ),
+        onTap: () async {
+          await _logProductClick(item, index, source: 'list');
+          if (!mounted) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DepositDetailPage(productId: item.productId),
+              settings: const RouteSettings(name: '/deposit/detail'),
+            ),
+          );
+        },
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
@@ -726,11 +811,15 @@ class _DepositListPageState extends State<DepositListPage>
                         itemsToShow = _gridMode ? 8 : 6;
                       });
                       _applyFilter();
+                      _logCategoryView(i); // ← 추가
                     },
                     itemCount: categories.length,
                     itemBuilder: (context, pageIndex) {
                       final pageList = _computeFiltered(pageIndex);
                       final visible = pageList.take(itemsToShow).toList();
+
+                      // 현재 페이지 화면에 실제로 보이는 상품 리스트 임프레션(중복 방지됨)
+                      _scheduleImpressionLog(visible, pageIndex);
 
                       return RefreshIndicator(
                         onRefresh: _loadProducts,

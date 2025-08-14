@@ -4,7 +4,7 @@ import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:reframe/model/deposit_product.dart';
 import 'package:reframe/service/deposit_service.dart';
-
+import 'package:firebase_analytics/firebase_analytics.dart';
 /// =======================================================
 ///  DepositDetailPage (심플 센터 정렬 버전)
 ///  - 섹션: 중앙 카드만 표시 (점/연결선 제거)
@@ -83,6 +83,46 @@ class _FadeSlideInOnVisibleState extends State<FadeSlideInOnVisible>
 class _DepositDetailPageState extends State<DepositDetailPage> {
   DepositProduct? product;
 
+  // ✅ Analytics 인스턴스 & 중복방지 플래그
+  final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
+  bool _pvLogged = false;
+
+  // ✅ 카테고리를 product_type으로 보정(입출금자유 → 입출금 등)
+  String _productTypeOf(DepositProduct p) {
+    final c = (p.category ?? '').trim();
+    if (c == '입출금자유') return '입출금';
+    if (c.isEmpty) return '기타';
+    return c; // 예금/적금/입출금
+  }
+
+  // ✅ 상세 진입 1회 로깅 (데이터 로드 후 호출)
+  Future<void> _logProductViewOnce(DepositProduct p) async {
+    if (_pvLogged) return;
+    _pvLogged = true;
+    await _analytics.logEvent(name: 'product_view', parameters: {
+      'product_id': '${p.productId}',     // 문자열 권장
+      'product_type': _productTypeOf(p),  // 예금/적금/입출금
+      'category': p.category ?? '',
+    });
+    // (선택) 화면 이름도 같이 남김
+    await _analytics.logScreenView(
+      screenName: 'DepositDetail',
+      screenClass: 'DepositDetailPage',
+    );
+  }
+
+  // ✅ 리뷰/가입 버튼 클릭 로깅
+  Future<void> _logDetailCta(String action) async {
+    final p = product;
+    if (p == null) return;
+    await _analytics.logEvent(name: 'detail_cta_click', parameters: {
+      'product_id': '${p.productId}',
+      'product_type': _productTypeOf(p),
+      'action': action, // 'review' | 'apply'
+    });
+  }
+
+
   @override
   void initState() {
     super.initState();
@@ -94,6 +134,7 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
       final result = await fetchProduct(widget.productId);
       if (!mounted) return;
       setState(() => product = result);
+      await _logProductViewOnce(result); // ✅ 상세 데이터 준비된 뒤 1회 로깅
     } catch (e) {
       debugPrint("❌ 상품 불러오기 실패: $e");
     }
@@ -227,7 +268,9 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
           children: [
             Expanded(
               child: OutlinedButton(
-                onPressed: () {},
+                onPressed: () async {
+                await _logDetailCta('review'); // ✅ 클릭 로깅
+                },
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   side: const BorderSide(color: _brand, width: 1),
@@ -244,7 +287,9 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton(
-                onPressed: () {},
+                onPressed: () async {
+                  await _logDetailCta('apply'); // ✅ 클릭 로깅
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _brand,
                   foregroundColor: Colors.white,

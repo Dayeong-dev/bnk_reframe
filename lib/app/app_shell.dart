@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:reframe/pages/customer/more_page.dart';
 import 'package:reframe/pages/deposit/deposit_list_page.dart';
 import 'package:reframe/pages/deposit/deposit_main_page.dart';
 import 'package:reframe/pages/home_page.dart';
@@ -39,7 +40,7 @@ class _AppShellState extends State<AppShell> {
           SafeArea(child: HomePage()),
           SafeArea(child: DepositMainPage()),
           SafeArea(child: StartScreen()),
-          SafeArea(child: DepositListPage())
+          SafeArea(child: MorePage())
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -58,7 +59,7 @@ class _AppShellState extends State<AppShell> {
           ),
           BottomNavigationBarItem(
               icon: Icon(Icons.more_horiz),
-              label: "전체"
+              label: "더보기"
           )
         ],
         type: BottomNavigationBarType.fixed,

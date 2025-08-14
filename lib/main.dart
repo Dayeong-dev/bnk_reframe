@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:reframe/pages/auth/join_page.dart';
 import 'package:reframe/pages/auth/login_page.dart';
 import 'package:reframe/pages/auth/splash_page.dart';
+import 'package:reframe/pages/customer/more_page.dart';
 import 'package:reframe/pages/deposit/deposit_list_page.dart';
 import 'package:reframe/pages/deposit/deposit_main_page.dart';
 import 'package:reframe/pages/home_page.dart';
@@ -48,6 +49,7 @@ class MyApp extends StatelessWidget {
         "/step-debug": (context) => StepDebugPage(),
         "/savings": (context) => SavingsTestPage(),
         "/chat-debug": (context) => BnkChatPage(),
+        "/more-page": (context) => MorePage(),
       },
     );
   }

@@ -1,5 +1,7 @@
 // http://192.168.100.155
+// 192.168.100.124 수현학원
+
 const apiBaseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: "http://192.168.100.155:8090"
+  'API_BASE_URL',
+  defaultValue: "http://192.168.100.124:8090",
 );

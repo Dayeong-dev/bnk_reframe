@@ -652,7 +652,7 @@ class _DepositListPageState extends State<DepositListPage>
                 Icon(Icons.expand_more, size: 18, color: _brand),
                 SizedBox(width: 6),
                 Text(
-                  '더 보기',
+                  '더보기',
                   style: TextStyle(fontWeight: FontWeight.w600, color: _brand),
                 ),
               ],
@@ -758,26 +758,55 @@ class _DepositListPageState extends State<DepositListPage>
   }
 
   Widget _buildGridForPage(List<DepositProduct> visible, int totalForPage) {
-    return CustomScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          sliver: SliverGrid(
-            delegate: SliverChildBuilderDelegate(
-              (context, i) => _gridCard(visible[i], i),
-              childCount: visible.length,
+    final bottomSafe = MediaQuery.of(context).padding.bottom;
+
+    // 현재 그리드 파라미터 그대로 사용
+    const crossAxisCount = 2;
+    const hPad = 12.0;
+    const vPadTop = 8.0;
+    final vPadBottom = 8.0 + bottomSafe;
+    const crossAxisSpacing = 10.0;
+    const mainAxisSpacing = 10.0;
+
+    // 논리 비율은 그대로 (0.88)
+    const targetAspect = 0.88;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final gridWidth =
+            constraints.maxWidth -
+            (hPad * 2) -
+            (crossAxisSpacing * (crossAxisCount - 1));
+        final tileWidth = gridWidth / crossAxisCount;
+
+        // ⬇️ 핵심: 작게 자르지 말고, 살짝 "크게" + 여유를 더함
+        final rawHeight = tileWidth / targetAspect;
+        final tileHeight = rawHeight.ceilToDouble() + 4; // ← 2~6 범위에서 조절해보세요
+
+        return CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(hPad, vPadTop, hPad, vPadBottom),
+              sliver: SliverGrid(
+                delegate: SliverChildBuilderDelegate(
+                  (context, i) => _gridCard(visible[i], i),
+                  childCount: visible.length,
+                ),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  mainAxisSpacing: mainAxisSpacing,
+                  crossAxisSpacing: crossAxisSpacing,
+                  mainAxisExtent: tileHeight, // ⬅️ 픽셀 고정 높이
+                ),
+              ),
             ),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: 0.9,
-            ),
-          ),
-        ),
-        SliverToBoxAdapter(child: _moreLessArea(totalForPage)),
-      ],
+            SliverToBoxAdapter(child: _moreLessArea(totalForPage)),
+            // 바닥 완충 여백 (너무 크면 줄여도 됨)
+            SliverToBoxAdapter(child: SizedBox(height: bottomSafe + 4)),
+          ],
+        );
+      },
     );
   }
 }

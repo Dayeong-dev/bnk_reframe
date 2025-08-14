@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui; // 글래스/블러
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // 심플모드 기억
 
@@ -8,6 +9,7 @@ import 'package:reframe/model/deposit_product.dart';
 import 'package:reframe/pages/deposit/deposit_list_page.dart';
 import 'package:reframe/service/deposit_service.dart';
 import 'deposit_detail_page.dart';
+import 'package:flutter/services.dart';
 
 /// 통화 포맷터: 1,000 단위 콤마
 String formatCurrency(int value) => NumberFormat("#,###").format(value);
@@ -183,8 +185,12 @@ class _DepositMainPageState extends State<DepositMainPage> {
     );
   }
 
+  // ============= 이자 계산기 (개선) =============
+  // 교체할 메서드 전체
   void showInterestCalculator(BuildContext context, DepositProduct product) {
     final amountController = TextEditingController(text: "1,000,000");
+    final FocusNode amountFocus = FocusNode();
+
     int months = product.period > 0 ? product.period : 1;
     final double rate = product.maxRate;
     int interestResult = 0;
@@ -210,184 +216,296 @@ class _DepositMainPageState extends State<DepositMainPage> {
                 int.tryParse(amountController.text.replaceAll(",", "")) ?? 0;
             final total = amount + interestResult;
 
+            void dismissKeyboard() => FocusScope.of(context).unfocus();
+
             return AnimatedPadding(
               duration: const Duration(milliseconds: 180),
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom,
               ),
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(28),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.12),
-                      blurRadius: 30,
-                      spreadRadius: 6,
-                      offset: const Offset(0, -5),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: dismissKeyboard, // 바깥 탭 시 키보드 닫기
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(28),
                     ),
-                  ],
-                ),
-                child: SafeArea(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 5,
-                          margin: const EdgeInsets.only(bottom: 20),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                        ),
-                        Text(
-                          "📊 ${product.name} 이자 계산기",
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
-                            color: _ink,
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-                        Container(
-                          padding: const EdgeInsets.all(18),
-                          decoration: neoDecoration(),
-                          child: Column(
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.12),
+                        blurRadius: 30,
+                        spreadRadius: 6,
+                        offset: const Offset(0, -5),
+                      ),
+                    ],
+                  ),
+                  child: SafeArea(
+                    top: false,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          // 상단 그립 + 키보드 내리기 버튼
+                          Row(
                             children: [
-                              _infoLine("최대 금리", "${rate.toStringAsFixed(2)}%"),
-                              const SizedBox(height: 6),
-                              _infoLine("기본 가입기간", "${product.period}개월"),
+                              const Spacer(),
+                              IconButton(
+                                tooltip: '키보드 내리기',
+                                onPressed: dismissKeyboard,
+                                icon: const Icon(Icons.keyboard_hide),
+                              ),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: 18),
-                        Container(
-                          decoration: neoDecoration(),
-                          child: TextField(
-                            controller: amountController,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              labelText: "예치금액 (원)",
-                              prefixIcon: const Icon(Icons.payments),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide.none,
-                              ),
-                              filled: true,
-                              fillColor: Colors.grey.shade50,
+
+                          Text(
+                            "📊 ${product.name} 이자 계산기",
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: _ink,
                             ),
-                            onChanged: (v) {
-                              final numeric = v.replaceAll(
-                                RegExp(r'[^0-9]'),
-                                '',
-                              );
-                              final formatted = NumberFormat("#,###").format(
-                                int.parse(numeric.isEmpty ? "0" : numeric),
-                              );
-                              amountController.value = TextEditingValue(
-                                text: formatted,
-                                selection: TextSelection.collapsed(
-                                  offset: formatted.length,
+                          ),
+                          const SizedBox(height: 18),
+
+                          // 요약 박스
+                          Container(
+                            padding: const EdgeInsets.all(18),
+                            decoration: neoDecoration(),
+                            child: Column(
+                              children: [
+                                _infoLine(
+                                  "최대 금리",
+                                  "${rate.toStringAsFixed(2)}%",
                                 ),
-                              );
+                                const SizedBox(height: 6),
+                                _infoLine("기본 가입기간", "${product.period}개월"),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+
+                          // ✅ 금액 입력 영역 (시각적 강조 + iOS Done 대체 버튼)
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: neoDecoration(),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  "예치금액",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: amountController,
+                                  focusNode: amountFocus,
+                                  enableSuggestions: false,
+                                  autocorrect: false,
+                                  showCursor: true,
+                                  keyboardType: TextInputType.number,
+                                  textInputAction: TextInputAction.done,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
+                                  decoration: InputDecoration(
+                                    hintText: "금액을 입력하세요 (예: 1,000,000)",
+                                    prefixIcon: const Padding(
+                                      padding: EdgeInsets.only(
+                                        left: 12,
+                                        right: 8,
+                                      ),
+                                      child: Text(
+                                        "₩",
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                    ),
+                                    prefixIconConstraints: const BoxConstraints(
+                                      minWidth: 0,
+                                      minHeight: 0,
+                                    ),
+                                    suffixIcon: Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            tooltip: '지우기',
+                                            onPressed: () {
+                                              amountController.clear();
+                                              s(() {}); // 즉시 UI 반영
+                                              calculate(s);
+                                            },
+                                            icon: const Icon(Icons.clear),
+                                          ),
+                                          TextButton(
+                                            onPressed: () {
+                                              dismissKeyboard();
+                                              calculate(s);
+                                            },
+                                            child: const Text(
+                                              "완료",
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    filled: true,
+                                    fillColor: Colors.grey.shade50,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 16,
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade300,
+                                        width: 1.2,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                      borderSide: BorderSide(
+                                        color: _accent,
+                                        width: 2,
+                                      ),
+                                    ),
+                                  ),
+                                  onSubmitted: (_) {
+                                    dismissKeyboard();
+                                    calculate(s);
+                                  },
+                                  onChanged: (v) {
+                                    final numeric = v.replaceAll(
+                                      RegExp(r'[^0-9]'),
+                                      '',
+                                    );
+                                    final formatted = NumberFormat("#,###")
+                                        .format(
+                                          int.parse(
+                                            numeric.isEmpty ? "0" : numeric,
+                                          ),
+                                        );
+                                    amountController.value = TextEditingValue(
+                                      text: formatted,
+                                      selection: TextSelection.collapsed(
+                                        offset: formatted.length,
+                                      ),
+                                    );
+                                    calculate(s);
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          // 가입기간 슬라이더
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                "가입기간",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: _ink,
+                                ),
+                              ),
+                              Text(
+                                "$months 개월",
+                                style: TextStyle(color: _ink.withOpacity(0.7)),
+                              ),
+                            ],
+                          ),
+                          Slider(
+                            value: months.toDouble(),
+                            min: 1,
+                            max: 36,
+                            divisions: 35,
+                            label: "$months 개월",
+                            activeColor: _accent,
+                            onChanged: (v) {
+                              months = v.toInt();
+                              s(() {});
                               calculate(s);
                             },
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              "가입기간",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: _ink,
-                              ),
-                            ),
-                            Text(
-                              "$months 개월",
-                              style: TextStyle(color: _ink.withOpacity(0.7)),
-                            ),
-                          ],
-                        ),
-                        Slider(
-                          value: months.toDouble(),
-                          min: 1,
-                          max: 36,
-                          divisions: 35,
-                          label: "$months 개월",
-                          activeColor: _accent,
-                          onChanged: (v) {
-                            months = v.toInt();
-                            s(() {});
-                            calculate(s);
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          "예상 이자수익",
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: _ink,
-                          ),
-                        ),
-                        TweenAnimationBuilder<int>(
-                          tween: IntTween(begin: 0, end: interestResult),
-                          duration: const Duration(milliseconds: 680),
-                          curve: Curves.easeOutCubic,
-                          builder: (_, value, __) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Text(
-                              "${formatCurrency(value)} 원",
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w900,
-                                color: _accent,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Container(
-                          decoration: neoDecoration(),
-                          margin: const EdgeInsets.only(top: 8),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          child: Column(
-                            children: [
-                              resultRow("예치금", "${formatCurrency(amount)} 원"),
-                              resultRow(
-                                "이자수익",
-                                "${formatCurrency(interestResult)} 원",
-                              ),
-                              resultRow(
-                                "총 수령액",
-                                "${formatCurrency(total)} 원",
-                                highlight: true,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 18),
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: TextButton.styleFrom(
-                            foregroundColor: _accent,
-                            textStyle: const TextStyle(
-                              fontWeight: FontWeight.bold,
+
+                          const SizedBox(height: 12),
+
+                          Text(
+                            "예상 이자수익",
+                            style: TextStyle(
                               fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: _ink,
                             ),
                           ),
-                          child: const Text("닫기"),
-                        ),
-                      ],
+                          TweenAnimationBuilder<int>(
+                            tween: IntTween(begin: 0, end: interestResult),
+                            duration: const Duration(milliseconds: 680),
+                            curve: Curves.easeOutCubic,
+                            builder: (_, value, __) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Text(
+                                "${formatCurrency(value)} 원",
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w900,
+                                  color: _accent,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          Container(
+                            decoration: neoDecoration(),
+                            margin: const EdgeInsets.only(top: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            child: Column(
+                              children: [
+                                resultRow("예치금", "${formatCurrency(amount)} 원"),
+                                resultRow(
+                                  "이자수익",
+                                  "${formatCurrency(interestResult)} 원",
+                                ),
+                                resultRow(
+                                  "총 수령액",
+                                  "${formatCurrency(total)} 원",
+                                  highlight: true,
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 18),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: TextButton.styleFrom(
+                              foregroundColor: _accent,
+                              textStyle: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            child: const Text("닫기"),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -625,7 +743,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
                     MaterialPageRoute(
                       builder: (_) =>
                           const DepositListPage(initialCategory: '예금'),
-                          settings: const RouteSettings(name: '/depositList'),
+                      settings: const RouteSettings(name: '/depositList'),
                     ),
                   );
                 },
@@ -646,7 +764,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
                     MaterialPageRoute(
                       builder: (_) =>
                           const DepositListPage(initialCategory: '적금'),
-                          settings: const RouteSettings(name: '/depositList'),
+                      settings: const RouteSettings(name: '/depositList'),
                     ),
                   );
                 },
@@ -667,7 +785,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
                     MaterialPageRoute(
                       builder: (_) =>
                           const DepositListPage(initialCategory: '입출금'),
-                          settings: const RouteSettings(name: '/depositList'),
+                      settings: const RouteSettings(name: '/depositList'),
                     ),
                   );
                 },
@@ -747,7 +865,6 @@ class _DepositMainPageState extends State<DepositMainPage> {
   }
 
   // ============= 위젯들 =============
-  /// 배너: 이미지 + 탭 동작
   Widget bannerImageItem({required String asset, required VoidCallback onTap}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
@@ -764,7 +881,6 @@ class _DepositMainPageState extends State<DepositMainPage> {
     );
   }
 
-  /// 섹션 타이틀(파란 막대 제거)
   Widget sectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
@@ -779,7 +895,6 @@ class _DepositMainPageState extends State<DepositMainPage> {
     );
   }
 
-  /// ▶ 파스텔 카드 슬라이더(우하단 큰 회색 아이콘, 좌하단 해시태그 + 동전)
   Widget productSlider(List<DepositProduct> products) {
     final pastelSets = [
       [const Color(0xFFEAF4FF), const Color(0xFFD7ECFF)],
@@ -814,7 +929,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
                 bg1: colors[0],
                 bg2: colors[1],
                 bigIcon: bigIcon,
-                hashtag: hashtag, // ✅ 해시태그 전달
+                hashtag: hashtag,
               ),
             ),
           );
@@ -823,7 +938,6 @@ class _DepositMainPageState extends State<DepositMainPage> {
     );
   }
 
-  /// 세로 리스트 카드(이자계산 버튼 포함) — 기존 유지
   Widget productList(List<DepositProduct> products) {
     return Column(
       children: products.map((p) {
@@ -917,7 +1031,6 @@ class _DepositMainPageState extends State<DepositMainPage> {
     );
   }
 
-  /// 카테고리 바로가기
   Widget categorySection(BuildContext context) {
     final items = [
       {
@@ -955,7 +1068,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
                 MaterialPageRoute(
                   builder: (_) =>
                       DepositListPage(initialCategory: item['label'] as String),
-                      settings: const RouteSettings(name: '/depositList'),
+                  settings: const RouteSettings(name: '/depositList'),
                 ),
               );
             },
@@ -994,10 +1107,9 @@ class _DepositMainPageState extends State<DepositMainPage> {
     );
   }
 
-  /// 상품명 키워드 → 큰 아이콘 선택 (우하단에 사용)
   IconData _serviceIconFor(DepositProduct p) {
     final name = (p.name).toLowerCase();
-    if (name.contains('아이사랑')) return Icons.favorite; // 아이사랑 우선
+    if (name.contains('아이사랑')) return Icons.favorite;
     if (name.contains('사랑')) return Icons.favorite;
     if (name.contains('카드')) return Icons.credit_card;
     if (name.contains('입출금') || name.contains('통장'))
@@ -1017,11 +1129,9 @@ class _DepositMainPageState extends State<DepositMainPage> {
     return Icons.auto_awesome;
   }
 
-  /// purpose 기반 해시태그 생성 (없거나 공백이면 상품명에서 안전 기본값)
   String _hashtagFrom(String? purpose, String name) {
     String raw = (purpose ?? '').trim();
     if (raw.isEmpty) {
-      // 이름 키워드로 폴백
       if (name.contains('청년'))
         raw = '청년';
       else if (name.contains('시니어') || name.contains('실버'))
@@ -1035,7 +1145,6 @@ class _DepositMainPageState extends State<DepositMainPage> {
       else
         raw = '목돈만들기';
     }
-    // 특수문자 제거 + 공백 -> 단일 단어
     final cleaned = raw
         .replaceAll(RegExp(r'[^ㄱ-ㅎ가-힣A-Za-z0-9 ]'), '')
         .trim()
@@ -1115,14 +1224,13 @@ class _TapScaleState extends State<_TapScale> {
   }
 }
 
-/// 파스텔 서비스 카드 (우하단 큰 회색 아이콘, 좌하단 해시태그 + 동전)
 class _PastelServiceCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final Color bg1;
   final Color bg2;
   final IconData bigIcon;
-  final String hashtag; // ✅ 추가
+  final String hashtag;
 
   const _PastelServiceCard({
     required this.title,
@@ -1160,13 +1268,11 @@ class _PastelServiceCard extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            // 좌하단: 해시태그 텍스트 + 동전(기존 동전 유지)
             Positioned(
               left: 16,
               bottom: 14,
               child: Row(
                 children: [
-                  // 해시태그 텍스트 (배경 없음, 가독성 위해 그림자만)
                   Text(
                     hashtag,
                     style: TextStyle(
@@ -1189,7 +1295,6 @@ class _PastelServiceCard extends StatelessWidget {
                 ],
               ),
             ),
-            // 우하단 큰 아이콘(잘려도 OK)
             Positioned(
               right: -8,
               bottom: -12,
@@ -1199,7 +1304,6 @@ class _PastelServiceCard extends StatelessWidget {
                 color: Colors.grey.shade500.withOpacity(0.92),
               ),
             ),
-            // 텍스트
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
               child: Column(
@@ -1258,15 +1362,14 @@ class _PastelServiceCard extends StatelessWidget {
   }
 }
 
-// 심플모드 공통: 큰 버튼
 class _BigPrimaryButton extends StatelessWidget {
   final String label;
-  final IconData? icon; // ✅ nullable
+  final IconData? icon;
   final VoidCallback onTap;
   final Color accent;
   final double horizontalPadding;
   final double verticalPadding;
-  final bool showIcon; // ✅ 아이콘 표시 여부
+  final bool showIcon;
 
   const _BigPrimaryButton({
     required this.label,
@@ -1315,7 +1418,6 @@ class _BigPrimaryButton extends StatelessWidget {
   }
 }
 
-/// 추천/근처 지점 바로가기(톤 맞춤)
 Widget shortcutRow(BuildContext context) {
   final baseColor = Colors.white;
   final borderRadius = BorderRadius.circular(20);
@@ -1414,7 +1516,6 @@ Widget shortcutRow(BuildContext context) {
   );
 }
 
-// 심플모드 카드: 큰 글자/최고금리 강조, 룩앤필 통일(라운드+그림자)
 class _SimpleProductCard extends StatelessWidget {
   final DepositProduct p;
   final Color accent;
@@ -1453,7 +1554,6 @@ class _SimpleProductCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 상품명 크게
           Text(
             p.name,
             maxLines: 1,
@@ -1461,7 +1561,6 @@ class _SimpleProductCard extends StatelessWidget {
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 12),
-          // 최고금리 강조(브랜드 컬러 배지) + 기간
           Row(
             children: [
               Container(
@@ -1484,8 +1583,12 @@ class _SimpleProductCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
+              const Text(
+                "기간 ",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
               Text(
-                "기간 ${p.period}개월",
+                "${p.period}개월",
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -1494,7 +1597,6 @@ class _SimpleProductCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          // 큰 버튼 두 개
           Row(
             children: [
               Expanded(

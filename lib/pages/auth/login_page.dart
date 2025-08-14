@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import 'package:reframe/app/app_shell.dart';
 import 'package:reframe/constants/api_constants.dart';
+import 'package:reframe/pages/auth/auth_store.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -22,7 +24,7 @@ class _LoginPageState extends State<LoginPage> {
   bool _isLoading = false;
 
   Future<void> _login() async {
-    const url = "$apiBaseUrl/api/auth/signin";
+    const url = "$apiBaseUrl/mobile/auth/signin";
 
     if (!_formKey.currentState!.validate()) return;
 
@@ -42,29 +44,30 @@ class _LoginPageState extends State<LoginPage> {
 
     if(response.statusCode == 200) {
       final data = json.decode(response.body);
-      final username = data['username'];
 
-      // Secure Storage에 저장
-      _secureStorage.write(key: "username", value: username);
-      Navigator.pushReplacementNamed(context, "/main");
+      final accessToken = data['accessToken'];
+      final refreshToken = data['refreshToken'];
+
+      // Memory(전역변수)에 Access Token 저장
+      setAccessToken(accessToken);
+      // Secure Storage에 Refresh Token 저장
+      await _secureStorage.write(key: "refreshToken", value: refreshToken);
 
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("로그인 성공"))
       );
 
-      Navigator.pushReplacementNamed(context, '/home');
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AppShell()));
 
     } else if(response.statusCode == 401) {
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("아이디 또는 비밀번호가 잘못되었습니다. "))
       );
-
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("로그인 오류"))
       );
     }
-
     setState(() => _isLoading = false);
 
     return;

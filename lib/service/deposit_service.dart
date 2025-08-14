@@ -1,14 +1,11 @@
-import 'package:dio/dio.dart';
 import '../model/deposit_product.dart';
+import '../core/interceptors/http.dart';
 
-final Dio dio = Dio();
-const String baseUrl =
-    'http://192.168.100.124:8090/deposit/api'; //192.168.123.103 집 192.168.100.124 학원
+String commonUrl = "/mobile/deposit";
 
-// ✅ 1. 상품 상세
 Future<DepositProduct> fetchProduct(int id) async {
   try {
-    final response = await dio.get('$baseUrl/detail/$id');
+    final response = await dio.get('$commonUrl/detail/$id');
 
     if (response.statusCode == 200) {
       return DepositProduct.fromJson(response.data);
@@ -22,7 +19,7 @@ Future<DepositProduct> fetchProduct(int id) async {
 
 // ✅ 2. 전체 상품 조회
 Future<List<DepositProduct>> fetchAllProducts() async {
-  final response = await dio.get('$baseUrl/list');
+  final response = await dio.get('$commonUrl/list');
 
   if (response.statusCode == 200) {
     List<dynamic> list = response.data;
@@ -34,7 +31,7 @@ Future<List<DepositProduct>> fetchAllProducts() async {
 
 // ✅ 3. 카테고리별 3개 미리보기
 Future<Map<String, List<DepositProduct>>> fetchPreviewByCategory() async {
-  final response = await dio.get('$baseUrl/preview');
+  final response = await dio.get('$commonUrl/preview');
 
   if (response.statusCode == 200) {
     final Map<String, dynamic> data = response.data;
@@ -53,7 +50,7 @@ Future<Map<String, List<DepositProduct>>> fetchPreviewByCategory() async {
 // ✅ 4. 카테고리별 전체 상품 조회 (예금, 적금 등)
 Future<List<DepositProduct>> fetchProductsByCategory(String category) async {
   final response = await dio.get(
-    '$baseUrl/category',
+    '$commonUrl/category',
     queryParameters: {'category': category},
   );
 
@@ -68,7 +65,7 @@ Future<List<DepositProduct>> fetchProductsByCategory(String category) async {
 // ✅ 5. 검색어 자동완성
 Future<List<String>> fetchAutocomplete(String keyword) async {
   final response = await dio.get(
-    '$baseUrl/autocomplete',
+    '$commonUrl/autocomplete',
     queryParameters: {'keyword': keyword},
   );
 
@@ -86,7 +83,7 @@ Future<List<DepositProduct>> searchProducts({
   String sort = 'recommend',
 }) async {
   final response = await dio.get(
-    '$baseUrl/search',
+    '$commonUrl/search',
     queryParameters: {'keyword': keyword, 'sort': sort},
   );
 

@@ -1,7 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:reframe/app/app_shell.dart';
+import 'package:http/http.dart' as http;
+import 'package:reframe/pages/auth/auth_store.dart';
+
+import '../../constants/api_constants.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -25,21 +31,50 @@ class _SplashPageState extends State<SplashPage> {
   }
 
   Future<void> _checkLoginStatus() async {
-    final username = await _secureStorage.read(key: "username");
+    final refreshToken = await _secureStorage.read(key: "refreshToken");
     final biometricEnabled = await _secureStorage.read(key: "biometricEnabled");
 
-    if (username != null && biometricEnabled == 'true') {
-      final didAuthenticate = await _auth.authenticate(
-        localizedReason: "생체 인증으로 로그인하세요.",
+    // if (refreshToken != null && biometricEnabled == 'true') {
+    //   final didAuthenticate = await _auth.authenticate(
+    //     localizedReason: "생체 인증으로 로그인하세요.",
+    //   );
+    //
+    //   if (didAuthenticate) {
+    //     Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AppShell()));
+    //     return;
+    //   }
+    // }
+
+    if (refreshToken != null) {
+      Uri url = Uri.parse("$apiBaseUrl/mobile/auth/refresh");
+
+      final response = await http.post(url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'refreshToken': refreshToken
+        })
       );
 
-      if (didAuthenticate) {
+      if(response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        final accessToken = data['accessToken'];
+        final refreshToken = data['refreshToken'];
+
+        // Memory(전역변수)에 Access Token 저장
+        setAccessToken(accessToken);
+        // Secure Storage에 Refresh Token 저장
+        await _secureStorage.write(key: "refreshToken", value: refreshToken);
+
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AppShell()));
+
         return;
       }
     }
-    // Navigator.pushReplacementNamed(context, "/login");
-    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AppShell()));
+
+    Navigator.pushReplacementNamed(context, '/login');
 
     if (!mounted) {
       return;

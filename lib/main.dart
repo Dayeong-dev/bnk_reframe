@@ -10,6 +10,8 @@ import 'package:reframe/service/firebase_service.dart';
 import 'package:reframe/pages/savings_test/saving_test_page.dart';
 import 'package:reframe/pages/chat/bnk_chat_page.dart';
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -28,6 +30,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: "BNK 부산은행",
       debugShowCheckedModeBanner: false,
 

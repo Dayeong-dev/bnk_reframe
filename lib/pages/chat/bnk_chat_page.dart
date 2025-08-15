@@ -6,14 +6,20 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 enum Sender { ai, user, system }
-
 enum TtsState { playing, stopped }
 
 class ChatMessage {
   final Sender sender;
   String text;
   final String? id; // for replacing loading message
-  ChatMessage({required this.sender, required this.text, this.id});
+  final DateTime timestamp; // ⏰ 시간 필드
+
+  ChatMessage({
+    required this.sender,
+    required this.text,
+    this.id,
+    DateTime? timestamp,
+  }) : timestamp = timestamp ?? DateTime.now();
 }
 
 class BnkChatPage extends StatefulWidget {
@@ -39,6 +45,9 @@ class _BnkChatPageState extends State<BnkChatPage> {
   bool _speechAvailable = false;
   bool _isListening = false;
 
+  // Voice Mode
+  bool _voiceMode = false; // 하단 이미지 버튼으로 토글되는 음성 모드
+
   // Text to Speech
   final FlutterTts _tts = FlutterTts();
   TtsState _ttsState = TtsState.stopped;
@@ -60,11 +69,15 @@ class _BnkChatPageState extends State<BnkChatPage> {
   }
 
   Future<void> _initTts() async {
-    // iOS/Android 공통 설정
     await _tts.setLanguage('ko-KR');
     await _tts.setSpeechRate(0.45); // 0.0 ~ 1.0
     await _tts.setVolume(1.0);
     await _tts.setPitch(1.0);
+    // iOS에서 스피커로 기본 출력 (선택)
+    await _tts.setIosAudioCategory(
+      IosTextToSpeechAudioCategory.playback,
+      [IosTextToSpeechAudioCategoryOptions.defaultToSpeaker],
+    );
 
     _tts.setStartHandler(() => setState(() => _ttsState = TtsState.playing));
     _tts.setCompletionHandler(() => setState(() => _ttsState = TtsState.stopped));
@@ -85,7 +98,7 @@ class _BnkChatPageState extends State<BnkChatPage> {
 
   // UI helpers
   void _showIntro() {
-    _appendAi("안녕하세요! BNK 챗봇입니다. 무엇을 도와드릴까요?");
+    _appendAi('안녕하세요! BNK 챗봇입니다. 무엇을 도와드릴까요?');
   }
 
   void _appendAi(String text, {bool speak = false}) {
@@ -154,7 +167,7 @@ class _BnkChatPageState extends State<BnkChatPage> {
       final uri = Uri.parse('$_baseUrl$_apiPath');
       final res = await http.post(
         uri,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode(text), // JSON 문자열 literal
       );
 
@@ -176,8 +189,34 @@ class _BnkChatPageState extends State<BnkChatPage> {
     }
   }
 
-  // Speech to Text
+  Future<bool> _ensureMicPermission() async {
+    var status = await Permission.microphone.status;
+
+    if (status.isGranted) return true;
+
+    if (status.isPermanentlyDenied) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('마이크 권한이 영구적으로 거부되었습니다. 설정에서 허용해 주세요.'),
+            action: SnackBarAction(
+              label: '설정 열기',
+              onPressed: openAppSettings,
+            ),
+          ),
+        );
+      }
+      return false;
+    }
+
+    final req = await Permission.microphone.request();
+    return req.isGranted;
+  }
+
+  // Speech to Text (manual toggle)
   Future<void> _toggleListening() async {
+    if (!await _ensureMicPermission()) return;
+
     if (!_speechAvailable) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('이 기기에서 음성 인식을 사용할 수 없습니다.')),
@@ -189,25 +228,46 @@ class _BnkChatPageState extends State<BnkChatPage> {
       await _speech.stop();
       setState(() => _isListening = false);
     } else {
-      final available = await _speech.initialize(
+      final ok = await _speech.initialize(
         onStatus: (s) => setState(() => _isListening = s == 'listening'),
         onError: (e) => debugPrint('STT error: $e'),
       );
-      if (!available) return;
+      if (!ok) return;
 
       await _speech.listen(
         localeId: 'ko_KR',
         listenMode: stt.ListenMode.confirmation,
-        onResult: (result) {
-          final recognized = result.recognizedWords;
+        onResult: (r) {
+          final recognized = r.recognizedWords;
           setState(() => _controller.text = recognized);
-          if (result.finalResult && recognized.trim().isNotEmpty) {
-            // 자동 전송을 원하면 아래 주석을 해제하세요.
-            // _sendMessage();
-          }
+          // 자동 전송 원하면 아래 주석 해제
+          // if (r.finalResult && recognized.trim().isNotEmpty) _sendMessage();
         },
       );
       setState(() => _isListening = true);
+    }
+  }
+
+  // Voice mode toggle (bottom-right image button)
+  Future<void> _toggleVoiceMode() async {
+    if (!_consented) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('동의 후 이용할 수 있습니다')),
+        );
+      }
+      return;
+    }
+    setState(() => _voiceMode = !_voiceMode);
+    if (_voiceMode) {
+      if (!_isListening) {
+        await _toggleListening();
+      }
+    } else {
+      if (_isListening) {
+        await _speech.stop();
+        setState(() => _isListening = false);
+      }
     }
   }
 
@@ -230,6 +290,12 @@ class _BnkChatPageState extends State<BnkChatPage> {
     } catch (_) {}
   }
 
+  String _formatTimestamp(DateTime time) {
+    final h = time.hour.toString().padLeft(2, '0');
+    final m = time.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -240,24 +306,6 @@ class _BnkChatPageState extends State<BnkChatPage> {
         title: const Text('BNK 챗봇', style: TextStyle(color: Color(0xffd7191f))),
         centerTitle: true,
         iconTheme: const IconThemeData(color: Color(0xffd7191f)),
-        actions: [
-          IconButton(
-            tooltip: _ttsState == TtsState.playing ? '읽기 중지' : '다시 읽어주기',
-            onPressed: () async {
-              if (_ttsState == TtsState.playing) {
-                await _stopSpeaking();
-              } else {
-                // 마지막 AI 메시지를 다시 읽어주기
-                final lastAi = _messages.lastWhere(
-                      (m) => m.sender == Sender.ai,
-                  orElse: () => ChatMessage(sender: Sender.ai, text: ''),
-                );
-                await _speak(lastAi.text);
-              }
-            },
-            icon: Icon(_ttsState == TtsState.playing ? Icons.stop_circle : Icons.volume_up),
-          ),
-        ],
       ),
       body: Stack(
         children: [
@@ -303,20 +351,41 @@ class _BnkChatPageState extends State<BnkChatPage> {
                               ),
                             ],
                             Flexible(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                constraints: const BoxConstraints(maxWidth: 360),
-                                decoration: BoxDecoration(
-                                  color: isAi ? const Color(0xffe2e2e2) : const Color(0xffd7191f),
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                                child: Text(
-                                  m.text,
-                                  style: TextStyle(
-                                    color: isAi ? const Color(0xff333333) : Colors.white,
-                                    height: 1.35,
+                              child: Column(
+                                crossAxisAlignment: isAi
+                                    ? CrossAxisAlignment.start
+                                    : CrossAxisAlignment.end,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 8),
+                                    constraints:
+                                    const BoxConstraints(maxWidth: 360),
+                                    decoration: BoxDecoration(
+                                      color: isAi
+                                          ? const Color(0xffe2e2e2)
+                                          : const Color(0xffd7191f),
+                                      borderRadius: BorderRadius.circular(18),
+                                    ),
+                                    child: Text(
+                                      m.text,
+                                      style: TextStyle(
+                                        color: isAi
+                                            ? const Color(0xff333333)
+                                            : Colors.white,
+                                        height: 1.35,
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _formatTimestamp(m.timestamp), // ⏰ 시간 표시
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
@@ -332,23 +401,22 @@ class _BnkChatPageState extends State<BnkChatPage> {
                 constraints: const BoxConstraints(maxWidth: 500),
                 child: Row(
                   children: [
-                    IconButton(
-                      onPressed: _consented ? _toggleListening : null,
-                      tooltip: _isListening ? '듣는 중…' : '음성 입력',
-                      icon: Icon(_isListening ? Icons.mic : Icons.mic_none),
-                      color: const Color(0xffd7191f),
-                    ),
                     Expanded(
                       child: TextField(
                         controller: _controller,
                         enabled: _consented,
                         onSubmitted: (_) => _sendMessage(),
                         decoration: InputDecoration(
-                          hintText: _consented ? '말하거나 입력하세요' : '동의 후 이용할 수 있습니다',
+                          hintText: !_consented
+                              ? '동의 후 이용할 수 있습니다'
+                              : (_voiceMode || _isListening
+                              ? '듣는 중… 말한 뒤 전송을 누르세요'
+                              : '말하거나 입력하세요'),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
                         ),
                       ),
                     ),
@@ -358,8 +426,10 @@ class _BnkChatPageState extends State<BnkChatPage> {
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xffd7191f),
                         disabledBackgroundColor: Colors.grey,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
                       ),
                       child: const Text('전송'),
                     ),
@@ -369,6 +439,59 @@ class _BnkChatPageState extends State<BnkChatPage> {
             ],
           ),
 
+          // 하단 우측 음성 모드 버튼 + 라벨
+          Positioned(
+            right: 16,
+            bottom: 90,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: _toggleVoiceMode,
+                  child: AnimatedScale(
+                    scale: _voiceMode || _isListening ? 1.06 : 1.0,
+                    duration: const Duration(milliseconds: 180),
+                    child: Opacity(
+                      opacity: _consented ? 1.0 : 0.4,
+                      child: Container(
+                        width: 64,
+                        height: 64,
+                        decoration: const BoxDecoration(shape: BoxShape.circle),
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/images/mrb_airpod_max.jpeg',
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 6)],
+                  ),
+                  child: Text(
+                    '음성모드',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: (_voiceMode || _isListening)
+                          ? const Color(0xffd7191f)
+                          : const Color(0xff666666),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 개인정보 동의 모달
           if (!_consented)
             Positioned.fill(
               child: Container(
@@ -385,7 +508,10 @@ class _BnkChatPageState extends State<BnkChatPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('개인정보 수집 및 이용 동의', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                      const Text(
+                        '개인정보 수집 및 이용 동의',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                      ),
                       const SizedBox(height: 12),
                       const Text('챗봇 이용을 위해 개인정보 수집에 동의해 주세요.'),
                       const SizedBox(height: 16),
@@ -393,8 +519,11 @@ class _BnkChatPageState extends State<BnkChatPage> {
                         onPressed: _agree,
                         style: FilledButton.styleFrom(
                           backgroundColor: const Color(0xffd7191f),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 18, vertical: 12),
                         ),
                         child: const Text('동의합니다'),
                       ),

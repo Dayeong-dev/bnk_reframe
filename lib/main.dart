@@ -51,6 +51,24 @@ class MyApp extends StatelessWidget {
         "/chat-debug": (context) => BnkChatPage(),
         "/more-page": (context) => MorePage(),
       },
+      theme: ThemeData(
+        useMaterial3: true,
+        scaffoldBackgroundColor: Colors.white,        // 각 화면 기본 배경
+        colorScheme: const ColorScheme.light(         // M3에서 표면색도 흰색으로
+          surface: Colors.white,
+          background: Colors.white,
+        ),
+        appBarTheme: const AppBarTheme(               // AppBar도 완전 흰색
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          elevation: 0,
+          surfaceTintColor: Colors.transparent,       // M3 틴트로 회색 끼 도는 것 방지
+        ),
+        bottomSheetTheme: const BottomSheetThemeData(
+          surfaceTintColor: Colors.transparent,
+          backgroundColor: Colors.white,
+        ),
+      ),
     );
   }
 }

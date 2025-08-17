@@ -124,8 +124,9 @@ class _SplashPageState extends State<SplashPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Image.asset("assets/images/logo.png", width: 200),
-                CircularProgressIndicator(),
+                Image.asset("assets/images/logo/logo_small.png", width: 200),
+                SizedBox(height: 16),
+                CircularProgressIndicator(color: Colors.black),
               ],
             )
         )

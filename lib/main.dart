@@ -55,6 +55,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.white,        // 각 화면 기본 배경
         colorScheme: const ColorScheme.light(         // M3에서 표면색도 흰색으로
+          primary: Color(0xFFFE504F),
           surface: Colors.white,
           background: Colors.white,
         ),

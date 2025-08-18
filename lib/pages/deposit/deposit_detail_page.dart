@@ -1,20 +1,32 @@
+import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:visibility_detector/visibility_detector.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
+
+// 모델/서비스
 import 'package:reframe/model/deposit_product.dart';
 import 'package:reframe/service/deposit_service.dart';
-import 'package:firebase_analytics/firebase_analytics.dart';
+
+// 리뷰 페이지
+import 'package:reframe/pages/review/review_page.dart';
+
+// Netty WebSocket
+import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:web_socket_channel/status.dart' as ws_status;
+import 'package:web_socket_channel/io.dart' as ws_io;
+
+// 엔드포인트
+import 'package:reframe/env/app_endpoints.dart';
+
 /// =======================================================
 ///  DepositDetailPage (심플 센터 정렬 버전)
-///  - 섹션: 중앙 카드만 표시 (점/연결선 제거)
-///  - 카드 폭 제한(최대 520px)로 가독성 유지
-///  - 전체 배경: 화이트
-///  - 이미지: 비율 유지(contain)
 /// =======================================================
 
 const _brand = Color(0xFF304FFE);
-const _bg = Colors.white; // ✅ 전체 배경을 흰색으로
+const _bg = Colors.white;
 
 class DepositDetailPage extends StatefulWidget {
   final int productId;
@@ -83,45 +95,44 @@ class _FadeSlideInOnVisibleState extends State<FadeSlideInOnVisible>
 class _DepositDetailPageState extends State<DepositDetailPage> {
   DepositProduct? product;
 
-  // ✅ Analytics 인스턴스 & 중복방지 플래그
+  // Analytics
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
   bool _pvLogged = false;
 
-  // ✅ 카테고리를 product_type으로 보정(입출금자유 → 입출금 등)
+  // 실시간 알림(WebSocket)
+  WebSocketChannel? _ws;
+  StreamSubscription? _wsSub;
+
   String _productTypeOf(DepositProduct p) {
     final c = (p.category ?? '').trim();
     if (c == '입출금자유') return '입출금';
     if (c.isEmpty) return '기타';
-    return c; // 예금/적금/입출금
+    return c;
   }
 
-  // ✅ 상세 진입 1회 로깅 (데이터 로드 후 호출)
   Future<void> _logProductViewOnce(DepositProduct p) async {
     if (_pvLogged) return;
     _pvLogged = true;
     await _analytics.logEvent(name: 'product_view', parameters: {
-      'product_id': '${p.productId}',     // 문자열 권장
-      'product_type': _productTypeOf(p),  // 예금/적금/입출금
+      'product_id': '${p.productId}',
+      'product_type': _productTypeOf(p),
       'category': p.category ?? '',
     });
-    // (선택) 화면 이름도 같이 남김
     await _analytics.logScreenView(
       screenName: 'DepositDetail',
       screenClass: 'DepositDetailPage',
     );
   }
 
-  // ✅ 리뷰/가입 버튼 클릭 로깅
   Future<void> _logDetailCta(String action) async {
     final p = product;
     if (p == null) return;
     await _analytics.logEvent(name: 'detail_cta_click', parameters: {
       'product_id': '${p.productId}',
       'product_type': _productTypeOf(p),
-      'action': action, // 'review' | 'apply'
+      'action': action,
     });
   }
-
 
   @override
   void initState() {
@@ -129,18 +140,118 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
     loadProduct();
   }
 
+  @override
+  void dispose() {
+    _wsSub?.cancel();
+    _ws?.sink.close(ws_status.goingAway);
+    super.dispose();
+  }
+
   Future<void> loadProduct() async {
     try {
       final result = await fetchProduct(widget.productId);
       if (!mounted) return;
       setState(() => product = result);
-      await _logProductViewOnce(result); // ✅ 상세 데이터 준비된 뒤 1회 로깅
+      await _logProductViewOnce(result);
+      _subscribeReviewTopic(result.productId);
     } catch (e) {
       debugPrint("❌ 상품 불러오기 실패: $e");
     }
   }
 
-  // 줄바꿈 보정
+  void _subscribeReviewTopic(int productId) {
+    final wsUrl =
+    Uri.parse('${AppEndpoints.wsBase}?topic=product.$productId.reviews');
+    debugPrint('🔌 WS connect → $wsUrl');
+    try {
+      _ws = ws_io.IOWebSocketChannel.connect(wsUrl.toString());
+
+      // 연결되자마자 안전빵 수동 구독 프레임 전송
+      _ws!.sink.add(jsonEncode({
+        "op": "subscribe",
+        "topics": ["product.$productId.reviews"]
+      }));
+
+      _wsSub = _ws!.stream.listen((raw) {
+        try {
+          final String text = raw is String ? raw : raw.toString();
+          debugPrint('📩 WS recv: $text');
+          final Map<String, dynamic> msg = jsonDecode(text);
+
+          if (msg['type'] == 'review_created' && mounted) {
+            final author = (msg['authorMasked'] as String?) ?? '고객';
+            final rating = (msg['rating'] as num?)?.toInt() ?? 0;
+            final snippet = (msg['contentSnippet'] as String?) ?? '';
+            _showReviewBannerDetailed(
+              authorMasked: author,
+              rating: rating,
+              snippet: snippet,
+            );
+          }
+        } catch (e) {
+          // ping 등 문자열이면 무시
+          debugPrint('WS parse error: $e');
+        }
+      }, onError: (e) {
+        debugPrint('WS error: $e');
+      }, onDone: () {
+        debugPrint('WS closed.');
+        // 필요 시 재연결 로직 추가 가능
+      });
+    } catch (e) {
+      debugPrint('WebSocket connect fail: $e');
+    }
+  }
+
+  /// 상세 배너 (박**님이 ★★★★★ 리뷰 등록: ‘…’)
+  void _showReviewBannerDetailed({
+    required String authorMasked,
+    required int rating,
+    required String snippet,
+  }) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearMaterialBanners();
+
+    final int count = rating.clamp(0, 5).toInt();
+    final stars = '★★★★★'.substring(0, count);
+    final msg = count > 0
+        ? "$authorMasked님이 $stars 리뷰 등록: ‘$snippet’"
+        : "$authorMasked님이 리뷰 등록: ‘$snippet’";
+
+    messenger.showMaterialBanner(
+      MaterialBanner(
+        content: Text(msg),
+        leading: const Icon(Icons.rate_review_outlined),
+        actions: [
+          TextButton(
+            onPressed: () {
+              messenger.hideCurrentMaterialBanner();
+              final p = product;
+              if (p != null) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ReviewPage(
+                      productId: p.productId,
+                      productName: p.name,
+                    ),
+                  ),
+                );
+              }
+            },
+            child: const Text('바로 보기'),
+          ),
+          TextButton(
+            onPressed: () => messenger.hideCurrentMaterialBanner(),
+            child: const Text('닫기'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --------- 내용 렌더링 유틸 ----------
+
   String fixLineBreaks(String text) {
     return text
         .replaceAll('<br>', '\n')
@@ -150,11 +261,9 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
         .trim();
   }
 
-  // HtmlWidget용: \n → <br />
   String toHtmlBreaks(String text) =>
       fixLineBreaks(text).replaceAll('\n', '<br />');
 
-  // HTML 정리
   String normalizeHtml(String html, {String? titleToStrip}) {
     var h = html.replaceAll('\uFEFF', '').trim();
     h = h.replaceAll('&nbsp;', ' ').replaceAll('\u00A0', ' ');
@@ -187,7 +296,6 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
     return h;
   }
 
-  // 금리/이율 안내: 첫 번째 <table> 전부 제거
   String cutHeadBeforeFirstTable(String html, {String? titleToStrip}) {
     if (html.isEmpty) return html;
     var h = html.replaceAll('\uFEFF', '').replaceAll('&nbsp;', ' ').trimLeft();
@@ -218,7 +326,7 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
     }
 
     return Scaffold(
-      backgroundColor: _bg, // ✅ 흰색 배경
+      backgroundColor: _bg,
       appBar: AppBar(
         title: Text(
           product!.name,
@@ -237,7 +345,7 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
           const SizedBox(height: 18),
           _sectionDivider("상품 상세"),
           const SizedBox(height: 10),
-          _buildDetailBody(product!), // ← 중앙 카드만 (점/연결선 없음)
+          _buildDetailBody(product!),
           const SizedBox(height: 22),
           _sectionDivider("추가 안내"),
           const SizedBox(height: 10),
@@ -248,7 +356,6 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
     );
   }
 
-  /// 하단 고정 액션 바
   Widget _bottomActionBar() {
     return SafeArea(
       top: false,
@@ -269,7 +376,20 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
             Expanded(
               child: OutlinedButton(
                 onPressed: () async {
-                await _logDetailCta('review'); // ✅ 클릭 로깅
+                  await _logDetailCta('review');
+                  if (!mounted) return;
+                  final p = product;
+                  if (p != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ReviewPage(
+                          productId: p.productId,
+                          productName: p.name,
+                        ),
+                      ),
+                    );
+                  }
                 },
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
@@ -288,7 +408,9 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
             Expanded(
               child: ElevatedButton(
                 onPressed: () async {
-                  await _logDetailCta('apply'); // ✅ 클릭 로깅
+                  await _logDetailCta('apply');
+                  if (!mounted) return;
+                  // 가입 플로우 연결 지점
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _brand,
@@ -310,7 +432,6 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
     );
   }
 
-  /// 헤더
   Widget _buildHeader(DepositProduct product) {
     final left = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -342,9 +463,9 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.12),
+            color: Colors.white.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withOpacity(0.3)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
@@ -409,9 +530,9 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.12),
+        color: Colors.white.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.3)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -456,11 +577,9 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
     );
   }
 
-  /// DETAIL 본문 (센터정렬, 점/연결선 없음)
   Widget _buildDetailBody(DepositProduct product) {
     final detail = product.detail.trim();
 
-    // HTML로 시작하면 그대로 렌더 (센터 정렬 유지 위해 컨테이너 감싸기)
     if (detail.startsWith("<")) {
       return Center(
         child: ConstrainedBox(
@@ -475,12 +594,10 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
       );
     }
 
-    // JSON 포맷
     try {
       final decodedOnce = jsonDecode(detail);
-      final decoded = decodedOnce is String
-          ? jsonDecode(decodedOnce)
-          : decodedOnce;
+      final decoded =
+      decodedOnce is String ? jsonDecode(decodedOnce) : decodedOnce;
 
       if (decoded is List &&
           decoded.isNotEmpty &&
@@ -499,7 +616,6 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
       }
     } catch (_) {}
 
-    // 기타 텍스트는 HTML로
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520),
@@ -513,7 +629,6 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
     );
   }
 
-  /// HtmlWidget 기본 여백/표 스타일 정리
   Map<String, String>? _htmlStyleFixer(element) {
     switch (element.localName) {
       case 'p':
@@ -540,14 +655,12 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
     return null;
   }
 
-  /// 섹션 카드(센터 정렬 버전)
   Widget _buildDetailSectionCentered(Map<String, dynamic> e) {
     final String title = e['title'] ?? '제목 없음';
     final String content = fixLineBreaks(e['content'] ?? '');
     final String rawImageUrl = e['imageURL'] ?? '';
-    final String imageUrl = rawImageUrl.startsWith('/')
-        ? 'assets$rawImageUrl'
-        : rawImageUrl;
+    final String imageUrl =
+    rawImageUrl.startsWith('/') ? 'assets$rawImageUrl' : rawImageUrl;
 
     return Center(
       child: ConstrainedBox(
@@ -584,7 +697,6 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
                 style: const TextStyle(height: 1.55),
               ),
               const SizedBox(height: 12),
-
               if (imageUrl.trim().isNotEmpty)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
@@ -593,42 +705,43 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
                     width: double.infinity,
                     child: imageUrl.startsWith("http")
                         ? Image.network(
-                            imageUrl,
-                            fit: BoxFit.contain,
-                            alignment: Alignment.center,
-                            filterQuality: FilterQuality.medium,
-                            loadingBuilder: (c, child, p) => p == null
-                                ? child
-                                : const Center(
-                                    child: SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    ),
-                                  ),
-                            errorBuilder: (c, e, s) => const Center(
-                              child: Icon(
-                                Icons.broken_image,
-                                size: 42,
-                                color: Colors.black26,
-                              ),
-                            ),
-                          )
-                        : Image.asset(
-                            imageUrl,
-                            fit: BoxFit.contain,
-                            alignment: Alignment.center,
-                            filterQuality: FilterQuality.medium,
-                            errorBuilder: (c, e, s) => const Center(
-                              child: Icon(
-                                Icons.broken_image,
-                                size: 42,
-                                color: Colors.black26,
-                              ),
-                            ),
+                      imageUrl,
+                      fit: BoxFit.contain,
+                      alignment: Alignment.center,
+                      filterQuality: FilterQuality.medium,
+                      loadingBuilder: (c, child, p) =>
+                      p == null
+                          ? child
+                          : const Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
                           ),
+                        ),
+                      ),
+                      errorBuilder: (c, e, s) => const Center(
+                        child: Icon(
+                          Icons.broken_image,
+                          size: 42,
+                          color: Colors.black26,
+                        ),
+                      ),
+                    )
+                        : Image.asset(
+                      imageUrl,
+                      fit: BoxFit.contain,
+                      alignment: Alignment.center,
+                      filterQuality: FilterQuality.medium,
+                      errorBuilder: (c, e, s) => const Center(
+                        child: Icon(
+                          Icons.broken_image,
+                          size: 42,
+                          color: Colors.black26,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
             ],
@@ -638,7 +751,6 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
     );
   }
 
-  /// 하단 안내 (ExpansionTile + HTML 정리)
   Widget _buildFooterSection(DepositProduct product) {
     return Column(
       children: [
@@ -670,7 +782,7 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
               const Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  "❗ 정보가 없습니다.",
+                  "정보가 없습니다.",
                   style: TextStyle(color: Colors.black54),
                 ),
               )

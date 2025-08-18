@@ -119,7 +119,7 @@ class _HomePageState extends State<HomePage> {
               child: Text("걸음 수 테스트"),
             ),
             ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, "/savings"),
+              onPressed: () => Navigator.pushNamed(context, "/savings/start"),
               child: Text("저축성향 테스트"),
             ),
             ElevatedButton(

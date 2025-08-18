@@ -13,8 +13,12 @@ import 'package:reframe/pages/enroll/enroll_second.dart';
 import 'package:reframe/pages/home_page.dart';
 import 'package:reframe/pages/walk/step_debug_page.dart';
 import 'package:reframe/service/firebase_service.dart';
-import 'package:reframe/pages/savings_test/saving_test_page.dart';
 import 'package:reframe/pages/chat/bnk_chat_page.dart';
+
+import 'package:reframe/pages/savings_test/screens/start_screen.dart';
+import 'package:reframe/pages/savings_test/screens/question_screen.dart';
+import 'package:reframe/pages/savings_test/screens/result_screen.dart';
+import 'package:reframe/pages/deposit/deposit_detail_page.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -58,12 +62,15 @@ class MyApp extends StatelessWidget {
         "/depositList": (context) => const DepositListPage(), // ← 이름으로 집계
         "/depositMain": (context) => DepositMainPage(),
         "/step-debug": (context) => StepDebugPage(),
-        "/savings": (context) => SavingsTestPage(),
         "/chat-debug": (context) => BnkChatPage(),
         "/more-page": (context) => MorePage(),
         '/map': (context) => const MapPage(),
         "/enroll-first": (context) => FirstStepPage(),
         "/enroll-second": (context) => SecondStepPage()
+        '/savings/start':   (_) => const StartScreen(),
+        '/savings/question':(_) => const QuestionScreen(),
+        '/savings/result':  (_) => const ResultScreen(),
+        //'/fortune':   (_) => const FortunePage(),
       },
       theme: ThemeData(
         useMaterial3: true,

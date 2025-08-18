@@ -1,5 +1,5 @@
 // http://192.168.100.155
-// 192.168.100.124 수현학원
+// 192.168.100.124 수현학원 192.168.123.107 집
 
 const apiBaseUrl = String.fromEnvironment(
   'API_BASE_URL',

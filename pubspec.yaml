@@ -53,6 +53,10 @@ dependencies:
   firebase_analytics: ^12.0.0
   firebase_messaging: ^16.0.0
 
+  flutter_naver_map: ^1.4.0
+  geolocator: ^11.0.0
+  url_launcher: ^6.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

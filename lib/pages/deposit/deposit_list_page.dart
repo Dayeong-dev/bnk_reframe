@@ -4,9 +4,10 @@ import 'package:reframe/pages/deposit/deposit_detail_page.dart';
 import 'package:reframe/service/deposit_service.dart' as DepositService;
 import 'package:firebase_analytics/firebase_analytics.dart';
 
-/// 예적금 목록 (아이콘 자동 추천 버전)
+/// 예적금 목록 (아이콘 자동 추천 + HOT 배지)
 class DepositListPage extends StatefulWidget {
   final String initialCategory;
+
   const DepositListPage({super.key, this.initialCategory = '전체'});
 
   @override
@@ -29,70 +30,80 @@ class _DepositListPageState extends State<DepositListPage>
   bool _loading = true;
   bool _gridMode = false;
 
+  // 🔥 전체 TOP5 id(문자열로 통일) — 로컬에서 계산
+  Set<String> _hotIds = <String>{};
+  bool _isHot(DepositProduct item) {
+    final idStr = '${item.productId}';
+    if (idStr.isEmpty || idStr == 'null') return false;
+    return _hotIds.contains(idStr);
+  }
+
   static const _brand = Color(0xFF304FFE);
   static const _bg = Color(0xFFF5F7FA);
 
   late final PageController _pageController;
 
-  // ① Analytics 인스턴스
-final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
+  // Analytics
+  final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
+  String? _lastImpressionSig;
 
-// ② 리스트 노출(임프레션) 중복 방지용 SIG
-String? _lastImpressionSig;
+  String _productTypeOf(DepositProduct e) {
+    final c = (e.category ?? '').trim();
+    return c == '입출금자유' ? '입출금' : (c.isEmpty ? '기타' : c);
+  }
 
-// ③ 상품 타입(카테고리 보정) 유틸
-String _productTypeOf(DepositProduct e) {
-  final c = (e.category ?? '').trim();
-  return c == '입출금자유' ? '입출금' : (c.isEmpty ? '기타' : c);
-}
+  Future<void> _logCategoryView(int index) async {
+    final cat = categories[index];
+    await _analytics.logEvent(
+      name: 'category_view',
+      parameters: {'category': cat, 'view_mode': _gridMode ? 'grid' : 'list'},
+    );
+  }
 
-// ④ 로깅 함수들
-Future<void> _logCategoryView(int index) async {
-  final cat = categories[index];
-  await _analytics.logEvent(name: 'category_view', parameters: {
-    'category': cat,                         // 전체/예금/적금/입출금
-    'view_mode': _gridMode ? 'grid' : 'list' // 현재 보기 방식
-  });
-}
+  Future<void> _logSearch(String query) async {
+    if (query.trim().isEmpty) return;
+    await _analytics.logEvent(
+      name: 'search',
+      parameters: {'q': query.trim(), 'category': categories[selectedIndex]},
+    );
+  }
 
-Future<void> _logSearch(String query) async {
-  if (query.trim().isEmpty) return;
-  await _analytics.logEvent(name: 'search', parameters: {
-    'q': query.trim(),
-    'category': categories[selectedIndex],
-  });
-}
+  Future<void> _logProductClick(
+    DepositProduct item,
+    int index, {
+    required String source,
+  }) async {
+    await _analytics.logEvent(
+      name: 'product_list_click',
+      parameters: {
+        'product_id': '${item.productId}',
+        'product_type': _productTypeOf(item),
+        'category': item.category ?? '',
+        'pos': index + 1,
+        'source': source,
+      },
+    );
+  }
 
-Future<void> _logProductClick(DepositProduct item, int index, {required String source}) async {
-  // 목록에서 상세로 들어가기 직전 클릭 이벤트
-  await _analytics.logEvent(name: 'product_list_click', parameters: {
-    'product_id': '${item.productId}',
-    'product_type': _productTypeOf(item),
-    'category': item.category ?? '',
-    'pos': index + 1,                        // 현재 화면 내 노출 순번(1-base)
-    'source': source,                        // grid | list
-  });
-}
+  void _scheduleImpressionLog(List<DepositProduct> visible, int pageIndex) {
+    final ids = visible.map((e) => e.productId).map((v) => '$v').join(',');
+    final sig = '$pageIndex|${_gridMode ? 'grid' : 'list'}|$ids';
+    if (_lastImpressionSig == sig) return;
+    _lastImpressionSig = sig;
 
-void _scheduleImpressionLog(List<DepositProduct> visible, int pageIndex) {
-  // 현재 화면에 보이는 상품 묶음 임프레션(중복 방지)
-  final ids = visible.map((e) => e.productId).map((v) => '$v').join(',');
-  final sig = '$pageIndex|${_gridMode ? 'grid' : 'list'}|$ids';
-  if (_lastImpressionSig == sig) return; // 같은 화면 구성이라면 재전송 X
-  _lastImpressionSig = sig;
-
-  WidgetsBinding.instance.addPostFrameCallback((_) async {
-    // 최대 20개까지만 CSV로 전송(길이 방어)
-    final shortCsv = visible.take(20).map((e) => '${e.productId}').join(',');
-    await _analytics.logEvent(name: 'product_list_impression', parameters: {
-      'category': categories[pageIndex],
-      'variant': _gridMode ? 'grid' : 'list',
-      'count': visible.length,
-      'items': shortCsv, // "123,456,789,..."
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final shortCsv = visible.take(20).map((e) => '${e.productId}').join(',');
+      await _analytics.logEvent(
+        name: 'product_list_impression',
+        parameters: {
+          'category': categories[pageIndex],
+          'variant': _gridMode ? 'grid' : 'list',
+          'count': visible.length,
+          'items': shortCsv,
+        },
+      );
     });
-  });
-}
-
+  }
 
   @override
   void initState() {
@@ -118,6 +129,13 @@ void _scheduleImpressionLog(List<DepositProduct> visible, int pageIndex) {
         allProducts = list;
         _loading = false;
       });
+
+      // 🔥 전체 기준 TOP5 (조회수 기반) 계산 — productId를 문자열로 저장
+      final top5 = [...allProducts]
+        ..removeWhere((e) => e.productId == null)
+        ..sort((a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0));
+      _hotIds = top5.take(10).map((e) => '${e.productId}').toSet();
+
       _applyFilter();
     } catch (e) {
       setState(() => _loading = false);
@@ -150,9 +168,9 @@ void _scheduleImpressionLog(List<DepositProduct> visible, int pageIndex) {
     }
 
     if (sortOption == '인기순') {
-      result.sort((a, b) => b.viewCount.compareTo(a.viewCount));
+      result.sort((a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0));
     } else {
-      result.sort((a, b) => b.maxRate.compareTo(a.maxRate));
+      result.sort((a, b) => (b.maxRate).compareTo(a.maxRate));
     }
     return result;
   }
@@ -192,7 +210,7 @@ void _scheduleImpressionLog(List<DepositProduct> visible, int pageIndex) {
                     onChanged: (v) {
                       searchQuery = v.trim();
                       _applyFilter();
-                      _logSearch(searchQuery); // ← 추가
+                      _logSearch(searchQuery);
                     },
                     onSubmitted: (v) {
                       searchQuery = v.trim();
@@ -223,7 +241,7 @@ void _scheduleImpressionLog(List<DepositProduct> visible, int pageIndex) {
     );
   }
 
-  // ---------- (변경) 카테고리/정렬/뷰 ----------
+  // ---------- 카테고리/정렬/뷰 ----------
   Widget _topControls(int totalCount) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -274,7 +292,7 @@ void _scheduleImpressionLog(List<DepositProduct> visible, int pageIndex) {
           ),
         ),
 
-        // [좌] 검색결과 [우] 정렬 텍스트 + 단일 토글 아이콘
+        // [좌] 검색결과 [우] 정렬 + 뷰토글
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
           child: Row(
@@ -458,15 +476,7 @@ void _scheduleImpressionLog(List<DepositProduct> visible, int pageIndex) {
     final name = (item.name ?? '').replaceAll('<br>', '\n');
 
     return InkWell(
-      // onTap: () => Navigator.push(
-      //   context,
-      //   MaterialPageRoute(
-      //     builder: (_) => DepositDetailPage(productId: item.productId),
-      //     settings: const RouteSettings(name: '/deposit/detail'),
-      //   ),
-      // ),
       onTap: () async {
-        // 클릭 로깅 → 상세 이동
         await _logProductClick(item, index, source: 'grid');
         if (!mounted) return;
         Navigator.push(
@@ -525,6 +535,9 @@ void _scheduleImpressionLog(List<DepositProduct> visible, int pageIndex) {
                       ),
                     ),
                   ),
+                  // 🔥 전체 TOP5 HOT — 배경 없는 텍스트
+                  if (_isHot(item))
+                    const Positioned(top: 8, right: 8, child: _HotTextBadge()),
                 ],
               ),
             ),
@@ -604,13 +617,6 @@ void _scheduleImpressionLog(List<DepositProduct> visible, int pageIndex) {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        // onTap: () => Navigator.push(
-        //   context,
-        //   MaterialPageRoute(
-        //     builder: (_) => DepositDetailPage(productId: item.productId),
-        //     settings: const RouteSettings(name: '/deposit/detail'),
-        //   ),
-        // ),
         onTap: () async {
           await _logProductClick(item, index, source: 'list');
           if (!mounted) return;
@@ -624,88 +630,84 @@ void _scheduleImpressionLog(List<DepositProduct> visible, int pageIndex) {
         },
         child: Padding(
           padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // 순위 + 메달
-                  SizedBox(
-                    width: 45, // 필요하면 32~40으로 줄여도 OK
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '$rank',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        if (rank <= 3) MedalRibbon(rank: rank, size: 18),
-                      ],
+              // 순위 + 메달
+              SizedBox(
+                width: 50,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '$rank',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
+                    const SizedBox(height: 4),
+                    if (rank <= 3)
+                      MedalRibbon(rank: rank, size: 20), // rank별 색 유지
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
 
-                  // 자동 추천 아이콘 배지
-                  RoundProductIcon(product: item, size: 40),
-                  const SizedBox(width: 12),
+              // 아이콘
+              RoundProductIcon(product: item, size: 40),
+              const SizedBox(width: 12),
 
-                  // 제목 + 해시태그
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        _purposeChipsCompact(item),
-                      ],
+              // 제목 + 해시태그
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
+                    const SizedBox(height: 6),
+                    _purposeChipsCompact(item),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
 
-                  // 오른쪽 금리 (🔻 폭을 줄인 버전)
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: 72,
-                    ), // ← 여기만 줄이면 됨
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '최고 ${item.maxRate.toStringAsFixed(2)}%',
-                          style: const TextStyle(
-                            color: _brand,
-                            fontSize: 13, // 14 → 13
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 2), // 4 → 2
-                        Text(
-                          '기본 ${item.minRate.toStringAsFixed(2)}%',
-                          style: const TextStyle(
-                            fontSize: 11, // 12 → 11
-                            color: Colors.black54,
-                          ),
-                        ),
-                      ],
+              // 오른쪽 금리 + HOT (배경 없는 텍스트, 고정폭)
+              SizedBox(
+                width: 84,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_isHot(item)) const _HotTextBadge(),
+                    const SizedBox(height: 4),
+                    Text(
+                      '최고 ${item.maxRate.toStringAsFixed(2)}%',
+                      style: const TextStyle(
+                        color: _brand,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    Text(
+                      '기본 ${item.minRate.toStringAsFixed(2)}%',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -811,14 +813,13 @@ void _scheduleImpressionLog(List<DepositProduct> visible, int pageIndex) {
                         itemsToShow = _gridMode ? 8 : 6;
                       });
                       _applyFilter();
-                      _logCategoryView(i); // ← 추가
+                      _logCategoryView(i);
                     },
                     itemCount: categories.length,
                     itemBuilder: (context, pageIndex) {
                       final pageList = _computeFiltered(pageIndex);
                       final visible = pageList.take(itemsToShow).toList();
 
-                      // 현재 페이지 화면에 실제로 보이는 상품 리스트 임프레션(중복 방지됨)
                       _scheduleImpressionLog(visible, pageIndex);
 
                       return RefreshIndicator(
@@ -849,7 +850,6 @@ void _scheduleImpressionLog(List<DepositProduct> visible, int pageIndex) {
   Widget _buildGridForPage(List<DepositProduct> visible, int totalForPage) {
     final bottomSafe = MediaQuery.of(context).padding.bottom;
 
-    // 현재 그리드 파라미터 그대로 사용
     const crossAxisCount = 2;
     const hPad = 12.0;
     const vPadTop = 8.0;
@@ -857,7 +857,6 @@ void _scheduleImpressionLog(List<DepositProduct> visible, int pageIndex) {
     const crossAxisSpacing = 10.0;
     const mainAxisSpacing = 10.0;
 
-    // 논리 비율은 그대로 (0.88)
     const targetAspect = 0.88;
 
     return LayoutBuilder(
@@ -868,9 +867,8 @@ void _scheduleImpressionLog(List<DepositProduct> visible, int pageIndex) {
             (crossAxisSpacing * (crossAxisCount - 1));
         final tileWidth = gridWidth / crossAxisCount;
 
-        // ⬇️ 핵심: 작게 자르지 말고, 살짝 "크게" + 여유를 더함
         final rawHeight = tileWidth / targetAspect;
-        final tileHeight = rawHeight.ceilToDouble() + 4; // ← 2~6 범위에서 조절해보세요
+        final tileHeight = rawHeight.ceilToDouble() + 4;
 
         return CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -886,12 +884,11 @@ void _scheduleImpressionLog(List<DepositProduct> visible, int pageIndex) {
                   crossAxisCount: crossAxisCount,
                   mainAxisSpacing: mainAxisSpacing,
                   crossAxisSpacing: crossAxisSpacing,
-                  mainAxisExtent: tileHeight, // ⬅️ 픽셀 고정 높이
+                  mainAxisExtent: tileHeight,
                 ),
               ),
             ),
             SliverToBoxAdapter(child: _moreLessArea(totalForPage)),
-            // 바닥 완충 여백 (너무 크면 줄여도 됨)
             SliverToBoxAdapter(child: SizedBox(height: bottomSafe + 4)),
           ],
         );
@@ -900,7 +897,7 @@ void _scheduleImpressionLog(List<DepositProduct> visible, int pageIndex) {
   }
 }
 
-/// “최고 금리” 미니 칩 (텍스트 길이만큼)
+/// “최고 금리” 미니 칩
 class _RatePill extends StatelessWidget {
   final String text;
   final Color brand;
@@ -959,7 +956,7 @@ class _RatePill extends StatelessWidget {
 class MedalRibbon extends StatelessWidget {
   final int rank;
   final double size;
-  const MedalRibbon({super.key, required this.rank, this.size = 18});
+  const MedalRibbon({super.key, required this.rank, this.size = 20});
 
   @override
   Widget build(BuildContext context) {
@@ -980,8 +977,9 @@ class MedalRibbon extends StatelessWidget {
           ),
           child: Icon(Icons.star, color: Colors.white, size: size * 0.55),
         ),
+        // ⬇ 리본 높이 키움(보이게)
         CustomPaint(
-          size: Size(size * 0.65, size * 0.22),
+          size: Size(size * 0.75, size * 0.34),
           painter: _OverlappedFlatBowPainter(
             style.ribbonLeft,
             style.ribbonRight,
@@ -1025,7 +1023,7 @@ class _OverlappedFlatBowPainter extends CustomPainter {
   _OverlappedFlatBowPainter(
     this.leftColor,
     this.rightColor, {
-    this.overlap = 0.7,
+    this.overlap = 0.8,
   });
 
   @override
@@ -1076,9 +1074,31 @@ class _MedalFlatStyle {
   });
 }
 
+/// HOT 텍스트 배지(배경 없음)
+class _HotTextBadge extends StatelessWidget {
+  const _HotTextBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      '🔥 HOT',
+      style: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w900,
+        color: Colors.redAccent,
+        // 그리드 상단처럼 밝은 배경 위에서 가독성 확보용 얕은 외곽광
+        shadows: const [
+          Shadow(color: Colors.white, blurRadius: 2, offset: Offset(0, 0)),
+        ],
+      ),
+    );
+  }
+}
+
 /// =====================
-/// 아이콘 자동 추천 배지
+/// 아이콘 자동 추천 배지 등(기존과 동일)
 /// =====================
+
 class SmartProductBadge extends StatelessWidget {
   final DepositProduct product;
   final double size;
@@ -1241,11 +1261,7 @@ class EmojiThumb extends StatelessWidget {
         ],
       ),
       alignment: Alignment.center,
-      child: Text(
-        emoji,
-        style: TextStyle(fontSize: size * 0.62),
-        textAlign: TextAlign.center,
-      ),
+      child: Text(emoji, style: TextStyle(fontSize: size * 0.62)),
     );
   }
 
@@ -1414,15 +1430,18 @@ class RoundProductIcon extends StatelessWidget {
       if (r.matches(text)) return _IconMeta(r.icon, r.color);
     }
     final cat = (p.category ?? '').toLowerCase();
-    if (cat.contains('예금'))
+    if (cat.contains('예금')) {
       return _IconMeta(Icons.account_balance_rounded, const Color(0xFF3D5AFE));
-    if (cat.contains('적금'))
+    }
+    if (cat.contains('적금')) {
       return _IconMeta(Icons.savings_rounded, const Color(0xFF2E7D32));
-    if (cat.contains('입출금'))
+    }
+    if (cat.contains('입출금')) {
       return _IconMeta(
         Icons.account_balance_wallet_rounded,
         const Color(0xFF6D4C41),
       );
+    }
     final color = _seedColor(id.isNotEmpty ? id : (p.name ?? 'seed'));
     return _IconMeta(Icons.category_rounded, color);
   }

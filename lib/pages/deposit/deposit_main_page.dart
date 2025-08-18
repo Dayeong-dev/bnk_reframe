@@ -10,6 +10,7 @@ import 'package:reframe/pages/deposit/deposit_list_page.dart';
 import 'package:reframe/service/deposit_service.dart';
 import 'deposit_detail_page.dart';
 import 'package:flutter/services.dart';
+import 'package:reframe/pages/branch/map_page.dart';
 
 /// 통화 포맷터: 1,000 단위 콤마
 String formatCurrency(int value) => NumberFormat("#,###").format(value);
@@ -822,9 +823,8 @@ class _DepositMainPageState extends State<DepositMainPage> {
                 icon: Icons.location_on,
                 accent: accent,
                 onTap: () {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text("근처 지점으로 이동")));
+                  // ✅ 라우터 사용하여 지도 화면으로 이동
+                  Navigator.pushNamed(context, '/map');
                 },
               ),
             ),
@@ -925,11 +925,13 @@ class _DepositMainPageState extends State<DepositMainPage> {
               onTap: () => goToDetail(p),
               child: _PastelServiceCard(
                 title: p.name,
-                subtitle: "최고 ${p.maxRate.toStringAsFixed(2)}% · ${p.period}개월",
+                subtitle: "${p.period}개월", // 하단 좌측
                 bg1: colors[0],
                 bg2: colors[1],
-                bigIcon: bigIcon,
-                hashtag: hashtag,
+                bigIcon: bigIcon, // 우상단 큰 아이콘(배경없음)
+                hashtag: hashtag, // 제목 아래
+                rateText: "최고 ${p.maxRate.toStringAsFixed(2)}%", // 하단 우측 강조
+                cornerIcon: bigIcon, // (호환용, 내부 미사용)
               ),
             ),
           );
@@ -1226,11 +1228,13 @@ class _TapScaleState extends State<_TapScale> {
 
 class _PastelServiceCard extends StatelessWidget {
   final String title;
-  final String subtitle;
+  final String subtitle; // ex) "12개월"
   final Color bg1;
   final Color bg2;
-  final IconData bigIcon;
-  final String hashtag;
+  final IconData bigIcon; // ✅ 우상단 배경없는 아이콘으로 사용
+  final String hashtag; // 제목 아래
+  final String rateText; // ex) "최고 7.00%"
+  final IconData cornerIcon; // (호환용, 사용하지 않음)
 
   const _PastelServiceCard({
     required this.title,
@@ -1239,12 +1243,15 @@ class _PastelServiceCard extends StatelessWidget {
     required this.bg2,
     required this.bigIcon,
     required this.hashtag,
+    required this.rateText,
+    required this.cornerIcon,
   });
 
   @override
   Widget build(BuildContext context) {
     const double w = 250;
     const double h = 150;
+    const accent = Color(0xFF304FFE);
 
     return SizedBox(
       width: w,
@@ -1268,47 +1275,25 @@ class _PastelServiceCard extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
+            // ===== 우상단: 배경 없는 아이콘(그냥 아이콘만) =====
             Positioned(
-              left: 16,
-              bottom: 14,
-              child: Row(
-                children: [
-                  Text(
-                    hashtag,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.black.withOpacity(0.75),
-                      shadows: const [
-                        Shadow(
-                          offset: Offset(0, 1),
-                          blurRadius: 2,
-                          color: Colors.white70,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  _coin(),
-                  const SizedBox(width: 6),
-                  _coin(small: true),
-                ],
-              ),
-            ),
-            Positioned(
-              right: -8,
-              bottom: -12,
+              right: 14,
+              top: 10,
               child: Icon(
                 bigIcon,
-                size: 120,
-                color: Colors.grey.shade500.withOpacity(0.92),
+                size: 86, // 크고 또렷하게
+                color: Colors.black.withOpacity(0.12), // 연한 단색, 배경 없음
               ),
             ),
+
+            // ===== 본문 =====
             Padding(
-              padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+              // 우상단 아이콘과 겹치지 않게 오른쪽 여백 조금 더 줌
+              padding: const EdgeInsets.fromLTRB(18, 16, 24, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 제목
                   Text(
                     title,
                     maxLines: 2,
@@ -1320,15 +1305,71 @@ class _PastelServiceCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black.withOpacity(0.55),
-                    ),
+
+                  // 해시태그 + 동전2
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          hashtag,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.black.withOpacity(0.75),
+                            shadows: const [
+                              Shadow(
+                                offset: Offset(0, 1),
+                                blurRadius: 2,
+                                color: Colors.white70,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _coin(),
+                      const SizedBox(width: 4),
+                      _coin(small: true),
+                    ],
+                  ),
+
+                  const Spacer(),
+
+                  // ===== 하단: 좌(개월) / 우(최고금리) =====
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // 좌측: 기간 (중간 강조)
+                      Text(
+                        subtitle, // "12개월"
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.black.withOpacity(0.60),
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+
+                      // 우측: 최고 금리 (텍스트만 강하게)
+                      Text(
+                        rateText, // "최고 7.00%"
+                        style: TextStyle(
+                          fontSize: 16.5,
+                          fontWeight: FontWeight.w900,
+                          color: accent,
+                          letterSpacing: 0.2,
+                          shadows: [
+                            Shadow(
+                              color: accent.withOpacity(0.18),
+                              blurRadius: 6,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1339,6 +1380,7 @@ class _PastelServiceCard extends StatelessWidget {
     );
   }
 
+  // 기존 동전 그대로 재사용
   Widget _coin({bool small = false}) {
     final size = small ? 16.0 : 20.0;
     return Container(
@@ -1356,6 +1398,39 @@ class _PastelServiceCard extends StatelessWidget {
         child: Text(
           "₩",
           style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
+        ),
+      ),
+    );
+  }
+}
+
+// ===== 금리 배지 (우하단 강조) =====
+class _RateBadge extends StatelessWidget {
+  final String text;
+  const _RateBadge({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.10),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+        border: Border.all(color: Colors.black.withOpacity(0.06), width: 1),
+      ),
+      child: Text(
+        text, // "최고 3.50%"
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w900,
+          color: Color(0xFF304FFE),
         ),
       ),
     );
@@ -1481,9 +1556,8 @@ Widget shortcutRow(BuildContext context) {
           child: InkWell(
             borderRadius: borderRadius,
             onTap: () {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text("근처 지점으로 이동")));
+              // ✅ 라우터 사용하여 지도 화면으로 이동
+              Navigator.pushNamed(context, '/map');
             },
             child: Container(
               padding: const EdgeInsets.all(20),

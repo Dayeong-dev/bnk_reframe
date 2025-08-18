@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:reframe/pages/auth/join_page.dart';
 import 'package:reframe/pages/auth/login_page.dart';
 import 'package:reframe/pages/auth/splash_page.dart';
+import 'package:reframe/pages/branch/map_page.dart';
 import 'package:reframe/pages/customer/more_page.dart';
 import 'package:reframe/pages/deposit/deposit_list_page.dart';
 import 'package:reframe/pages/deposit/deposit_main_page.dart';
@@ -15,6 +17,12 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 1) 네이버 지도 SDK 초기화 (앱에서 1회만)
+  await FlutterNaverMap().init(
+    clientId:
+        '1vyye633d9', // 네이버 지도 Client ID (iOS는 Info.plist의 NMFClientId도 필요)
+    onAuthFailed: (e) => debugPrint('❌ 지도 인증 실패: $e'),
+  );
 
   final firebaseService = await FirebaseService.init(
     baseUrl: FirebaseService.defaultBaseUrl,
@@ -50,6 +58,7 @@ class MyApp extends StatelessWidget {
         "/savings": (context) => SavingsTestPage(),
         "/chat-debug": (context) => BnkChatPage(),
         "/more-page": (context) => MorePage(),
+        '/map': (context) => const MapPage(),
       },
     );
   }

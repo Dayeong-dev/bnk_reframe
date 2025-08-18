@@ -63,5 +63,23 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+
+	<!-- 네이버 지도 SDK 클라이언트 ID -->
+	<key>NMFClientId</key>
+	<string>1vyye633d9</string>
+
+	<!-- 위치 권한 -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>현재 위치 근처의 부산은행 지점을 찾기 위해 사용합니다.</string>
+
+	<!-- url_launcher로 nmap 스킴 허용 -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+	<string>nmap</string>
+	</array>
+
+<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+<string>항상 위치를 사용할 수 있도록 허용해주세요.</string>
+
 </dict>
 </plist>

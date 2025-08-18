@@ -15,6 +15,18 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.INTERNET"/>
 
+    <!-- 지도-->
+     <!-- ✅ 위치 권한 (정확한 위치, 대략적인 위치) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+
+    <!-- ✅ GPS 하드웨어가 없어도 설치 가능하게 설정 -->
+    <uses-feature android:name="android.hardware.location.gps" android:required="false"/>
+
+    <!-- ✅ 인터넷 사용 권한 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
+
     <application
         android:label="reframe"
         android:name="${applicationName}"
@@ -79,4 +91,13 @@
             <data android:mimeType="text/plain"/>
         </intent>
     </queries>
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="nmap" />
+        </intent>
+    </queries>
+
 </manifest>
+

@@ -5,6 +5,8 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../constants/api_constants.dart';
+
 enum Sender { ai, user, system }
 enum TtsState { playing, stopped }
 
@@ -37,7 +39,7 @@ class _BnkChatPageState extends State<BnkChatPage> {
   bool _sending = false;
 
   // Networking
-  static const String _baseUrl = 'http://192.168.100.135:8090';
+  static const String _baseUrl = apiBaseUrl;
   static const String _apiPath = '/api/chat/memory';
 
   // Speech to Text

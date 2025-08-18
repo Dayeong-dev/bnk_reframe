@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
+import 'package:reframe/constants/color.dart';
 import 'package:reframe/pages/auth/join_page.dart';
 import 'package:reframe/pages/auth/login_page.dart';
 import 'package:reframe/pages/auth/splash_page.dart';
@@ -7,6 +8,8 @@ import 'package:reframe/pages/branch/map_page.dart';
 import 'package:reframe/pages/customer/more_page.dart';
 import 'package:reframe/pages/deposit/deposit_list_page.dart';
 import 'package:reframe/pages/deposit/deposit_main_page.dart';
+import 'package:reframe/pages/enroll/enroll_first.dart';
+import 'package:reframe/pages/enroll/enroll_second.dart';
 import 'package:reframe/pages/home_page.dart';
 import 'package:reframe/pages/walk/step_debug_page.dart';
 import 'package:reframe/service/firebase_service.dart';
@@ -59,12 +62,14 @@ class MyApp extends StatelessWidget {
         "/chat-debug": (context) => BnkChatPage(),
         "/more-page": (context) => MorePage(),
         '/map': (context) => const MapPage(),
+        "/enroll-first": (context) => FirstStepPage(),
+        "/enroll-second": (context) => SecondStepPage()
       },
       theme: ThemeData(
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.white,        // 각 화면 기본 배경
         colorScheme: const ColorScheme.light(         // M3에서 표면색도 흰색으로
-          primary: Color(0xFFFE504F),
+          primary: primaryColor,
           surface: Colors.white,
           background: Colors.white,
         ),

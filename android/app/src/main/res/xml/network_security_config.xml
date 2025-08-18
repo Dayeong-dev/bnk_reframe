@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- 기본적으로 HTTP(평문) 허용 -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>
+    </base-config>
+
+    <!-- 개발 서버 도메인/아이피 명시(선택 사항이지만 명시해두면 좋아요) -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">192.168.100.135</domain>
+        <domain>10.0.2.2</domain>
+        <domain>localhost</domain>
+    </domain-config>
+</network-security-config>

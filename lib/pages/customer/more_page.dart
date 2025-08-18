@@ -1,6 +1,7 @@
 // lib/pages/more_page.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:reframe/constants/api_constants.dart';
 
 import 'package:reframe/service/faq_api.dart';
 import 'package:reframe/store/faq_store.dart';
@@ -27,7 +28,7 @@ class MorePage extends StatelessWidget {
     return MultiProvider(
       providers: [
         // 서버 주소만 환경에 맞게 수정하세요.
-        Provider<FaqApi>(create: (_) => FaqApi(baseUrl: 'http://192.168.100.135:8090')),
+        Provider<FaqApi>(create: (_) => FaqApi(baseUrl: apiBaseUrl)),
         ChangeNotifierProvider<FaqStore>(
           create: (ctx) => FaqStore(api: ctx.read<FaqApi>()),
         ),

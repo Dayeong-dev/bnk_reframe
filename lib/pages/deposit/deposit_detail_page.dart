@@ -410,7 +410,7 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
                 onPressed: () async {
                   await _logDetailCta('apply');
                   if (!mounted) return;
-                  // 가입 플로우 연결 지점
+                  Navigator.pushNamed(context, "/enroll-first");
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _brand,

@@ -1,0 +1,34 @@
+[
+    { 
+     "name": "감전동지점(점내)", 
+     "address": "부산 사상구 새벽로 160",
+     "hours": "09:00~16:00",
+     "lat": null, 
+     "lng": null 
+    },
+    { "name": "괴정동지점(점내)", "address": "부산 사하구 낙동대로 225", "hours": "09:00~16:00", "lat": null, "lng": null },
+    { "name": "구서동금융센터(점내)", "address": "부산 금정구 구서로 23", "hours": "09:00~16:00", "lat": null, "lng": null },
+    { "name": "국내선 1층", "address": "부산광역시 강서구 공항진입로 108", "hours": "05:00~23:00", "lat": null, "lng": null },
+    { "name": "김해금융센터(점내)", "address": "경남 김해시 가락로 23", "hours": "09:00~16:00", "lat": null, "lng": null },
+    { "name": "남양산지점(점내)", "address": "경남 양산시 양산역로 71", "hours": "09:00~16:00", "lat": null, "lng": null },
+    { "name": "대연혁신점(Sel.B)", "address": "부산 남구 수영로 345", "hours": "07:00~24:00", "lat": null, "lng": null },
+    { "name": "디지털플레이스 센텀시티역점", "address": "부산 해운대구 우동 1524", "hours": "07:00~24:00", "lat": null, "lng": null },
+    { "name": "무거동지점(점내)", "address": "울산광역시 남구 무거동 461 웰츠타워 114호,115호", "hours": "09:00~16:00", "lat": null, "lng": null },
+    { "name": "범일동지점(점내)", "address": "부산 동구 범일로 92", "hours": "09:00~16:00", "lat": null, "lng": null },
+    { "name": "부전역지점(점내)", "address": "부산광역시 부산진구 중앙대로 807", "hours": "09:00~16:00", "lat": null, "lng": null },
+    { "name": "사상금융센터(점내)", "address": "부산 사상구 사상로 5", "hours": "09:00~16:00", "lat": null, "lng": null },
+    { "name": "서면롯데1번가 지점(점내)", "address": "부산 진구 중앙대로 691번길 32", "hours": "10:00~17:00", "lat": null, "lng": null },
+    { "name": "센텀금융센터(점내)", "address": "부산 해운대구 센텀중앙로 78", "hours": "09:00~16:00", "lat": null, "lng": null },
+    { "name": "신평동금융센터(점내)", "address": "부산 사하구 장평로 278", "hours": "09:00~16:00", "lat": null, "lng": null },
+    { "name": "연산동금융센터(점내)", "address": "부산 연제구 중앙대로 1073", "hours": "09:00~16:00", "lat": null, "lng": null },
+    { "name": "영업부", "address": "부산 남구 문현금융로 30", "hours": "07:00~24:00", "lat": null, "lng": null },
+    { "name": "일광지점(점내)", "address": "부산 기장군 일광면 해빛로 17", "hours": "09:00~16:00", "lat": null, "lng": null },
+    { "name": "중앙동금융센터", "address": "부산광역시 중구 중앙대로 96", "hours": "07:00~24:00", "lat": null, "lng": null },
+    { "name": "중앙동금융센터(점내)", "address": "부산광역시 중구 중앙대로 96", "hours": "09:00~16:00", "lat": null, "lng": null },
+    { "name": "큰솔병원 학장점(Sel.B)", "address": "부산 사상구 학장로 189", "hours": "08:00~20:00", "lat": null, "lng": null },
+    { "name": "학장동지점(점내)", "address": "부산광역시 사상구 대동로 94", "hours": "09:00~16:00", "lat": null, "lng": null },
+    { "name": "해운대우동 지점(점내)", "address": "부산 해운대구 해운대로 407", "hours": "09:00~16:00", "lat": null, "lng": null },
+    { "name": "F1963", "address": "부산 수영구 구락로 123번길 20", "hours": "07:00~24:00", "lat": null, "lng": null },
+    { "name": "W스퀘어 (점내)", "address": "부산광역시 남구 분포로 145", "hours": "09:00~16:00", "lat": null, "lng": null }
+  ]
+  

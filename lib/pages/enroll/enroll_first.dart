@@ -30,7 +30,7 @@ class _FirstStepPageState extends State<FirstStepPage> {
       kind: ConsentKind.info,
       title: '예금자 보호법 확인',
       required: true,
-      infoText: "본인이 가입하는 금융상품의 예끔자보호여부 및 보호한도 (원금과 소정의 이자를 합하여 1인당 5천만원)에 대하여 설명을 보고, 충분히 이해하였음을 확인합니다."
+      infoText: "본인이 가입하는 금융상품의 예금자보호여부 및 보호한도 (원금과 소정의 이자를 합하여 1인당 5천만원)에 대하여 설명을 보고, 충분히 이해하였음을 확인합니다."
     ),
     _ConsentItem(
       kind: ConsentKind.info,

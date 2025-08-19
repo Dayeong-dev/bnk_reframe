@@ -23,7 +23,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
 
   Future<bool> _checkFileExists(String url) async {
     try {
-      final response = await http.head(Uri.parse(url));
+      final response = await http.head(Uri.parse(url)).timeout(Duration(seconds: 8));   // 8초 제한
       return response.statusCode == 200;
     } catch (e) {
       return false;
@@ -91,6 +91,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
                             canOpen ? '확인' : '닫기',
                             style: const TextStyle(
                               color: Colors.white,
+                              fontWeight: FontWeight.w800
                             ),
                           ),
                         ),

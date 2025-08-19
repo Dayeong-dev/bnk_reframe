@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:reframe/constants/color.dart';
+import 'package:reframe/model/enroll_form.dart';
+import 'package:reframe/model/product_input_format.dart';
 import 'package:reframe/pages/auth/join_page.dart';
 import 'package:reframe/pages/auth/login_page.dart';
 import 'package:reframe/pages/auth/splash_page.dart';
@@ -10,6 +12,7 @@ import 'package:reframe/pages/deposit/deposit_list_page.dart';
 import 'package:reframe/pages/deposit/deposit_main_page.dart';
 import 'package:reframe/pages/enroll/enroll_first.dart';
 import 'package:reframe/pages/enroll/enroll_second.dart';
+import 'package:reframe/pages/enroll/enroll_third.dart';
 import 'package:reframe/pages/home_page.dart';
 import 'package:reframe/pages/walk/step_debug_page.dart';
 import 'package:reframe/service/firebase_service.dart';
@@ -66,7 +69,6 @@ class MyApp extends StatelessWidget {
         "/more-page": (context) => MorePage(),
         '/map': (context) => const MapPage(),
         "/enroll-first": (context) => FirstStepPage(),
-        "/enroll-second": (context) => SecondStepPage(),
         '/savings/start': (_) => const StartScreen(),
         '/savings/question': (_) => const QuestionScreen(),
         '/savings/result': (_) => const ResultScreen(),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:reframe/constants/color.dart';
+import 'package:reframe/model/product_input_format.dart';
 import 'package:reframe/pages/enroll/appbar.dart';
+import 'package:reframe/pages/enroll/enroll_second.dart';
 import 'package:reframe/pages/enroll/pdf_view_page.dart';
 
 import '../../constants/api_constants.dart';
@@ -46,9 +48,15 @@ class _FirstStepPageState extends State<FirstStepPage> {
 
   bool get _allChecked => _items.where((e) => e.required).every((e) => e.checked == true);
 
+  void _nextStep() {
+    Navigator.pop(context);
+    Navigator.push(context, MaterialPageRoute(builder: (context) => SecondStepPage(productName: "상품명", productInput: ProductInputFormat())));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: backgroundColor2,
       appBar: buildAppBar(context),
       body: SafeArea(
         child: Column(
@@ -130,7 +138,6 @@ class _FirstStepPageState extends State<FirstStepPage> {
           ],
         ),
       ),
-      backgroundColor: Colors.white,
     );
   }
 
@@ -174,9 +181,7 @@ class _FirstStepPageState extends State<FirstStepPage> {
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/enroll-second');
-                  },
+                  onPressed: _nextStep,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryColor,
                     shape: RoundedRectangleBorder(
@@ -185,7 +190,7 @@ class _FirstStepPageState extends State<FirstStepPage> {
                   ),
                   child: const Text(
                     '네, 확인했습니다.',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
                   ),
                 ),
               ),
@@ -288,7 +293,13 @@ class _BottomButton extends StatelessWidget {
             backgroundColor: primaryColor,
             disabledBackgroundColor: const Color(0xFFD0D0D0),
           ),
-          child: const Text('다음', style: TextStyle(color: Colors.white)),
+          child: Text(
+            '다음',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800
+            )
+          ),
         ),
       ),
     );

@@ -20,7 +20,7 @@ class StartScreen extends StatelessWidget {
                   '저축하고 싶은데\n예적금 선택이 어렵다면?',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      fontSize: 22, fontWeight: FontWeight.w600, color: Colors.black87),
+                      fontSize: 30, fontWeight: FontWeight.w600, color: Colors.black87),
                 ),
                 const SizedBox(height: 24),
                 Flexible(
@@ -34,8 +34,16 @@ class StartScreen extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 32), // 여백 늘리기
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12), // 둥근 모서리 (선택)
+                      ),
+                    ),
                     onPressed: () => Navigator.pushNamed(context, '/savings/question'),
-                    child: const Text('테스트 시작', style: TextStyle(fontSize: 18)),
+                    child: const Text(
+                        '시작하기',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
                   ),
                 ),
               ],

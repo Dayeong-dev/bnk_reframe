@@ -99,9 +99,12 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
   bool _pvLogged = false;
 
-  // 실시간 알림(WebSocket)
+  // 실시간(WebSocket)
   WebSocketChannel? _ws;
   StreamSubscription? _wsSub;
+
+  // 프레즌스(동시 시청자) 표시용
+  int _presenceOthers = 0; // 본인 제외 후 표시
 
   String _productTypeOf(DepositProduct p) {
     final c = (p.category ?? '').trim();
@@ -153,23 +156,23 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
       if (!mounted) return;
       setState(() => product = result);
       await _logProductViewOnce(result);
-      _subscribeReviewTopic(result.productId);
+      _connectAndSubscribe(result.productId);
     } catch (e) {
       debugPrint("❌ 상품 불러오기 실패: $e");
     }
   }
 
-  void _subscribeReviewTopic(int productId) {
-    final wsUrl =
-    Uri.parse('${AppEndpoints.wsBase}?topic=product.$productId.reviews');
+  /// 하나의 소켓으로 리뷰/프레즌스 두 토픽 구독
+  void _connectAndSubscribe(int productId) {
+    final wsUrl = Uri.parse('${AppEndpoints.wsBase}?topic=product.$productId.reviews');
     debugPrint('🔌 WS connect → $wsUrl');
     try {
       _ws = ws_io.IOWebSocketChannel.connect(wsUrl.toString());
 
-      // 연결되자마자 안전빵 수동 구독 프레임 전송
+      // 연결되자마자 안전빵 수동 구독 프레임(리뷰 + 프레즌스)
       _ws!.sink.add(jsonEncode({
         "op": "subscribe",
-        "topics": ["product.$productId.reviews"]
+        "topics": ["product.$productId.reviews", "product.$productId.presence"]
       }));
 
       _wsSub = _ws!.stream.listen((raw) {
@@ -178,7 +181,8 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
           debugPrint('📩 WS recv: $text');
           final Map<String, dynamic> msg = jsonDecode(text);
 
-          if (msg['type'] == 'review_created' && mounted) {
+          final type = msg['type'];
+          if (type == 'review_created' && mounted) {
             final author = (msg['authorMasked'] as String?) ?? '고객';
             final rating = (msg['rating'] as num?)?.toInt() ?? 0;
             final snippet = (msg['contentSnippet'] as String?) ?? '';
@@ -187,20 +191,52 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
               rating: rating,
               snippet: snippet,
             );
+          } else if (type == 'presence' && mounted) {
+            final count = (msg['count'] as num?)?.toInt() ?? 0;
+            // 본인 제외하고 표시
+            final others = (count - 1).clamp(0, 9999);
+            setState(() => _presenceOthers = others);
           }
         } catch (e) {
-          // ping 등 문자열이면 무시
-          debugPrint('WS parse error: $e');
+          debugPrint('WS parse error: $e'); // ping 등 문자열이면 무시
         }
       }, onError: (e) {
         debugPrint('WS error: $e');
       }, onDone: () {
         debugPrint('WS closed.');
-        // 필요 시 재연결 로직 추가 가능
       });
     } catch (e) {
       debugPrint('WebSocket connect fail: $e');
     }
+  }
+
+  /// 상단 프레즌스 배너
+  Widget _presenceBanner() {
+    if (_presenceOthers <= 0) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE3F2FD),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF90CAF9)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.visibility, color: Color(0xFF1565C0)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '현재 $_presenceOthers명이 이 상품을 보고 있습니다.',
+              style: const TextStyle(
+                color: Color(0xFF0D47A1),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// 상세 배너 (박**님이 ★★★★★ 리뷰 등록: ‘…’)
@@ -209,23 +245,29 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
     required int rating,
     required String snippet,
   }) {
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.clearMaterialBanners();
+    final stars = '★★★★★'.substring(0, rating.clamp(0, 5));
+    final msg = "$authorMasked님이 $stars 리뷰 등록: ‘$snippet’";
 
-    final int count = rating.clamp(0, 5).toInt();
-    final stars = '★★★★★'.substring(0, count);
-    final msg = count > 0
-        ? "$authorMasked님이 $stars 리뷰 등록: ‘$snippet’"
-        : "$authorMasked님이 리뷰 등록: ‘$snippet’";
-
-    messenger.showMaterialBanner(
-      MaterialBanner(
-        content: Text(msg),
-        leading: const Icon(Icons.rate_review_outlined),
-        actions: [
+    final snack = SnackBar(
+      behavior: SnackBarBehavior.floating,
+      margin: const EdgeInsets.all(12),
+      backgroundColor: const Color(0xFF1565C0), // 파란 말풍선
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      content: Row(
+        children: [
+          const Icon(Icons.chat_bubble, color: Colors.white),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              msg,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
           TextButton(
             onPressed: () {
-              messenger.hideCurrentMaterialBanner();
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
               final p = product;
               if (p != null) {
                 Navigator.push(
@@ -239,19 +281,19 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
                 );
               }
             },
-            child: const Text('바로 보기'),
-          ),
-          TextButton(
-            onPressed: () => messenger.hideCurrentMaterialBanner(),
-            child: const Text('닫기'),
+            child: const Text('보기', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
           ),
         ],
       ),
+      duration: const Duration(seconds: 4),
     );
+
+    final m = ScaffoldMessenger.of(context);
+    m.hideCurrentSnackBar();
+    m.showSnackBar(snack); // 하단에 표시
   }
 
   // --------- 내용 렌더링 유틸 ----------
-
   String fixLineBreaks(String text) {
     return text
         .replaceAll('<br>', '\n')
@@ -341,6 +383,9 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // ✅ 동시 시청자 배너 (필요할 때만 노출)
+          _presenceBanner(),
+
           FadeSlideInOnVisible(child: _buildHeader(product!)),
           const SizedBox(height: 18),
           _sectionDivider("상품 상세"),

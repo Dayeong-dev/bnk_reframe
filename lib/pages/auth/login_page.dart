@@ -33,7 +33,7 @@ class _LoginPageState extends State<LoginPage> {
     _passwordController.addListener(_checkInput);
   }
 
-  void _checkInput() {
+                                                                                                                  void _checkInput() {
     final hasInput = _usernameController.text.trim().isNotEmpty && _passwordController.text.trim().isNotEmpty;
 
     if(_error != null) {

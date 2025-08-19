@@ -65,7 +65,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
       '당신의 저축 목표는?',
       '당신의 저축 스타일은?',
       '중도에 해지할 가능성이 있나요',
-      '저축 습관을 형성하고 싶으신가?',
+      '저축 습관을 형성하고 싶으신가요?',
     ];
 
     final options = <List<String>>[
@@ -92,7 +92,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
                   backgroundColor: Colors.grey.shade300,
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 40),
               Text(
                 titles[step],
                 textAlign: TextAlign.center,

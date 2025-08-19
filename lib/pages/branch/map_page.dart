@@ -1,17 +1,18 @@
 // lib/main.dart
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await FlutterNaverMap().init(
-    clientId: '1vyye633d9', // TODO: 실제 발급 ID 사용
+    clientId: '1vyye633d9', // TODO: 네이버 지도 SDK Client ID
     onAuthFailed: (e) => debugPrint('❌ 지도 인증 실패: $e'),
   );
   runApp(const MyApp());
@@ -21,20 +22,40 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key});
   @override
   Widget build(BuildContext context) {
+    const seed = Color(0xFF2962FF); // 🔵 은행 블루
     return MaterialApp(
       title: '부산은행 근처 지점',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        colorSchemeSeed: const Color(0xFF304FFE),
+        colorSchemeSeed: seed,
         scaffoldBackgroundColor: const Color(0xFFF7F8FA),
+        appBarTheme: const AppBarTheme(centerTitle: false),
       ),
       home: const MapPage(),
     );
   }
 }
 
-// =========================== 모델 ===========================
+/// =========================== 모델/타입 ===========================
+enum DatasetType { branches, atm, atm365, stm }
+
+extension DatasetInfo on DatasetType {
+  String get label => switch (this) {
+    DatasetType.branches => '영업점',
+    DatasetType.atm => 'ATM',
+    DatasetType.atm365 => '365ATM',
+    DatasetType.stm => 'STM',
+  };
+
+  String get assetPath => switch (this) {
+    DatasetType.branches => 'assets/branches_geocoded.json',
+    DatasetType.atm => 'assets/atm_geocoded.json',
+    DatasetType.atm365 => 'assets/atm_365_geocoded.json',
+    DatasetType.stm => 'assets/stm_geocoded.json',
+  };
+}
+
 class Place {
   final String id;
   final String title;
@@ -43,9 +64,7 @@ class Place {
   final double lng;
   double distanceM;
   final String? tel;
-  final String? link;
-  final String? hoursHint;
-
+  final String? hours;
   Place({
     required this.id,
     required this.title,
@@ -54,12 +73,11 @@ class Place {
     required this.lng,
     required this.distanceM,
     this.tel,
-    this.link,
-    this.hoursHint,
+    this.hours,
   });
 }
 
-// =========================== 페이지 ===========================
+/// =========================== 페이지 ===========================
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
   @override
@@ -67,104 +85,50 @@ class MapPage extends StatefulWidget {
 }
 
 class _MapPageState extends State<MapPage> {
-  NaverMapController? _mapController;
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+  NaverMapController? _map;
 
-  // 상태
-  bool _mapReady = false;
-  bool _jumpedOnceToGps = false; // 첫 GPS 수신 시 1회 점프
-  bool _mockBlocked = false; // 모의 위치 차단
+  // 위치
+  bool _mockBlocked = false;
+  bool _jumpedOnceToGps = false;
   Position? _currentPosition;
   StreamSubscription<Position>? _posSub;
 
-  final TextEditingController _searchController = TextEditingController(
-    text: '부산은행',
-  );
-  int _tabIndex = 0; // 0: 영업점, 1: ATM
-  bool _sortByDistance = true;
-  double _radiusKm = 10; // 기본 반경 10km
+  // 필터 & 카테고리
+  double _radiusKm = 10; // 1~20
+  DatasetType _dataset = DatasetType.branches;
 
-  // 결과/마커
+  // 데이터/마커
+  final Map<DatasetType, List<Place>> _datasetCache = {};
+  List<Place> _all = [];
   final List<Place> _results = [];
   final List<NMarker> _markers = [];
+
+  // 즐겨찾기
+  Set<String> _favorites = {};
+  bool _savingFav = false;
+
   bool _isSearching = false;
 
-  // 로컬 저장
-  Set<String> _favorites = {};
-  List<String> _recents = [];
-  bool _savingFav = false; // 즐겨찾기 저장 동시 처리 방지
+  static const NLatLng _busanDefault = NLatLng(35.1796, 129.0756);
+  static const Duration _freshDuration = Duration(minutes: 2);
+  static const double _maxAccuracyM = 100;
 
-  // 네이버 Open API (Local/Geocode/Reverse)
-  static const _naverHeaders = {
-    'X-Naver-Client-Id': 'zIGFd_1H8Ox7UQqztIis',
-    'X-Naver-Client-Secret': 'uybjS1Y2Sl',
-  };
-  final Dio _dio = Dio(
-    BaseOptions(
-      connectTimeout: const Duration(seconds: 4),
-      receiveTimeout: const Duration(seconds: 6),
-    ),
-  );
-
-  // ====== 브랜드/정규식 & 키워드 ======
-  static final RegExp _brandKo = RegExp(
-    r'(^|[\s\(\[\-·])(?:BNK)?\s*부산은행($|[\s\)\]\/\-·]|지점|영업|본점|센터|WM|PB|ATM|365|코너)',
-  );
-  static final RegExp _brandEn = RegExp(r'busan\s*bank', caseSensitive: false);
-
-  // 시설물 컷(주차장/출구 등만 강하게 차단)
-  static const List<String> _denyFacilityTitleTokens = [
-    '주차장',
-    '출구',
-    '입구',
-    '출입구',
-    '게이트',
-    '플랫폼',
-    '엘리베이터',
-    '승강기',
-    '램프',
-    'IC',
-    '교차로',
-    '사거리',
-    '횡단보도',
-    '지하도',
-    '육교',
-    '환승',
-    '정류장',
-    '터미널',
-  ];
-  static const List<String> _denyFacilityCategoryTokens = [
-    '주차',
-    '교통시설',
-    '철도',
-    '지하철',
-    '도로시설',
-    '환승',
-    '버스',
-  ];
-
-  // ATM 신호 키워드
-  static const List<String> _atmSignals = [
-    'ATM',
-    'CD',
-    'CD/ATM',
-    '현금자동',
-    '현금자동입출금기',
-    '365',
-    '365코너',
-    '코너',
-    '자동화코너',
-    '무인',
-    '셀프',
-    '스마트',
-    '디지털',
-    '디지털존',
-  ];
+  bool _isFresh(Position? p) {
+    if (p == null) return false;
+    final now = DateTime.now();
+    final t = p.timestamp ?? now;
+    final fresh = now.difference(t).abs() <= _freshDuration;
+    final goodAcc = (p.accuracy.isFinite) ? p.accuracy <= _maxAccuracyM : true;
+    return fresh && goodAcc;
+  }
 
   @override
   void initState() {
     super.initState();
     _initLocation();
     _loadLocal();
+    _loadDataset(_dataset);
   }
 
   @override
@@ -173,7 +137,7 @@ class _MapPageState extends State<MapPage> {
     super.dispose();
   }
 
-  // ---------------- 위치/모의위치 ----------------
+  // ---------------- 위치 ----------------
   Future<void> _blockIfMock(Position p) async {
     if (!p.isMocked || _mockBlocked) return;
     _mockBlocked = true;
@@ -201,6 +165,7 @@ class _MapPageState extends State<MapPage> {
         _snack('위치 권한이 필요합니다.');
         return;
       }
+
       final pos = await Geolocator.getCurrentPosition(
         timeLimit: const Duration(seconds: 6),
       );
@@ -208,46 +173,41 @@ class _MapPageState extends State<MapPage> {
         await _blockIfMock(pos);
         return;
       }
-      setState(() => _currentPosition = pos);
+      _currentPosition = pos;
+
+      _posSub =
+          Geolocator.getPositionStream(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+              distanceFilter: 8,
+            ),
+          ).listen((p) async {
+            if (p.isMocked) {
+              await _blockIfMock(p);
+              return;
+            }
+            _currentPosition = p;
+            if (!_jumpedOnceToGps && _isFresh(p) && _map != null) {
+              _jumpedOnceToGps = true;
+              await _map!.updateCamera(
+                NCameraUpdate.withParams(
+                  target: NLatLng(p.latitude, p.longitude),
+                  zoom: 13, // 내 위치는 13
+                ),
+              );
+              _searchNearby(fromCamera: true);
+            }
+          });
     } catch (e) {
       debugPrint('위치 초기화 실패: $e');
       _snack('위치 정보를 가져오지 못했어요.');
     }
   }
 
-  void _startPositionStream({bool jumpOnFirstFix = true}) {
-    _posSub?.cancel();
-    _posSub =
-        Geolocator.getPositionStream(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            distanceFilter: 8,
-          ),
-        ).listen((p) async {
-          if (p.isMocked) {
-            await _blockIfMock(p);
-            return;
-          }
-          _currentPosition = p;
-
-          // 첫 GPS 수신 시 지도로 점프 (한 번만)
-          if (jumpOnFirstFix && !_jumpedOnceToGps && _mapController != null) {
-            _jumpedOnceToGps = true;
-            await _mapController!.updateCamera(
-              NCameraUpdate.withParams(
-                target: NLatLng(p.latitude, p.longitude),
-                zoom: 15,
-              ),
-            );
-            _searchNearby(fromCamera: true);
-          }
-        });
-  }
-
+  // ---------------- 즐겨찾기 저장 ----------------
   Future<void> _loadLocal() async {
     final sp = await SharedPreferences.getInstance();
     _favorites = (sp.getStringList('favorites') ?? []).toSet();
-    _recents = sp.getStringList('recents') ?? [];
     setState(() {});
   }
 
@@ -255,21 +215,13 @@ class _MapPageState extends State<MapPage> {
     try {
       final sp = await SharedPreferences.getInstance();
       await sp.setStringList('favorites', _favorites.toList());
-      await sp.setStringList('recents', _recents.take(10).toList());
     } catch (e) {
       debugPrint('❌ save local error: $e');
     }
   }
 
-  void _addRecent(String keyword) {
-    if (keyword.trim().isEmpty) return;
-    _recents.remove(keyword);
-    _recents.insert(0, keyword);
-    _saveLocal();
-  }
-
   Future<void> _toggleFavorite(Place p, {bool silent = false}) async {
-    if (!mounted || _savingFav) return; // dispose/중복호출 가드
+    if (!mounted || _savingFav) return;
     _savingFav = true;
 
     final wasFav = _favorites.contains(p.id);
@@ -280,16 +232,11 @@ class _MapPageState extends State<MapPage> {
         _favorites.add(p.id);
       }
     });
-
     await _saveLocal();
 
     if (!silent && mounted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _snack(wasFav ? '즐겨찾기에서 제거했습니다.' : '즐겨찾기에 추가했습니다.');
-      });
+      _snack(wasFav ? '즐겨찾기에서 제거했습니다.' : '즐겨찾기에 추가했습니다.');
     }
-
     _savingFav = false;
   }
 
@@ -298,7 +245,7 @@ class _MapPageState extends State<MapPage> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  // ======================= 길찾기/전화 =======================
+  // ======================== 길찾기/전화 ========================
   Future<void> _navigateTo(double lat, double lng, String name) async {
     final appUri = Uri.parse(
       'nmap://route/public?dlat=$lat&dlng=$lng&dname=${Uri.encodeComponent(name)}&appname=bnk-nearby',
@@ -325,305 +272,60 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  // ======================== 역지오코딩 & 지역 바이어스 ========================
-  Future<Map<String, String>> _reverseAdmin(NLatLng center) async {
+  // ======================== 데이터 로드 ========================
+  Future<void> _loadDataset(DatasetType type) async {
     try {
-      final resp = await _dio.get(
-        'https://naveropenapi.apigw.ntruss.com/map-reversegeocode/v2/gc',
-        queryParameters: {
-          'coords': '${center.longitude},${center.latitude}', // lng,lat
-          'orders': 'admcode,roadaddr,addr',
-          'output': 'json',
-        },
-        options: Options(headers: _naverHeaders),
-      );
-      final results = (resp.data['results'] as List?) ?? const [];
-      String si = '', gu = '', dong = '', landmark = '', road = '';
-      for (final r in results) {
-        final region = r['region'];
-        if (region != null) {
-          si = (region['area1']?['name'] ?? si).toString();
-          gu = (region['area2']?['name'] ?? gu).toString();
-          dong = (region['area3']?['name'] ?? dong).toString();
-        }
-        final land = r['land'];
-        if (land != null) {
-          final name = (land['name'] ?? '').toString();
-          final number = (land['number1'] ?? '').toString();
-          if (name.isNotEmpty)
-            road = number.isNotEmpty ? '$name $number' : name;
-          if (landmark.isEmpty && name.isNotEmpty) {
-            landmark = name; // 캠퍼스/역/건물명이 들어오는 경우
-          }
-        }
+      if (_datasetCache.containsKey(type)) {
+        _all = _datasetCache[type]!;
+        _searchNearby(fromCamera: true);
+        return;
       }
-      return {
-        'si': si,
-        'gu': gu,
-        'dong': dong,
-        'landmark': landmark,
-        'road': road,
-      };
-    } catch (_) {
-      return {'si': '', 'gu': '', 'dong': '', 'landmark': '', 'road': ''};
-    }
-  }
+      final txt = await rootBundle.loadString(type.assetPath);
+      final list = (json.decode(txt) as List).cast<Map<String, dynamic>>();
 
-  // “서면 부산은행” 입력 시 인접 상권(부전/전포 등) 보강 포함
-  Future<List<String>> _queriesForCurrentTabWithBias(NLatLng center) async {
-    final baseRaw = _searchController.text.trim().isEmpty
-        ? '부산은행'
-        : _searchController.text.trim();
-    final base = baseRaw.replaceAll(RegExp(r'\s+'), ' ');
+      final items = <Place>[];
+      for (final m in list) {
+        final lat = (m['lat'] as num?)?.toDouble();
+        final lng = (m['lng'] as num?)?.toDouble();
+        if (lat == null || lng == null) continue;
 
-    final admin = await _reverseAdmin(center);
-    final si = admin['si']!;
-    final gu = admin['gu']!;
-    final dong = admin['dong']!;
-    final landmark = admin['landmark']!;
-    final road = admin['road']!;
+        final title = (m['name'] ?? m['title'] ?? '').toString().trim();
+        final addr = (m['address'] ?? m['addr'] ?? '').toString().trim();
+        final tel = (m['tel'] ?? '').toString().trim();
+        final hours = (m['hours'] ?? m['hoursHint'] ?? '').toString().trim();
 
-    final Set<String> areaBoost = {};
-    if (base.contains('서면')) {
-      areaBoost.addAll(['서면', '부전', '전포']);
-      if (gu.contains('부산진')) {
-        areaBoost.addAll(['부암', '범전', '범천', '가야', '당감', '양정']);
+        items.add(
+          Place(
+            id: (m['code']?.toString().isNotEmpty ?? false)
+                ? m['code'].toString()
+                : '$title::$addr',
+            title: title,
+            address: addr,
+            lat: lat,
+            lng: lng,
+            distanceM: 0,
+            tel: tel.isEmpty ? null : tel,
+            hours: hours.isEmpty ? null : hours,
+          ),
+        );
       }
-    }
-
-    final hints = <String>[
-      if (dong.isNotEmpty) dong,
-      if (gu.isNotEmpty) gu,
-      if (si.isNotEmpty) si,
-      if (landmark.isNotEmpty) landmark,
-      if (road.isNotEmpty) road,
-      ...areaBoost,
-      'near me',
-      '근처',
-      '주변',
-    ];
-
-    final atmTokens = <String>{
-      'ATM',
-      'CD',
-      'CD/ATM',
-      '현금자동',
-      '현금자동입출금기',
-      '365',
-      '365코너',
-      '자동화코너',
-      '코너',
-      '무인',
-      '무인점포',
-      '셀프',
-      '스마트',
-      '스마트브랜치',
-      '디지털',
-      '디지털존',
-    };
-    final branchTokens = <String>{
-      '지점',
-      '영업점',
-      '영업부',
-      '금융센터',
-      'PB센터',
-      'WM센터',
-      '자산관리센터',
-      '본점',
-      '본점영업부',
-      '은행',
-    };
-
-    List<String> combos({
-      required List<String> brands,
-      required List<String> locs,
-      required Set<String> types,
-    }) {
-      final out = <String>{};
-      for (final b in brands) {
-        out.add(b);
-        for (final t in types) out.add('$b $t');
-        for (final h in locs) {
-          out.add('$b $h');
-          out.add('$h $b');
-          for (final t in types) {
-            out.add('$b $h $t');
-            out.add('$h $b $t');
-          }
-        }
-      }
-      return out.toList();
-    }
-
-    final brands = <String>{
-      base,
-      '부산은행',
-      'BNK부산은행',
-      'BNK 부산은행',
-      'Busan Bank',
-    }.toList();
-    final pBranch = combos(brands: brands, locs: hints, types: branchTokens);
-    final pAtm = combos(brands: brands, locs: hints, types: atmTokens);
-
-    // 중복 제거 + 10개 제한
-    final seen = <String>{};
-    final pick = <String>[];
-    final src = (_tabIndex == 1) ? pAtm : pBranch;
-    for (final q in src) {
-      final k = q.trim();
-      if (k.isEmpty) continue;
-      if (seen.add(k)) pick.add(k);
-      if (pick.length >= 10) break; // ← 요구사항: 쿼리 10개로 제한
-    }
-    void ensureFront(String s) {
-      if (!pick.contains(s)) pick.insert(0, s);
-      if (pick.length > 10) pick.removeLast();
-    }
-
-    if (dong.isNotEmpty) {
-      if (_tabIndex == 1) {
-        ensureFront('$dong 부산은행 365코너');
-        ensureFront('$dong 부산은행 ATM');
-      } else {
-        ensureFront('$dong 부산은행 지점');
-        ensureFront('$dong 부산은행 영업점');
-      }
-    }
-    if (base.contains('서면')) {
-      if (_tabIndex == 1)
-        ensureFront('서면 부산은행 ATM');
-      else
-        ensureFront('서면 부산은행 지점');
-    }
-    return pick;
-  }
-
-  // ======================== 검색/필터 ========================
-  String _cleanTitle(String raw) =>
-      raw.replaceAll(RegExp(r'<[^>]*>'), '').replaceAll('\u00A0', ' ').trim();
-  String _normalize(String s) => s.replaceAll(RegExp(r'\s+'), ' ').trim();
-
-  bool _hasBrandOrBank(String title, String category) {
-    final t = _normalize(title);
-    return _brandKo.hasMatch(t) ||
-        _brandEn.hasMatch(t) ||
-        category.contains('은행') ||
-        category.contains('금융');
-  }
-
-  bool _hasAtmSignal(String title, String category) {
-    final t = _normalize(title);
-    final up = t.toUpperCase();
-    final catUp = category.toUpperCase();
-    bool fromTitle = _atmSignals.any((w) => t.contains(w.toLowerCase()));
-    bool fromUpper =
-        up.contains('ATM') ||
-        up.contains('CD/ATM') ||
-        up.endsWith('CD') ||
-        up.startsWith('CD ');
-    bool fromCat =
-        catUp.contains('ATM') ||
-        category.contains('자동화') ||
-        category.contains('코너');
-    return fromTitle || fromUpper || fromCat;
-  }
-
-  bool _isBranchLikeTitle(String title) {
-    final t = _normalize(title);
-    return t.contains('지점') ||
-        t.contains('영업점') ||
-        t.contains('본점') ||
-        t.contains('영업부') ||
-        t.contains('금융센터') ||
-        t.contains('pb센터') ||
-        t.contains('wm센터') ||
-        t.contains('자산관리센터') ||
-        t.contains('센터');
-  }
-
-  bool _looksLikeFacility(String title, String category) {
-    final t = _normalize(title);
-    if (_denyFacilityTitleTokens.any((w) => t.contains(w))) return true;
-    final c = _normalize(category);
-    if (_denyFacilityCategoryTokens.any((w) => c.contains(w))) return true;
-    return false;
-  }
-
-  // ★ 무제한 모드 + 시설물 컷 + ATM/영업점 분리 + 지점/본점/센터 허용
-  bool _isPass(Map<String, dynamic> item, {required bool isAtm}) {
-    final title = _cleanTitle((item['title'] ?? '').toString());
-    final category = (item['category'] ?? '').toString();
-
-    if (_looksLikeFacility(title, category)) return false;
-
-    final hasBrandBank = _hasBrandOrBank(title, category);
-    if (!hasBrandBank) return false;
-
-    final atmSig = _hasAtmSignal(title, category);
-
-    if (isAtm) {
-      return atmSig;
-    } else {
-      if (atmSig) return false; // 영업점 탭에 ATM 섞임 방지
-      final branchLike = _isBranchLikeTitle(title);
-      final bankCategory = category.contains('은행') || category.contains('금융');
-      return branchLike || bankCategory;
+      _datasetCache[type] = items;
+      _all = items;
+      _searchNearby(fromCamera: true);
+    } catch (e) {
+      debugPrint('❌ ${type.assetPath} 로드 실패: $e');
+      _snack('${type.label} 데이터를 불러오지 못했어요.');
     }
   }
 
-  // 429/네트워크 에러 대비 제한 병렬 실행
-  Future<List<T>> _runLimited<T>(
-    Iterable<Future<T> Function()> tasks, {
-    int maxConcurrent = 4,
-  }) async {
-    final funcs = tasks.toList();
-    final results = <T>[];
-    for (int i = 0; i < funcs.length; i += maxConcurrent) {
-      final slice = funcs.skip(i).take(maxConcurrent).toList();
-      final futures = slice.map((fn) async {
-        try {
-          final v = await fn();
-          return v as T?;
-        } catch (_) {
-          return null;
-        }
-      });
-      final chunk = await Future.wait<T?>(futures);
-      results.addAll(chunk.whereType<T>());
-    }
-    return results;
-  }
-
+  // ======================== 검색(항상 거리순) ========================
   Future<NLatLng?> _cameraCenter() async {
-    if (_mapController == null) return null;
-    final pos = await _mapController!.getCameraPosition();
+    if (_map == null) return null;
+    final pos = await _map!.getCameraPosition();
     return pos.target;
   }
 
-  bool _isInKoreaBounds(double lat, double lng) =>
-      lat >= 33 && lat <= 39 && lng >= 124 && lng <= 132;
-
-  // 주소 지오코딩(좌표 보정)
-  Future<NLatLng?> _geocodeAddress(String query) async {
-    try {
-      final resp = await _dio.get(
-        'https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode',
-        queryParameters: {'query': query},
-        options: Options(headers: _naverHeaders),
-      );
-      final list = (resp.data['addresses'] as List?) ?? const [];
-      if (list.isEmpty) return null;
-      final first = list.first;
-      final lng = double.tryParse('${first['x']}');
-      final lat = double.tryParse('${first['y']}');
-      if (lat == null || lng == null) return null;
-      return NLatLng(lat, lng);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Future<void> _searchNearby({bool fromCamera = false}) async {
+  Future<void> _searchNearby({required bool fromCamera}) async {
     if (_isSearching) return;
     if (_mockBlocked) {
       _snack('모의 위치 감지 중에는 검색할 수 없습니다.');
@@ -632,140 +334,42 @@ class _MapPageState extends State<MapPage> {
     setState(() => _isSearching = true);
 
     try {
-      final center = fromCamera
-          ? await _cameraCenter()
-          : (_currentPosition != null
-                ? NLatLng(
-                    _currentPosition!.latitude,
-                    _currentPosition!.longitude,
-                  )
-                : null);
-      if (center == null) {
-        _snack('지도가 준비되지 않았어요.');
-        return;
+      NLatLng center = _busanDefault;
+      if (fromCamera) {
+        final c = await _cameraCenter();
+        if (c != null) center = c;
+      } else if (_isFresh(_currentPosition)) {
+        center = NLatLng(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+        );
       }
 
-      final queries = await _queriesForCurrentTabWithBias(center);
-
-      // 재검색 전 마커 정리
-      await _clearMarkers();
-
-      final isAtmMode = (_tabIndex == 1);
-      final displayCount = isAtmMode ? 30 : 20;
-
-      // 호출 수를 제한 병렬로 처리
-      final allItems = <Map<String, dynamic>>[];
-      final fetchedLists = await _runLimited<List<Map<String, dynamic>>>(
-        queries
-            .take(10)
-            .map(
-              (q) =>
-                  () => _callLocalApi(q, display: displayCount),
-            ),
-        maxConcurrent: 4,
-      );
-      for (final items in fetchedLists) {
-        allItems.addAll(items);
-      }
-
-      // 필터링 + 거리 계산
-      final allPlaces = <Place>[];
-
-      for (final it in allItems) {
-        if (!_isPass(it, isAtm: isAtmMode)) continue;
-
-        final title = _cleanTitle(it['title'] ?? '');
-        final addr = (it['roadAddress'] ?? it['address'] ?? '').toString();
-
-        final mapx = double.tryParse('${it['mapx']}');
-        final mapy = double.tryParse('${it['mapy']}');
-        if (mapx == null || mapy == null) continue;
-
-        double lng = mapx / 10000000.0;
-        double lat = mapy / 10000000.0;
-
-        // 좌표가 비정상 범위면 주소로 보정
-        if (!_isInKoreaBounds(lat, lng)) {
-          final query = addr.isNotEmpty ? addr : title;
-          final geocoded = await _geocodeAddress(query);
-          if (geocoded != null) {
-            lat = geocoded.latitude;
-            lng = geocoded.longitude;
-          } else {
-            continue;
-          }
-        }
-
-        final dist = Geolocator.distanceBetween(
+      final radiusM = _radiusKm * 1000;
+      final inRadius = <Place>[];
+      for (final p in _all) {
+        final d = Geolocator.distanceBetween(
           center.latitude,
           center.longitude,
-          lat,
-          lng,
+          p.lat,
+          p.lng,
         );
-
-        allPlaces.add(
-          Place(
-            id: '$title::${lat.toStringAsFixed(6)},${lng.toStringAsFixed(6)}',
-            title: title,
-            address: addr,
-            lat: lat,
-            lng: lng,
-            distanceM: dist,
-            tel: (it['telephone']?.toString().trim().isNotEmpty ?? false)
-                ? it['telephone']
-                : null,
-            link: (it['link']?.toString().trim().isNotEmpty ?? false)
-                ? it['link']
-                : null,
-            hoursHint: isAtmMode ? null : '일반 영업시간: 평일 09:00–16:00',
-          ),
-        );
+        if (d <= radiusM) {
+          p.distanceM = d;
+          inRadius.add(p);
+        }
       }
 
-      // 제목+주소 기준 중복 제거
-      final seenKey = <String>{};
-      allPlaces.removeWhere((p) {
-        final key = '${p.title}::${p.address}'.toLowerCase().replaceAll(
-          ' ',
-          '',
-        );
-        if (seenKey.contains(key)) return true;
-        seenKey.add(key);
-        return false;
+      inRadius.sort((a, b) {
+        final d = a.distanceM.compareTo(b.distanceM);
+        return d != 0 ? d : a.title.compareTo(b.title);
       });
 
-      // 반경 필터링 (필요시 자동 확장)
-      const minResults = 6;
-      const stepKm = 2.0;
-      const maxKm = 20.0;
-      double radiusUsed = _radiusKm;
-      List<Place> filtered = [];
-
-      while (true) {
-        filtered = allPlaces
-            .where((p) => p.distanceM <= radiusUsed * 1000)
-            .toList();
-        if (filtered.length >= minResults || radiusUsed >= maxKm) break;
-        radiusUsed = (radiusUsed + stepKm).clamp(1.0, maxKm);
-      }
-
-      // 정렬
-      filtered.sort(
-        _sortByDistance
-            ? (a, b) => a.distanceM.compareTo(b.distanceM)
-            : (a, b) => a.title.compareTo(b.title),
-      );
-
-      // 상태 반영
       _results
         ..clear()
-        ..addAll(filtered);
+        ..addAll(inRadius.take(150));
 
-      if ((_radiusKm - radiusUsed).abs() > 1e-6) {
-        _radiusKm = radiusUsed; // UI 표시 업데이트
-      }
-
-      await _renderSimpleMarkers();
+      await _renderMarkers();
       if (mounted) setState(() {});
     } catch (e) {
       debugPrint('검색 실패: $e');
@@ -775,72 +379,41 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  // ---------- API 호출 ----------
-  Future<List<Map<String, dynamic>>> _callLocalApi(
-    String q, {
-    int display = 20,
-    int timeoutSec = 6,
-  }) async {
-    const maxRetry = 2;
-    int attempt = 0;
-    while (true) {
-      attempt++;
-      try {
-        final resp = await _dio
-            .get(
-              'https://openapi.naver.com/v1/search/local.json',
-              queryParameters: {
-                'query': q,
-                'display': display,
-                'start': 1,
-                'sort': 'random',
-              },
-              options: Options(headers: _naverHeaders),
-            )
-            .timeout(Duration(seconds: timeoutSec));
-        return (resp.data['items'] as List).cast<Map<String, dynamic>>();
-      } on DioException catch (e) {
-        final code = e.response?.statusCode ?? 0;
-        if (code == 429 && attempt <= maxRetry) {
-          final wait =
-              200 + (100 * attempt) + (DateTime.now().millisecond % 300);
-          await Future.delayed(Duration(milliseconds: wait));
-          continue;
-        }
-        return const [];
-      } catch (_) {
-        if (attempt <= maxRetry) {
-          await Future.delayed(const Duration(milliseconds: 200));
-          continue;
-        }
-        return const [];
-      }
-    }
-  }
-
   // =============== 마커 렌더/정리 ===============
   Future<void> _clearMarkers() async {
     for (final m in _markers) {
       try {
-        await Future.sync(() => _mapController?.deleteOverlay(m.info));
+        await Future.sync(() => _map?.deleteOverlay(m.info));
       } catch (_) {}
     }
     _markers.clear();
   }
 
-  Future<void> _renderSimpleMarkers() async {
-    if (_mapController == null) return;
+  Future<void> _renderMarkers() async {
+    if (_map == null) return;
     await _clearMarkers();
+
+    final captionColor = switch (_dataset) {
+      DatasetType.branches => const Color(0xFF1A73E8),
+      DatasetType.atm => const Color(0xFF0B8043),
+      DatasetType.atm365 => const Color(0xFFEA4335),
+      DatasetType.stm => const Color(0xFF2962FF),
+    };
+
     for (final p in _results) {
       final marker = NMarker(
-        id: 'mk_${p.title}_${p.lat.toStringAsFixed(6)}_${p.lng.toStringAsFixed(6)}',
+        id: 'mk_${p.id}',
         position: NLatLng(p.lat, p.lng),
-        caption: NOverlayCaption(text: p.title, textSize: 12),
+        caption: NOverlayCaption(
+          text: p.title,
+          textSize: 11,
+          color: captionColor,
+        ),
       );
       marker.setOnTapListener((_) async {
-        final cam = await _mapController?.getCameraPosition();
-        final zoom = cam?.zoom ?? 14;
-        await _mapController?.updateCamera(
+        final cam = await _map?.getCameraPosition();
+        final zoom = cam?.zoom ?? 13;
+        await _map?.updateCamera(
           NCameraUpdate.withParams(
             target: NLatLng(p.lat, p.lng),
             zoom: math.max(zoom, 15),
@@ -848,99 +421,63 @@ class _MapPageState extends State<MapPage> {
         );
         _showPlaceSheet(p);
       });
-      await Future.sync(() => _mapController?.addOverlay(marker));
+      await Future.sync(() => _map?.addOverlay(marker));
       _markers.add(marker);
     }
-    if (mounted) setState(() {});
   }
 
   // ======================== UI ========================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
+      endDrawer: _buildFavoritesDrawer(), // ⭐ 사이드탭
       appBar: AppBar(
         title: const Text('부산은행 근처 지점'),
+        actions: [
+          IconButton(
+            tooltip: '즐겨찾기',
+            icon: const Icon(Icons.star),
+            onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+          ),
+          IconButton(
+            tooltip: '필터',
+            icon: const Icon(Icons.tune),
+            onPressed: _openFilters,
+          ),
+        ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(104),
-          child: _buildTopSearchBar(),
+          preferredSize: const Size.fromHeight(52),
+          child: _buildCategoryRow(),
         ),
       ),
       body: Column(
         children: [
           Expanded(
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: NaverMap(
-                    options: const NaverMapViewOptions(
-                      mapType: NMapType.basic,
-                      locationButtonEnable: true, // 기본 내 위치 버튼
-                    ),
-                    onMapReady: (controller) async {
-                      _mapController = controller;
-                      setState(() => _mapReady = true);
+            child: NaverMap(
+              options: const NaverMapViewOptions(
+                mapType: NMapType.basic,
+                locationButtonEnable: true, // 네이버 기본 내 위치 버튼
+              ),
+              onMapReady: (controller) async {
+                _map = controller;
 
-                      // 위치 오버레이 + 트래킹(face)
-                      final overlayOrFuture = _mapController!
-                          .getLocationOverlay();
-                      final overlay = (overlayOrFuture is Future)
-                          ? await overlayOrFuture
-                          : overlayOrFuture as NLocationOverlay;
-                      await Future.sync(() => overlay.setIsVisible(true));
-                      await Future.sync(
-                        () => _mapController!.setLocationTrackingMode(
-                          NLocationTrackingMode.face,
-                        ),
-                      );
+                final overlayOrFuture = _map!.getLocationOverlay();
+                final overlay = (overlayOrFuture is Future)
+                    ? await overlayOrFuture
+                    : overlayOrFuture as NLocationOverlay;
+                await Future.sync(() => overlay.setIsVisible(true));
+                await Future.sync(
+                  () =>
+                      _map!.setLocationTrackingMode(NLocationTrackingMode.face),
+                );
 
-                      // 위치 스트림: 첫 GPS에서 점프
-                      _startPositionStream(jumpOnFirstFix: true);
-
-                      // 즉시 점프 시도: 보유값 → LastKnown → 4초 제한 현재값
-                      Position? fix = _currentPosition;
-                      fix ??= await Geolocator.getLastKnownPosition();
-                      fix ??= await Geolocator.getCurrentPosition(
-                        timeLimit: const Duration(seconds: 4),
-                      ).catchError((_) => null);
-
-                      if (fix != null && !_mockBlocked) {
-                        _jumpedOnceToGps = true;
-                        await _mapController!.updateCamera(
-                          NCameraUpdate.withParams(
-                            target: NLatLng(fix.latitude, fix.longitude),
-                            zoom: 15,
-                          ),
-                        );
-                        _searchNearby(fromCamera: true);
-                      } else {
-                        Future.delayed(const Duration(seconds: 5), () {
-                          if (!_jumpedOnceToGps && mounted && !_mockBlocked) {
-                            _snack('GPS 대기 중입니다. 잠시만요!');
-                          }
-                        });
-                      }
-                    },
-                  ),
-                ),
-                if (_mockBlocked)
-                  Positioned(
-                    top: 12,
-                    left: 12,
-                    right: 12,
-                    child: Material(
-                      elevation: 2,
-                      borderRadius: BorderRadius.circular(10),
-                      color: const Color(0xFFFFF3E0),
-                      child: const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: Text(
-                          '모의 위치(가짜 GPS)가 감지되어 기능이 제한됩니다. 모의 위치를 해제한 후 다시 시도하세요.',
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+                // 초기 카메라: 부산(줌 16)
+                await _map!.updateCamera(
+                  NCameraUpdate.withParams(target: _busanDefault, zoom: 16),
+                );
+                _searchNearby(fromCamera: true);
+              },
             ),
           ),
           _buildResultPanel(),
@@ -949,107 +486,44 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
-  // ---------- 상단 검색/필터 바 ----------
-  Widget _buildTopSearchBar() {
+  // 상단 카테고리
+  Widget _buildCategoryRow() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       color: Colors.white,
-      child: Column(
+      child: ListView(
+        scrollDirection: Axis.horizontal,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  textInputAction: TextInputAction.search,
-                  onSubmitted: (_) => _searchNearby(fromCamera: true),
-                  decoration: const InputDecoration(
-                    hintText: '지점명/키워드 (예: 부산은행 해운대점 / ATM)',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: _isSearching
-                    ? null
-                    : () => _searchNearby(fromCamera: true),
-                icon: _isSearching
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.search, size: 18),
-                label: const Text('검색'),
-              ),
-              const SizedBox(width: 6),
-              IconButton(
-                tooltip: '반경/옵션',
-                onPressed: _openFilters,
-                icon: const Icon(Icons.tune),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              ChoiceChip(
-                label: const Text('영업점'),
-                avatar: const Icon(Icons.store_mall_directory, size: 18),
-                selected: _tabIndex == 0,
-                onSelected: (v) {
-                  if (_tabIndex != 0) {
-                    setState(() => _tabIndex = 0);
-                    _searchNearby(fromCamera: true);
-                  }
+          const SizedBox(width: 4),
+          for (final t in DatasetType.values)
+            Padding(
+              padding: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
+              child: ChoiceChip(
+                label: Text(t.label),
+                avatar: Icon(switch (t) {
+                  DatasetType.branches => Icons.store_mall_directory,
+                  DatasetType.atm => Icons.atm,
+                  DatasetType.atm365 => Icons.access_time,
+                  DatasetType.stm => Icons.smart_toy_outlined,
+                }, size: 18),
+                selected: _dataset == t,
+                onSelected: (v) async {
+                  if (!v || _dataset == t) return;
+                  setState(() => _dataset = t);
+                  await _loadDataset(t);
                 },
               ),
-              const SizedBox(width: 8),
-              ChoiceChip(
-                label: const Text('ATM'),
-                avatar: const Icon(Icons.atm, size: 18),
-                selected: _tabIndex == 1,
-                onSelected: (v) {
-                  if (_tabIndex != 1) {
-                    setState(() => _tabIndex = 1);
-                    _searchNearby(fromCamera: true);
-                  }
-                },
-              ),
-              const Spacer(),
-              Text(
-                _sortByDistance ? '거리순' : '이름순',
-                style: const TextStyle(color: Colors.grey),
-              ),
-              Switch(
-                value: _sortByDistance,
-                onChanged: (v) {
-                  setState(() => _sortByDistance = v);
-                  _results.sort(
-                    _sortByDistance
-                        ? (a, b) => a.distanceM.compareTo(b.distanceM)
-                        : (a, b) => a.title.compareTo(b.title),
-                  );
-                  _renderSimpleMarkers();
-                },
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-            ],
-          ),
+            ),
+          const SizedBox(width: 4),
         ],
       ),
     );
   }
 
-  // ---------- 하단 결과 패널(고정) ----------
+  // 하단 결과 패널
   Widget _buildResultPanel() {
-    const panelHeight = 280.0; // 필요시 조절
+    const panelHeight = 300.0;
     return SafeArea(
       top: false,
       child: Container(
@@ -1067,40 +541,37 @@ class _MapPageState extends State<MapPage> {
         ),
         child: Column(
           children: [
-            // 헤더
             Container(
-              height: 46,
+              height: 52,
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              alignment: Alignment.centerLeft,
               child: Row(
                 children: [
                   Expanded(
                     child: Text(
                       _results.isEmpty
-                          ? '검색 결과 없음'
-                          : '결과 ${_results.length}개 · 반경 ${_radiusKm.toStringAsFixed(0)}km',
+                          ? '${_dataset.label} 결과 없음'
+                          : '${_dataset.label} ${_results.length}개 · 반경 ${_radiusKm.toStringAsFixed(0)}km (거리순)',
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ),
                   IconButton(
-                    tooltip: '이 위치에서 재검색',
+                    tooltip: '현 위치에서 재검색',
                     onPressed: _isSearching
                         ? null
-                        : () => _searchNearby(fromCamera: true),
+                        : () => _searchNearby(fromCamera: false),
                     icon: const Icon(Icons.refresh),
                   ),
                 ],
               ),
             ),
             const Divider(height: 1),
-            // 리스트
             Expanded(
               child: _results.isEmpty
                   ? const Center(child: Text('검색 결과가 여기에 표시됩니다.'))
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
                       itemCount: _results.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
                       itemBuilder: (_, i) => _placeCard(_results[i]),
                     ),
             ),
@@ -1110,233 +581,428 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
-  // ---------- 카드 ----------
-  Widget _placeCard(Place p) {
-    final isFav = _favorites.contains(p.id);
-    final hasTel = (p.tel != null && p.tel!.trim().isNotEmpty);
-
-    return InkWell(
-      onTap: () async {
-        final cam = await _mapController?.getCameraPosition();
-        final zoom = cam?.zoom ?? 14;
-        await _mapController?.updateCamera(
-          NCameraUpdate.withParams(
-            target: NLatLng(p.lat, p.lng),
-            zoom: math.max(zoom, 15),
-          ),
-        );
-        _showPlaceSheet(p);
-      },
-      child: Card(
-        elevation: 1.5,
-        shadowColor: Colors.black12,
-        color: const Color(0xFFF8F6FF),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 타이틀/거리·주소·전화
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE8EAF6),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      _tabIndex == 1 ? Icons.atm : Icons.store_mall_directory,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          p.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          [
-                            if (p.address.isNotEmpty) p.address,
-                            '${p.distanceM.toStringAsFixed(0)}m',
-                            if (hasTel) '☎ ${p.tel}',
-                          ].join(' · '),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.black54),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              // 액션 버튼
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  IconButton(
-                    tooltip: hasTel ? '전화하기' : '전화번호 없음',
-                    onPressed: hasTel ? () => _call(p.tel!) : null,
-                    icon: const Icon(Icons.call),
-                  ),
-                  IconButton(
-                    tooltip: '길찾기',
-                    onPressed: () => _navigateTo(p.lat, p.lng, p.title),
-                    icon: const Icon(Icons.directions),
-                  ),
-                  IconButton(
-                    tooltip: isFav ? '즐겨찾기 제거' : '즐겨찾기 추가',
-                    onPressed: () async {
-                      await _toggleFavorite(p);
-                    },
-                    icon: Icon(isFav ? Icons.star : Icons.star_border),
-                  ),
-                ],
-              ),
-            ],
+  // ---------- 공통: 아이콘 + 텍스트 한 줄 ----------
+  Widget _infoRow({
+    required IconData icon,
+    required String text,
+    int maxLines = 1,
+  }) {
+    if (text.trim().isEmpty) return const SizedBox.shrink();
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Icon(icon, size: 14, color: Colors.black54),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: maxLines,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 13,
+              color: Colors.black87,
+              height: 1.2,
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 
-  // ---------- 상세 바텀시트 ----------
-  void _showPlaceSheet(Place p) {
-    showModalBottomSheet(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (_) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    p.title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: _favorites.contains(p.id) ? '즐겨찾기 제거' : '즐겨찾기 추가',
-                  onPressed: () async {
-                    await _toggleFavorite(p);
-                    if (mounted) Navigator.pop(context);
-                  },
-                  icon: Icon(
-                    _favorites.contains(p.id) ? Icons.star : Icons.star_border,
-                  ),
-                ),
-              ],
+  // ---------- 카드: 테두리/구분선 제거 + 플롯(Flat) 카드 ----------
+  Widget _placeCard(Place p) {
+    final isFav = _favorites.contains(p.id);
+    final hasTel = (p.tel != null && p.tel!.trim().isNotEmpty);
+    final distanceText = '${p.distanceM.toStringAsFixed(0)}m';
+
+    final leadingIcon = Icon(
+      switch (_dataset) {
+        DatasetType.branches => Icons.store_mall_directory,
+        DatasetType.atm => Icons.atm,
+        DatasetType.atm365 => Icons.access_time,
+        DatasetType.stm => Icons.smart_toy_outlined,
+      },
+      color: switch (_dataset) {
+        DatasetType.branches => const Color(0xFF2962FF),
+        DatasetType.atm => const Color(0xFF0B8043),
+        DatasetType.atm365 => const Color(0xFFEA4335),
+        DatasetType.stm => const Color(0xFF2962FF),
+      },
+    );
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () async {
+          final cam = await _map?.getCameraPosition();
+          final zoom = cam?.zoom ?? 13;
+          await _map?.updateCamera(
+            NCameraUpdate.withParams(
+              target: NLatLng(p.lat, p.lng),
+              zoom: math.max(zoom, 15),
             ),
-            if (p.address.isNotEmpty) ...[
-              Text(p.address, style: const TextStyle(color: Colors.grey)),
-              const SizedBox(height: 6),
-            ],
-            if (p.hoursHint != null) ...[
-              Row(
-                children: [
-                  const Icon(Icons.access_time, size: 18),
-                  const SizedBox(width: 6),
-                  Expanded(child: Text(p.hoursHint!, maxLines: 2)),
-                ],
-              ),
-              const SizedBox(height: 6),
-            ],
-            if (p.tel != null) ...[
-              InkWell(
-                onTap: () => _call(p.tel!),
-                child: Row(
+          );
+          _showPlaceSheet(p);
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Card(
+          // ✅ 선(테두리/Divider) 제거: 테두리는 0, 대신 은은한 그림자 + 바깥 여백으로 구분
+          elevation: 3,
+          margin: EdgeInsets.zero,
+          color: Colors.white,
+          surfaceTintColor: Colors.white, // M3 틴트 방지
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 1) 상단: 아이콘 + 제목 + 거리칩 + ★
+                Row(
                   children: [
-                    const Icon(Icons.call, size: 18),
+                    Container(
+                      width: 40,
+                      height: 40,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        // 배경도 테두리도 없이 Flat
+                        color: const Color(0xFFF1F4FB),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: leadingIcon,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        p.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          height: 1.1,
+                        ),
+                      ),
+                    ),
                     const SizedBox(width: 6),
-                    Text(
-                      p.tel!,
-                      style: const TextStyle(
-                        decoration: TextDecoration.underline,
+                    _distancePill(distanceText),
+                    IconButton(
+                      tooltip: isFav ? '즐겨찾기 제거' : '즐겨찾기 추가',
+                      onPressed: () async => _toggleFavorite(p),
+                      icon: Icon(isFav ? Icons.star : Icons.star_border),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints.tightFor(
+                        width: 36,
+                        height: 36,
                       ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 6),
-            ],
-            Row(
-              children: [
-                const Icon(Icons.open_in_new, size: 18),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () async {
-                      final uri = Uri.parse(
-                        p.link ??
-                            'https://map.naver.com/v5/search/${Uri.encodeComponent(p.title)}',
-                      );
-                      await launchUrl(
-                        uri,
-                        mode: LaunchMode.externalApplication,
-                      );
-                    },
-                    child: const Text(
-                      '네이버에서 자세히 보기',
-                      style: TextStyle(decoration: TextDecoration.underline),
+                const SizedBox(height: 8),
+
+                // 2) 주소/전화/운영시간 (모두 줄바꿈 없이 Flat하게)
+                _infoRow(
+                  icon: Icons.place_outlined,
+                  text: p.address,
+                  maxLines: 1,
+                ),
+                if (hasTel) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '☎ ${p.tel}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.black87,
+                      height: 1.2,
                     ),
                   ),
+                ],
+                if (p.hours != null && p.hours!.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  _infoRow(
+                    icon: Icons.access_time,
+                    text: p.hours!,
+                    maxLines: 1,
+                  ),
+                ],
+
+                const SizedBox(height: 10),
+
+                // 3) 액션: TextButton(외곽선/Divider 없음)
+                Row(
+                  children: [
+                    TextButton.icon(
+                      onPressed: hasTel ? () => _call(p.tel!) : null,
+                      icon: const Icon(Icons.call, size: 18),
+                      label: const Text('전화'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.icon(
+                      onPressed: () => _navigateTo(p.lat, p.lng, p.title),
+                      icon: const Icon(Icons.directions, size: 18),
+                      label: const Text('길찾기'),
+                    ),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () => _navigateTo(p.lat, p.lng, p.title),
-                    icon: const Icon(Icons.directions),
-                    label: const Text('길찾기'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      _mapController?.updateCamera(
-                        NCameraUpdate.withParams(
-                          target: NLatLng(p.lat, p.lng),
-                          zoom: 16,
-                        ),
-                      );
-                      Navigator.pop(context);
-                    },
-                    icon: const Icon(Icons.map),
-                    label: const Text('지도에서 보기'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  // ---------- 필터/설정 ----------
+  Widget _distancePill(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF5FF),
+        borderRadius: BorderRadius.circular(999),
+        // 테두리 제거(선 느낌 배제), 대신 아주 옅은 배경만
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  // ===== 모달(바텀시트): Flat + 섹션형 + 큰 버튼 =====
+  void _showPlaceSheet(Place p) {
+    final hasTel = (p.tel != null && p.tel!.trim().isNotEmpty);
+    final km = (p.distanceM / 1000).toStringAsFixed(2);
+
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.white, // ✅ Flat 배경
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          final isFav = _favorites.contains(p.id);
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+              top: 8,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 헤더
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F4FB),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        switch (_dataset) {
+                          DatasetType.branches => Icons.store_mall_directory,
+                          DatasetType.atm => Icons.atm,
+                          DatasetType.atm365 => Icons.access_time,
+                          DatasetType.stm => Icons.smart_toy_outlined,
+                        },
+                        color: switch (_dataset) {
+                          DatasetType.branches => const Color(0xFF2962FF),
+                          DatasetType.atm => const Color(0xFF0B8043),
+                          DatasetType.atm365 => const Color(0xFFEA4335),
+                          DatasetType.stm => const Color(0xFF2962FF),
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            p.title,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              height: 1.1,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _chip(
+                                icon: Icons.place_outlined,
+                                label: '거리 $km km',
+                              ),
+                              if (p.hours != null && p.hours!.isNotEmpty)
+                                _chip(icon: Icons.access_time, label: p.hours!),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: isFav ? '즐겨찾기 제거' : '즐겨찾기 추가',
+                      onPressed: () async {
+                        await _toggleFavorite(p, silent: true);
+                        setState(() {});
+                        setModalState(() {});
+                      },
+                      icon: Icon(isFav ? Icons.star : Icons.star_border),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // 주소 섹션
+                _section(
+                  title: '주소',
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.place_outlined, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          p.address,
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: '네이버 지도에서 보기',
+                        onPressed: () async {
+                          final uri = Uri.parse(
+                            'https://map.naver.com/v5/search/${Uri.encodeComponent(p.title)}',
+                          );
+                          await launchUrl(
+                            uri,
+                            mode: LaunchMode.externalApplication,
+                          );
+                        },
+                        icon: const Icon(Icons.open_in_new),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 연락처 섹션
+                if (hasTel)
+                  _section(
+                    title: '연락처',
+                    child: InkWell(
+                      onTap: () => _call(p.tel!),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 8),
+                          Text(
+                            '☎ ${p.tel}',
+                            style: const TextStyle(
+                              decoration: TextDecoration.underline,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                const SizedBox(height: 8),
+
+                // 큰 액션 버튼
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () => _navigateTo(p.lat, p.lng, p.title),
+                        icon: const Icon(Icons.directions),
+                        label: const Text('길찾기'),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          textStyle: const TextStyle(fontSize: 16),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
+                        label: const Text('닫기'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          textStyle: const TextStyle(fontSize: 16),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _chip({required IconData icon, required String label}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F6FD),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.black54),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12.5, color: Colors.black87),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _section({required String title, required Widget child}) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F8FA), // ✅ 섹션 배경만 살짝 회색, 선 없음
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+          ),
+          const SizedBox(height: 8),
+          child,
+        ],
+      ),
+    );
+  }
+
+  // ===== 필터/설정 =====
   void _openFilters() {
+    setState(() => _radiusKm = _radiusKm.clamp(1, 20));
     showModalBottomSheet(
       context: context,
       showDragHandle: true,
@@ -1357,14 +1023,21 @@ class _MapPageState extends State<MapPage> {
               children: [
                 const Text('반경', style: TextStyle(fontWeight: FontWeight.w600)),
                 Expanded(
-                  child: Slider(
-                    value: _radiusKm,
-                    min: 1,
-                    max: 20,
-                    divisions: 19,
-                    label: '${_radiusKm.toStringAsFixed(0)}km',
-                    onChanged: (v) => setState(() => _radiusKm = v),
-                    onChangeEnd: (_) => _searchNearby(fromCamera: true),
+                  child: StatefulBuilder(
+                    builder: (ctx, setSheetState) {
+                      return Slider(
+                        value: _radiusKm.clamp(1, 20),
+                        min: 1,
+                        max: 20,
+                        divisions: 19,
+                        label: '${_radiusKm.toStringAsFixed(0)}km',
+                        onChanged: (v) {
+                          setSheetState(() {});
+                          setState(() => _radiusKm = v.clamp(1, 20));
+                        },
+                        onChangeEnd: (_) => _searchNearby(fromCamera: true),
+                      );
+                    },
                   ),
                 ),
                 Text('${_radiusKm.toStringAsFixed(0)}km'),
@@ -1376,14 +1049,121 @@ class _MapPageState extends State<MapPage> {
                   child: OutlinedButton.icon(
                     onPressed: () {
                       Navigator.pop(context);
-                      _searchNearby(fromCamera: true);
+                      _searchNearby(fromCamera: false);
                     },
                     icon: const Icon(Icons.refresh),
-                    label: const Text('이 위치에서 재검색'),
+                    label: const Text('현 위치에서 재검색'),
                   ),
                 ),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===== 즐겨찾기 사이드 드로어 =====
+  Widget _buildFavoritesDrawer() {
+    Place? _findById(String id) {
+      for (final list in _datasetCache.values) {
+        final f = list.where((e) => e.id == id);
+        if (f.isNotEmpty) return f.first;
+      }
+      final f2 = _all.where((e) => e.id == id);
+      if (f2.isNotEmpty) return f2.first;
+      return null;
+    }
+
+    final favList = _favorites.map(_findById).whereType<Place>().toList()
+      ..sort((a, b) => a.title.compareTo(b.title));
+
+    return Drawer(
+      width: 320,
+      child: SafeArea(
+        child: Column(
+          children: [
+            const ListTile(
+              leading: Icon(Icons.star),
+              title: Text(
+                '즐겨찾기',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            const Divider(height: 1),
+            if (favList.isEmpty)
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(
+                        Icons.star_border,
+                        size: 56,
+                        color: Color(0xFF9EA6B3),
+                      ),
+                      SizedBox(height: 10),
+                      Text(
+                        '즐겨찾기가 비어 있어요',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      SizedBox(height: 6),
+                      Text(
+                        '목록 카드의 ★ 버튼을 눌러 추가하세요.',
+                        style: TextStyle(color: Colors.black54),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 8,
+                  ),
+                  itemBuilder: (_, i) {
+                    final p = favList[i];
+                    return ListTile(
+                      leading: const Icon(Icons.place_outlined),
+                      title: Text(
+                        p.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        p.address,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: IconButton(
+                        tooltip: '즐겨찾기 해제',
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () async {
+                          await _toggleFavorite(p, silent: true);
+                          setState(() {});
+                        },
+                      ),
+                      onTap: () async {
+                        _scaffoldKey.currentState?.closeEndDrawer();
+                        await _map?.updateCamera(
+                          NCameraUpdate.withParams(
+                            target: NLatLng(p.lat, p.lng),
+                            zoom: 16,
+                          ),
+                        );
+                        _showPlaceSheet(p);
+                      },
+                    );
+                  },
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemCount: favList.length,
+                ),
+              ),
           ],
         ),
       ),

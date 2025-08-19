@@ -94,6 +94,11 @@ flutter:
     - assets/ani/
     - assets/images/
     - assets/images/logo/
+    - assets/branches_geocoded.json
+    - assets/atm_geocoded.json
+    - assets/atm_365_geocoded.json
+    - assets/stm_geocoded.json
+
 
   # To add assets to your application, add an assets section, like this:
   # assets:

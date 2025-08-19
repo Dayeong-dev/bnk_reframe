@@ -9,7 +9,6 @@ import 'package:reframe/model/deposit_product.dart';
 import 'package:reframe/pages/deposit/deposit_list_page.dart';
 import 'package:reframe/service/deposit_service.dart';
 import 'deposit_detail_page.dart';
-import 'package:flutter/services.dart';
 import 'package:reframe/pages/branch/map_page.dart';
 
 /// 통화 포맷터: 1,000 단위 콤마
@@ -186,8 +185,10 @@ class _DepositMainPageState extends State<DepositMainPage> {
     );
   }
 
-  // ============= 이자 계산기 (개선) =============
-  // 교체할 메서드 전체
+  // ============= 이자 계산기 (경계/구획 강조 개선) =============
+  // 변경 포인트:
+  // - 섹션 제목 + 테두리(Border.all) + 연한 배경으로 블록 구분
+  // - Divider와 섹션 간 여백으로 가독성 강화
   void showInterestCalculator(BuildContext context, DepositProduct product) {
     final amountController = TextEditingController(text: "1,000,000");
     final FocusNode amountFocus = FocusNode();
@@ -219,6 +220,25 @@ class _DepositMainPageState extends State<DepositMainPage> {
 
             void dismissKeyboard() => FocusScope.of(context).unfocus();
 
+            // 더 또렷한 섹션 박스
+            BoxDecoration sectionBox({Color? fill}) => BoxDecoration(
+              color: fill ?? Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.grey.shade400, width: 1.2),
+            );
+
+            Widget sectionTitle(String t) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Text(
+                t,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF111827),
+                ),
+              ),
+            );
+
             return AnimatedPadding(
               duration: const Duration(milliseconds: 180),
               padding: EdgeInsets.only(
@@ -226,13 +246,13 @@ class _DepositMainPageState extends State<DepositMainPage> {
               ),
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: dismissKeyboard, // 바깥 탭 시 키보드 닫기
+                onTap: dismissKeyboard,
                 child: Container(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: const Color(0xFFF7F8FB),
                     borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(28),
+                      top: Radius.circular(24),
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -242,16 +262,35 @@ class _DepositMainPageState extends State<DepositMainPage> {
                         offset: const Offset(0, -5),
                       ),
                     ],
+                    // 바텀시트 상단/하단 경계선
+                    border: Border(
+                      top: BorderSide(color: Colors.grey.shade300, width: 1),
+                      bottom: BorderSide(
+                        color: Colors.grey.shade300,
+                        width: 0.6,
+                      ),
+                    ),
                   ),
                   child: SafeArea(
                     top: false,
                     child: SingleChildScrollView(
                       child: Column(
                         children: [
-                          // 상단 그립 + 키보드 내리기 버튼
+                          // 상단 핸들 + 키보드 내리기
                           Row(
                             children: [
-                              const Spacer(),
+                              Expanded(
+                                child: Center(
+                                  child: Container(
+                                    width: 36,
+                                    height: 4,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade400,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  ),
+                                ),
+                              ),
                               IconButton(
                                 tooltip: '키보드 내리기',
                                 onPressed: dismissKeyboard,
@@ -259,49 +298,50 @@ class _DepositMainPageState extends State<DepositMainPage> {
                               ),
                             ],
                           ),
+                          const SizedBox(height: 6),
 
                           Text(
                             "📊 ${product.name} 이자 계산기",
-                            style: TextStyle(
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w900,
-                              color: _ink,
+                              color: Color(0xFF111827),
                             ),
                           ),
-                          const SizedBox(height: 18),
+                          const SizedBox(height: 16),
 
-                          // 요약 박스
+                          // 섹션 1: 상품 요약 (경계 또렷)
                           Container(
-                            padding: const EdgeInsets.all(18),
-                            decoration: neoDecoration(),
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: sectionBox(fill: Colors.white),
                             child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                sectionTitle("상품 요약"),
                                 _infoLine(
                                   "최대 금리",
                                   "${rate.toStringAsFixed(2)}%",
+                                  highlight: true,
                                 ),
                                 const SizedBox(height: 6),
                                 _infoLine("기본 가입기간", "${product.period}개월"),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 18),
 
-                          // ✅ 금액 입력 영역 (시각적 강조 + iOS Done 대체 버튼)
+                          const SizedBox(height: 12),
+
+                          // 섹션 2: 예치금 입력 (경계 또렷)
                           Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: neoDecoration(),
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: sectionBox(fill: Colors.grey.shade50),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  "예치금액",
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
+                                sectionTitle("예치금"),
                                 TextField(
                                   controller: amountController,
                                   focusNode: amountFocus,
@@ -341,7 +381,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
                                             tooltip: '지우기',
                                             onPressed: () {
                                               amountController.clear();
-                                              s(() {}); // 즉시 UI 반영
+                                              s(() {});
                                               calculate(s);
                                             },
                                             icon: const Icon(Icons.clear),
@@ -362,22 +402,22 @@ class _DepositMainPageState extends State<DepositMainPage> {
                                       ),
                                     ),
                                     filled: true,
-                                    fillColor: Colors.grey.shade50,
+                                    fillColor: Colors.white,
                                     contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 16,
-                                      vertical: 16,
+                                      vertical: 14,
                                     ),
                                     enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
+                                      borderRadius: BorderRadius.circular(12),
                                       borderSide: BorderSide(
-                                        color: Colors.grey.shade300,
+                                        color: Colors.grey.shade400,
                                         width: 1.2,
                                       ),
                                     ),
                                     focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
+                                      borderRadius: BorderRadius.circular(12),
                                       borderSide: BorderSide(
-                                        color: _accent,
+                                        color: const Color(0xFF304FFE),
                                         width: 2,
                                       ),
                                     ),
@@ -412,73 +452,105 @@ class _DepositMainPageState extends State<DepositMainPage> {
 
                           const SizedBox(height: 12),
 
-                          // 가입기간 슬라이더
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                "가입기간",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: _ink,
+                          // 섹션 3: 기간 설정 (경계 또렷)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: sectionBox(fill: Colors.white),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                sectionTitle("가입기간"),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      "월 선택",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF111827),
+                                      ),
+                                    ),
+                                    Text(
+                                      "$months 개월",
+                                      style: TextStyle(
+                                        color: const Color(
+                                          0xFF111827,
+                                        ).withOpacity(0.7),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                              Text(
-                                "$months 개월",
-                                style: TextStyle(color: _ink.withOpacity(0.7)),
-                              ),
-                            ],
-                          ),
-                          Slider(
-                            value: months.toDouble(),
-                            min: 1,
-                            max: 36,
-                            divisions: 35,
-                            label: "$months 개월",
-                            activeColor: _accent,
-                            onChanged: (v) {
-                              months = v.toInt();
-                              s(() {});
-                              calculate(s);
-                            },
+                                Slider(
+                                  value: months.toDouble(),
+                                  min: 1,
+                                  max: 36,
+                                  divisions: 35,
+                                  label: "$months 개월",
+                                  activeColor: const Color(0xFF304FFE),
+                                  onChanged: (v) {
+                                    months = v.toInt();
+                                    s(() {});
+                                    calculate(s);
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
 
                           const SizedBox(height: 12),
 
-                          Text(
-                            "예상 이자수익",
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: _ink,
-                            ),
-                          ),
-                          TweenAnimationBuilder<int>(
-                            tween: IntTween(begin: 0, end: interestResult),
-                            duration: const Duration(milliseconds: 680),
-                            curve: Curves.easeOutCubic,
-                            builder: (_, value, __) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              child: Text(
-                                "${formatCurrency(value)} 원",
-                                style: TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w900,
-                                  color: _accent,
-                                ),
-                              ),
-                            ),
-                          ),
-
+                          // 섹션 4: 결과 (경계 또렷) + 가운데 정렬
                           Container(
-                            decoration: neoDecoration(),
-                            margin: const EdgeInsets.only(top: 8),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: sectionBox(fill: Colors.grey.shade50),
                             child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                sectionTitle("예상 결과"),
+                                const SizedBox(height: 4),
+                                // ⬇⬇ 가운데 정렬 추가
+                                Center(
+                                  child: Column(
+                                    children: [
+                                      const Text(
+                                        "예상 이자수익",
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF111827),
+                                        ),
+                                      ),
+                                      TweenAnimationBuilder<int>(
+                                        tween: IntTween(
+                                          begin: 0,
+                                          end: interestResult,
+                                        ),
+                                        duration: const Duration(
+                                          milliseconds: 680,
+                                        ),
+                                        curve: Curves.easeOutCubic,
+                                        builder: (_, value, __) => Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 8,
+                                          ),
+                                          child: Text(
+                                            "${formatCurrency(value)} 원",
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                              fontSize: 28,
+                                              fontWeight: FontWeight.w900,
+                                              color: Color(0xFF304FFE),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Divider(height: 18),
                                 resultRow("예치금", "${formatCurrency(amount)} 원"),
                                 resultRow(
                                   "이자수익",
@@ -493,17 +565,30 @@ class _DepositMainPageState extends State<DepositMainPage> {
                             ),
                           ),
 
-                          const SizedBox(height: 18),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            style: TextButton.styleFrom(
-                              foregroundColor: _accent,
-                              textStyle: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(
+                                  color: Color(0xFF304FFE),
+                                  width: 2,
+                                ),
+                                foregroundColor: const Color(0xFF304FFE),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
+                                textStyle: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
                               ),
+                              child: const Text("닫기"),
                             ),
-                            child: const Text("닫기"),
                           ),
                         ],
                       ),
@@ -709,89 +794,101 @@ class _DepositMainPageState extends State<DepositMainPage> {
       shortcutRow(context),
       const SizedBox(height: 18),
 
-      // 금리 높은 추천(파스텔 서비스 카드 슬라이더)
+      // ⭐ 금리 높은 추천 — 아이콘 제거 + 폰트 확대
       sectionTitle("⭐ 금리 높은 추천"),
       productSlider(recommended.take(5).toList()),
       const SizedBox(height: 12),
 
-      // 인기 TOP 5 (세로 카드)
+      // 🔥 인기 TOP 5
       sectionTitle("🔥 인기 상품 TOP 5"),
       productList(topViewed.take(5).toList()),
     ];
   }
 
-  // === 심플 모드 ===
+  // === 심플 모드 === (기본보기와 유사한 톤: 화이트 카드+옅은 그림자/테두리)
   List<Widget> _buildSimpleModeSection() {
     final accent = _accent;
 
     return [
       const SizedBox(height: 12),
 
-      // 카테고리 바로가기
+      // 카테고리 바로가기 — 버튼을 filled:false로 하얀 카드 느낌
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
             Expanded(
-              child: _BigPrimaryButton(
-                label: "예금",
-                icon: Icons.savings,
-                accent: accent,
-                showIcon: false,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          const DepositListPage(initialCategory: '예금'),
-                      settings: const RouteSettings(name: '/depositList'),
-                    ),
-                  );
-                },
-                horizontalPadding: 8,
-                verticalPadding: 12,
+              child: Container(
+                decoration: neoDecoration(),
+                child: _BigPrimaryButton(
+                  label: "예금",
+                  icon: Icons.savings,
+                  accent: _accent,
+                  showIcon: false,
+                  filled: false, // 테두리 버튼
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const DepositListPage(initialCategory: '예금'),
+                        settings: const RouteSettings(name: '/depositList'),
+                      ),
+                    );
+                  },
+                  horizontalPadding: 8,
+                  verticalPadding: 12,
+                ),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _BigPrimaryButton(
-                label: "적금",
-                icon: Icons.account_balance_wallet,
-                accent: accent,
-                showIcon: false,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          const DepositListPage(initialCategory: '적금'),
-                      settings: const RouteSettings(name: '/depositList'),
-                    ),
-                  );
-                },
-                horizontalPadding: 8,
-                verticalPadding: 12,
+              child: Container(
+                decoration: neoDecoration(),
+                child: _BigPrimaryButton(
+                  label: "적금",
+                  icon: Icons.account_balance_wallet,
+                  accent: _accent,
+                  showIcon: false,
+                  filled: false,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const DepositListPage(initialCategory: '적금'),
+                        settings: const RouteSettings(name: '/depositList'),
+                      ),
+                    );
+                  },
+                  horizontalPadding: 8,
+                  verticalPadding: 12,
+                ),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _BigPrimaryButton(
-                label: "입출금",
-                icon: Icons.money,
-                accent: accent,
-                showIcon: false,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          const DepositListPage(initialCategory: '입출금'),
-                      settings: const RouteSettings(name: '/depositList'),
-                    ),
-                  );
-                },
-                horizontalPadding: 8,
-                verticalPadding: 12,
+              child: Container(
+                decoration: neoDecoration(),
+                child: _BigPrimaryButton(
+                  label: "입출금",
+                  icon: Icons.money,
+                  accent: _accent,
+                  showIcon: false,
+                  filled: false,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const DepositListPage(initialCategory: '입출금'),
+                        settings: const RouteSettings(name: '/depositList'),
+                      ),
+                    );
+                  },
+                  horizontalPadding: 8,
+                  verticalPadding: 12,
+                ),
               ),
             ),
           ],
@@ -799,7 +896,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
       ),
       const SizedBox(height: 16),
 
-      // 빠른 기능
+      // 빠른 기능 — 카드톤 유지
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
@@ -809,6 +906,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
                 label: "내 추천",
                 icon: Icons.recommend,
                 accent: accent,
+                filled: false,
                 onTap: () {
                   ScaffoldMessenger.of(
                     context,
@@ -821,11 +919,9 @@ class _DepositMainPageState extends State<DepositMainPage> {
               child: _BigPrimaryButton(
                 label: "근처 지점",
                 icon: Icons.location_on,
-                accent: accent,
-                onTap: () {
-                  // ✅ 라우터 사용하여 지도 화면으로 이동
-                  Navigator.pushNamed(context, '/map');
-                },
+                accent: Colors.green,
+                filled: false,
+                onTap: () => Navigator.pushNamed(context, '/map'),
               ),
             ),
           ],
@@ -895,6 +991,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
     );
   }
 
+  // === 가로형 추천 카드 (아이콘 제거 + 폰트 확대) ===
   Widget productSlider(List<DepositProduct> products) {
     final pastelSets = [
       [const Color(0xFFEAF4FF), const Color(0xFFD7ECFF)],
@@ -904,14 +1001,14 @@ class _DepositMainPageState extends State<DepositMainPage> {
     ];
 
     return SizedBox(
-      height: 190,
+      height: 196,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: products.length,
         itemBuilder: (_, i) {
           final p = products[i];
           final colors = pastelSets[i % pastelSets.length];
-          final bigIcon = _serviceIconFor(p);
+          final bigIcon = _serviceIconFor(p); // 내부 미사용이지만 인터페이스 유지
           final hashtag = _hashtagFrom(p.purpose, p.name);
 
           return Padding(
@@ -925,13 +1022,19 @@ class _DepositMainPageState extends State<DepositMainPage> {
               onTap: () => goToDetail(p),
               child: _PastelServiceCard(
                 title: p.name,
-                subtitle: "${p.period}개월", // 하단 좌측
+                subtitle: "${p.period}개월",
                 bg1: colors[0],
                 bg2: colors[1],
-                bigIcon: bigIcon, // 우상단 큰 아이콘(배경없음)
-                hashtag: hashtag, // 제목 아래
-                rateText: "최고 ${p.maxRate.toStringAsFixed(2)}%", // 하단 우측 강조
-                cornerIcon: bigIcon, // (호환용, 내부 미사용)
+                bigIcon: bigIcon,
+                hashtag: hashtag,
+                rateText: "최고 ${p.maxRate.toStringAsFixed(2)}%",
+                cornerIcon: bigIcon,
+                // ▼ 추가 파라미터: 아이콘 숨기기 / 폰트 확대
+                showCornerIcon: false,
+                titleFontSize: 18.0,
+                hashtagFontSize: 14.0,
+                bottomLeftFontSize: 15.0,
+                bottomRightFontSize: 18.0,
               ),
             ),
           );
@@ -974,6 +1077,8 @@ class _DepositMainPageState extends State<DepositMainPage> {
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -1226,15 +1331,21 @@ class _TapScaleState extends State<_TapScale> {
   }
 }
 
+// ▼ 파라미터 추가: showCornerIcon, 폰트 크기 조절
 class _PastelServiceCard extends StatelessWidget {
   final String title;
   final String subtitle; // ex) "12개월"
   final Color bg1;
   final Color bg2;
-  final IconData bigIcon; // ✅ 우상단 배경없는 아이콘으로 사용
+  final IconData bigIcon; // (호환용) — 숨길 수 있음
   final String hashtag; // 제목 아래
   final String rateText; // ex) "최고 7.00%"
-  final IconData cornerIcon; // (호환용, 사용하지 않음)
+  final IconData cornerIcon; // (호환용, 미사용)
+  final bool showCornerIcon; // ← 신규: 우상단 큰 아이콘 표시 여부
+  final double titleFontSize;
+  final double hashtagFontSize;
+  final double bottomLeftFontSize; // "개월"
+  final double bottomRightFontSize; // "최고 7.00%"
 
   const _PastelServiceCard({
     required this.title,
@@ -1245,6 +1356,11 @@ class _PastelServiceCard extends StatelessWidget {
     required this.hashtag,
     required this.rateText,
     required this.cornerIcon,
+    this.showCornerIcon = true,
+    this.titleFontSize = 18.0,
+    this.hashtagFontSize = 13.0,
+    this.bottomLeftFontSize = 14.5,
+    this.bottomRightFontSize = 16.5,
   });
 
   @override
@@ -1275,38 +1391,38 @@ class _PastelServiceCard extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            // ===== 우상단: 배경 없는 아이콘(그냥 아이콘만) =====
-            Positioned(
-              right: 14,
-              top: 10,
-              child: Icon(
-                bigIcon,
-                size: 86, // 크고 또렷하게
-                color: Colors.black.withOpacity(0.12), // 연한 단색, 배경 없음
+            // 우상단 큰 아이콘 — 요청에 따라 숨김 가능
+            if (showCornerIcon)
+              Positioned(
+                right: 14,
+                top: 10,
+                child: Icon(
+                  bigIcon,
+                  size: 86,
+                  color: Colors.black.withOpacity(0.12),
+                ),
               ),
-            ),
 
-            // ===== 본문 =====
+            // 본문
             Padding(
-              // 우상단 아이콘과 겹치지 않게 오른쪽 여백 조금 더 줌
               padding: const EdgeInsets.fromLTRB(18, 16, 24, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 제목
+                  // 제목 (폰트 확대)
                   Text(
                     title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 18,
+                    style: TextStyle(
+                      fontSize: titleFontSize,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF1F2937),
+                      color: const Color(0xFF1F2937),
                     ),
                   ),
                   const SizedBox(height: 6),
 
-                  // 해시태그 + 동전2
+                  // 해시태그 (폰트 확대)
                   Row(
                     children: [
                       Flexible(
@@ -1315,7 +1431,7 @@ class _PastelServiceCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: hashtagFontSize,
                             fontWeight: FontWeight.w900,
                             color: Colors.black.withOpacity(0.75),
                             shadows: const [
@@ -1337,26 +1453,23 @@ class _PastelServiceCard extends StatelessWidget {
 
                   const Spacer(),
 
-                  // ===== 하단: 좌(개월) / 우(최고금리) =====
+                  // 하단: 좌(개월) / 우(최고금리) — 폰트 확대
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // 좌측: 기간 (중간 강조)
                       Text(
-                        subtitle, // "12개월"
+                        subtitle,
                         style: TextStyle(
-                          fontSize: 14.5,
+                          fontSize: bottomLeftFontSize,
                           fontWeight: FontWeight.w800,
                           color: Colors.black.withOpacity(0.60),
                           letterSpacing: 0.2,
                         ),
                       ),
-
-                      // 우측: 최고 금리 (텍스트만 강하게)
                       Text(
-                        rateText, // "최고 7.00%"
+                        rateText,
                         style: TextStyle(
-                          fontSize: 16.5,
+                          fontSize: bottomRightFontSize,
                           fontWeight: FontWeight.w900,
                           color: accent,
                           letterSpacing: 0.2,
@@ -1426,7 +1539,7 @@ class _RateBadge extends StatelessWidget {
         border: Border.all(color: Colors.black.withOpacity(0.06), width: 1),
       ),
       child: Text(
-        text, // "최고 3.50%"
+        text,
         style: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w900,
@@ -1437,6 +1550,7 @@ class _RateBadge extends StatelessWidget {
   }
 }
 
+// ▼ filled 옵션 추가: false면 화이트 카드 + 테두리(기본보기 톤과 유사)
 class _BigPrimaryButton extends StatelessWidget {
   final String label;
   final IconData? icon;
@@ -1445,6 +1559,7 @@ class _BigPrimaryButton extends StatelessWidget {
   final double horizontalPadding;
   final double verticalPadding;
   final bool showIcon;
+  final bool filled;
 
   const _BigPrimaryButton({
     required this.label,
@@ -1454,41 +1569,76 @@ class _BigPrimaryButton extends StatelessWidget {
     this.horizontalPadding = 16,
     this.verticalPadding = 16,
     this.showIcon = true,
+    this.filled = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    final style = ElevatedButton.styleFrom(
-      backgroundColor: accent,
-      foregroundColor: Colors.white,
-      textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 0,
-      padding: EdgeInsets.symmetric(
-        horizontal: horizontalPadding,
-        vertical: verticalPadding,
-      ),
-    );
-
-    if (showIcon && icon != null) {
-      return SizedBox(
-        height: 64,
-        child: ElevatedButton.icon(
-          icon: Icon(icon, size: 22),
-          label: Text(label),
-          onPressed: onTap,
-          style: style,
+    if (filled) {
+      final style = ElevatedButton.styleFrom(
+        backgroundColor: accent,
+        foregroundColor: Colors.white,
+        textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 0,
+        padding: EdgeInsets.symmetric(
+          horizontal: horizontalPadding,
+          vertical: verticalPadding,
         ),
       );
+      if (showIcon && icon != null) {
+        return SizedBox(
+          height: 64,
+          child: ElevatedButton.icon(
+            icon: Icon(icon, size: 22),
+            label: Text(label),
+            onPressed: onTap,
+            style: style,
+          ),
+        );
+      } else {
+        return SizedBox(
+          height: 64,
+          child: ElevatedButton(
+            onPressed: onTap,
+            style: style,
+            child: Text(label),
+          ),
+        );
+      }
     } else {
-      return SizedBox(
-        height: 64,
-        child: ElevatedButton(
-          onPressed: onTap,
-          style: style,
-          child: Text(label),
+      // 화이트 카드 + 테두리
+      final style = OutlinedButton.styleFrom(
+        side: BorderSide(color: accent.withOpacity(0.6), width: 1.6),
+        foregroundColor: accent,
+        backgroundColor: Colors.white,
+        textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        padding: EdgeInsets.symmetric(
+          horizontal: horizontalPadding,
+          vertical: verticalPadding,
         ),
       );
+      if (showIcon && icon != null) {
+        return SizedBox(
+          height: 64,
+          child: OutlinedButton.icon(
+            icon: Icon(icon, size: 22),
+            label: Text(label),
+            onPressed: onTap,
+            style: style,
+          ),
+        );
+      } else {
+        return SizedBox(
+          height: 64,
+          child: OutlinedButton(
+            onPressed: onTap,
+            style: style,
+            child: Text(label),
+          ),
+        );
+      }
     }
   }
 }
@@ -1521,11 +1671,9 @@ Widget shortcutRow(BuildContext context) {
         Expanded(
           child: InkWell(
             borderRadius: borderRadius,
-            onTap: () {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text("추천으로 이동")));
-            },
+            onTap: () => ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text("추천으로 이동"))),
             child: Container(
               padding: const EdgeInsets.all(20),
               margin: const EdgeInsets.only(right: 8),
@@ -1555,10 +1703,7 @@ Widget shortcutRow(BuildContext context) {
         Expanded(
           child: InkWell(
             borderRadius: borderRadius,
-            onTap: () {
-              // ✅ 라우터 사용하여 지도 화면으로 이동
-              Navigator.pushNamed(context, '/map');
-            },
+            onTap: () => Navigator.pushNamed(context, '/map'),
             child: Container(
               padding: const EdgeInsets.all(20),
               margin: const EdgeInsets.only(left: 8),
@@ -1612,12 +1757,8 @@ class _SimpleProductCard extends StatelessWidget {
         blurRadius: 12,
         offset: const Offset(0, 6),
       ),
-      const BoxShadow(
-        color: Colors.white,
-        blurRadius: 6,
-        offset: Offset(-2, -2),
-      ),
     ],
+    // border 제거해서 기본 모드 카드와 동일 톤
   );
 
   @override

@@ -74,7 +74,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
                 : SafeArea(
                   top: false,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                     child: SizedBox(
                       width: double.infinity,
                       child: SizedBox(

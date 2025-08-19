@@ -28,6 +28,12 @@ class SuccessEnrollPage extends StatelessWidget {
                   fit: BoxFit.contain,
                   repeat: false,      // 반복 재생
                   animate: true,     // 자동 재생
+                  key: ValueKey('succ-${primaryColor.value}-${subColor.value}'),
+                  delegates: LottieDelegates(values: [
+                    ValueDelegate.color(['Shape Layer 1','Ellipse 1','Fill 1'], value: subColor),
+                    ValueDelegate.color(['Shape Layer 2','Ellipse 1','Fill 1'], value: primaryColor),
+                    ValueDelegate.color(['check','Shape 1','Stroke 1'], value: Colors.white),
+                  ]),
                 ),
               ),
               Text("상품가입 완료!", style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800)),

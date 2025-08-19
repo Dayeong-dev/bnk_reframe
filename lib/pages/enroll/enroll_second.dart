@@ -255,14 +255,14 @@ class _BottomButton extends StatelessWidget {
       child: Container(
         color: Colors.white,
         padding:
-        EdgeInsets.fromLTRB(16, 8, 16, 16 + MediaQuery.of(context).padding.bottom),
+        EdgeInsets.fromLTRB(16, 8, 16, 8 + MediaQuery.of(context).padding.bottom),
         child: SizedBox(
           width: double.infinity,
           height: 48,
           child: ElevatedButton(
             onPressed: enabled ? onPressed : null,
             style: ElevatedButton.styleFrom(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               backgroundColor: primaryColor,
               disabledBackgroundColor: const Color(0xFFD0D0D0),
             ),

@@ -171,7 +171,7 @@ class _ThirdStepPageState extends State<ThirdStepPage> {
                 onPressed: _submit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 child: Text(
                     "네! 가입하겠습니다.",

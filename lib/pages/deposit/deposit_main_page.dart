@@ -186,9 +186,6 @@ class _DepositMainPageState extends State<DepositMainPage> {
   }
 
   // ============= 이자 계산기 (경계/구획 강조 개선) =============
-  // 변경 포인트:
-  // - 섹션 제목 + 테두리(Border.all) + 연한 배경으로 블록 구분
-  // - Divider와 섹션 간 여백으로 가독성 강화
   void showInterestCalculator(BuildContext context, DepositProduct product) {
     final amountController = TextEditingController(text: "1,000,000");
     final FocusNode amountFocus = FocusNode();
@@ -278,10 +275,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
                       child: SingleChildScrollView(
                         child: Column(
                           children: [
-                            // 🔥 핸들바 제거 후 상단 여백만 소폭 유지
                             const SizedBox(height: 4),
-
-                            // 타이틀
                             Text(
                               "${product.name} 이자 계산기",
                               textAlign: TextAlign.center,
@@ -315,8 +309,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
 
                             const SizedBox(height: 10),
 
-                            // 섹션 2: 예치금 (통일된 카드 + 한 줄 입력)
-                            // ✅ 예치금 섹션 (외부 박스 제거, TextField 단일 박스로)
+                            // 섹션 2: 예치금 (단일 입력 박스)
                             Padding(
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               child: TextField(
@@ -330,8 +323,8 @@ class _DepositMainPageState extends State<DepositMainPage> {
                                   FilteringTextInputFormatter.digitsOnly
                                 ],
                                 decoration: InputDecoration(
-                                  labelText: "예치금", // ← 라벨 추가
-                                  prefixText: "₩ ", // ← 원화 붙여줌
+                                  labelText: "예치금",
+                                  prefixText: "₩ ",
                                   prefixStyle: const TextStyle(
                                     fontWeight: FontWeight.w800,
                                     color: Color(0xFF111827),
@@ -406,7 +399,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
 
                             const SizedBox(height: 10),
 
-                            // 섹션 3: 가입기간 (텍스트 한 줄 + 슬라이더)
+                            // 섹션 3: 가입기간 (한 줄 + 슬라이더)
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.all(12),
@@ -757,7 +750,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
       categorySection(context),
       const SizedBox(height: 18),
 
-      // 추천 & 근처 지점
+      // ✅ 추천 & 근처 지점 (공통 위젯) — 추천은 /savings/start로 이동
       shortcutRow(context),
       const SizedBox(height: 18),
 
@@ -772,14 +765,12 @@ class _DepositMainPageState extends State<DepositMainPage> {
     ];
   }
 
-  // === 심플 모드 === (기본보기와 유사한 톤: 화이트 카드+옅은 그림자/테두리)
+  // === 심플 모드 === (예전 심플 UI로 복원 + 라우팅 유지)
   List<Widget> _buildSimpleModeSection() {
-    final accent = _accent;
-
     return [
       const SizedBox(height: 12),
 
-      // 카테고리 바로가기 — 버튼을 filled:false로 하얀 카드 느낌
+      // 카테고리 바로가기 — 예전처럼 BigPrimaryButton(테두리) 3개
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
@@ -861,32 +852,31 @@ class _DepositMainPageState extends State<DepositMainPage> {
           ],
         ),
       ),
+
       const SizedBox(height: 16),
 
-      // 빠른 기능 — 카드톤 유지
+      // 🔙 예전 심플 UI의 "빠른 기능" 영역 (두 개의 큰 버튼)
+      // ✅ 라우팅 유지: 내 추천 → /savings/start, 근처 지점 → /map
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
             Expanded(
               child: _BigPrimaryButton(
-                label: "내 추천",
+                label: "맞춤 상품 추천",
                 icon: Icons.recommend,
-                accent: accent,
-                filled: false,
-                onTap: () {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text("추천으로 이동")));
-                },
+                accent: _accent,
+                filled: false, // 꽉 찬 버튼(예전 스타일)
+                onTap: () => Navigator.pushNamed(context, '/savings/start'),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _BigPrimaryButton(
-                label: "근처 지점",
+                label: "근처 지점 위치",
+                icon: Icons.location_on,
                 accent: Colors.green,
-                filled: false,
+                filled: false, // 테두리 버튼
                 onTap: () => Navigator.pushNamed(context, '/map'),
               ),
             ),
@@ -896,7 +886,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
 
       const SizedBox(height: 20),
 
-      // 추천 리스트 (심플 카드)
+      // 추천 리스트 (예전 심플 카드)
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Text(
@@ -915,7 +905,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: _SimpleProductCard(
                 p: p,
-                accent: accent,
+                accent: _accent,
                 onDetail: () => goToDetail(p),
                 onCalc: () => showInterestCalculator(context, p),
               ),
@@ -1355,7 +1345,6 @@ class _PastelServiceCard extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            // 우상단 큰 아이콘 — 요청에 따라 숨김 가능
             if (showCornerIcon)
               Positioned(
                 right: 14,
@@ -1607,6 +1596,7 @@ class _BigPrimaryButton extends StatelessWidget {
   }
 }
 
+/// ✅ 공통 쇼트컷 카드: 추천 상품(/savings/start), 영업점/ATM(/map)
 Widget shortcutRow(BuildContext context) {
   final baseColor = Colors.white;
   final borderRadius = BorderRadius.circular(20);
@@ -1635,9 +1625,8 @@ Widget shortcutRow(BuildContext context) {
         Expanded(
           child: InkWell(
             borderRadius: borderRadius,
-            onTap: () => ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text("추천으로 이동"))),
+            // 🔁 변경: 스낵바 → /savings/start 라우팅
+            onTap: () => Navigator.pushNamed(context, '/savings/start'),
             child: Container(
               padding: const EdgeInsets.all(20),
               margin: const EdgeInsets.only(right: 8),
@@ -1647,7 +1636,7 @@ Widget shortcutRow(BuildContext context) {
                   Icon(Icons.recommend, size: 36, color: Colors.indigo),
                   SizedBox(height: 10),
                   Text(
-                    "🧠 추천 상품",
+                    "저축 성향 테스트",
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 17,
@@ -1656,7 +1645,7 @@ Widget shortcutRow(BuildContext context) {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    "개인 맞춤 추천",
+                    "맞춤 상품 추천",
                     style: TextStyle(fontSize: 13, color: Colors.indigo),
                   ),
                 ],
@@ -1725,7 +1714,6 @@ class _SimpleProductCard extends StatelessWidget {
             offset: const Offset(0, 6),
           ),
         ],
-        // border 제거해서 기본 모드 카드와 동일 톤
       );
 
   @override

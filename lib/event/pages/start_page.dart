@@ -16,7 +16,8 @@ class StartPage extends StatelessWidget {
     final uid = FortuneAuthService.getCurrentUid();
     if (uid == null) return true; // 로그인 안 된 경우 제한 불가 → InputPage에서 로그인 후 처리
 
-    final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    final doc =
+        await FirebaseFirestore.instance.collection('users').doc(uid).get();
     if (!doc.exists) return true; // 새 유저 → 제한 없음
 
     final lastDrawDate = doc.data()?['lastDrawDate'];
@@ -38,9 +39,17 @@ class StartPage extends StatelessWidget {
     final raw = ModalRoute.of(context)?.settings.arguments;
     String? inviter;
     if (raw is Map) {
-      inviter = (raw['inviter'] ?? raw['inviteCode'] ?? raw['code'])?.toString();
+      inviter =
+          (raw['inviter'] ?? raw['inviteCode'] ?? raw['code'])?.toString();
     }
+
     return Scaffold(
+      // ✅ AppBar 추가
+      appBar: AppBar(
+        title: const Text('오늘의 운세'),
+        centerTitle: true, // iOS/Android 모두 중앙 정렬
+        elevation: 0.5, // 살짝 그림자
+      ),
       body: Center(
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           const Text('오늘의 운세를 확인해보세요', style: TextStyle(fontSize: 20)),

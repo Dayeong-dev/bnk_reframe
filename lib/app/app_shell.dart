@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:reframe/event/pages/fortune_hub_page.dart';
 import 'package:reframe/pages/customer/more_page.dart';
 import 'package:reframe/pages/deposit/deposit_list_page.dart';
 import 'package:reframe/pages/deposit/deposit_main_page.dart';
 import 'package:reframe/pages/home_page.dart';
 
 import '../constants/color.dart';
-import '../pages/savings_test/screens/start_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -39,28 +39,16 @@ class _AppShellState extends State<AppShell> {
         children: [
           SafeArea(child: HomePage()),
           SafeArea(child: DepositMainPage()),
-          SafeArea(child: StartScreen()),
+          SafeArea(child: FortuneHubPage()),
           SafeArea(child: MorePage())
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: "홈"
-          ),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.savings),
-              label: "상품"
-          ),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.event),
-              label: "이벤트"
-          ),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.more_horiz),
-              label: "더보기"
-          )
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "홈"),
+          BottomNavigationBarItem(icon: Icon(Icons.savings), label: "상품"),
+          BottomNavigationBarItem(icon: Icon(Icons.event), label: "이벤트"),
+          BottomNavigationBarItem(icon: Icon(Icons.more_horiz), label: "더보기")
         ],
         type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,

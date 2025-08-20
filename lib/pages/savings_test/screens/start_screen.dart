@@ -8,6 +8,10 @@ class StartScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('시작하기'),
+        automaticallyImplyLeading: true, // ← 이전 화면 있을 경우 자동으로 뒤로가기 버튼 표시
+      ),
       body: SafeArea(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,

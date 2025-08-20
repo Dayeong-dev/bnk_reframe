@@ -5,7 +5,8 @@ class FortuneFirestoreService {
   static final _db = FirebaseFirestore.instance;
 
   // ===== 실시간 스트림 =====
-  static Stream<DocumentSnapshot<Map<String, dynamic>>> streamUserDoc(String uid) {
+  static Stream<DocumentSnapshot<Map<String, dynamic>>> streamUserDoc(
+      String uid) {
     return _db.collection('users').doc(uid).snapshots();
   }
 
@@ -21,7 +22,8 @@ class FortuneFirestoreService {
     }).distinct();
   }
 
-  static Stream<QuerySnapshot<Map<String, dynamic>>> streamLatestCoupon(String uid) {
+  static Stream<QuerySnapshot<Map<String, dynamic>>> streamLatestCoupon(
+      String uid) {
     return _db
         .collection('coupons')
         .where('ownerUid', isEqualTo: uid)
@@ -110,10 +112,8 @@ class FortuneFirestoreService {
   }) async {
     if (!debugAllowSelf && inviterUid == inviteeUid) return;
 
-    final visitorsCol = _db
-        .collection('invites')
-        .doc(inviterUid)
-        .collection('visitors');
+    final visitorsCol =
+        _db.collection('invites').doc(inviterUid).collection('visitors');
 
     await _db.runTransaction((tx) async {
       final newDoc = visitorsCol.doc();
@@ -159,32 +159,40 @@ class FortuneFirestoreService {
         int current = 0;
         if (inviterSnap.exists) {
           final raw = inviterSnap.data()?['stampCount'];
-          if (raw is int) current = raw;
-          else if (raw is num) current = raw.toInt();
+          if (raw is int)
+            current = raw;
+          else if (raw is num)
+            current = raw.toInt();
           else if (raw is String) current = int.tryParse(raw) ?? 0;
         } else {
           current = 0; // 기본값 0
-          tx.set(inviterRef, {
-            'stampCount': current,
-            'createdAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
+          tx.set(
+              inviterRef,
+              {
+                'stampCount': current,
+                'createdAt': FieldValue.serverTimestamp(),
+                'updatedAt': FieldValue.serverTimestamp(),
+              },
+              SetOptions(merge: true));
         }
 
         final next = current + 1;
 
-        tx.set(vRef, {
-          'claimed': true,
-          'claimedBy': inviterUid,
-          'claimedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        tx.set(
+            vRef,
+            {
+              'claimed': true,
+              'claimedBy': inviterUid,
+              'claimedAt': FieldValue.serverTimestamp(),
+            },
+            SetOptions(merge: true));
 
         tx.update(inviterRef, {
           'stampCount': next,
           'updatedAt': FieldValue.serverTimestamp(),
         });
 
-        if (next % 10 == 0) {
+        if (next % 2 == 0) {
           final couponRef = _db.collection('coupons').doc();
           tx.set(couponRef, {
             'ownerUid': inviterUid,

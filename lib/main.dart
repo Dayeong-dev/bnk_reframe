@@ -102,6 +102,7 @@ class MyApp extends StatelessWidget {
           // Savings 테스트 라우트
           '/savings/start': (_) => const StartScreen(),
           '/savings/question': (_) => const QuestionScreen(),
+          '/savings/result': (_) => const ResultScreen(),
 
           // 운세 이벤트(선택) 네임드 라우트
           '/event/hub': (_) => const FortuneHubPage(),

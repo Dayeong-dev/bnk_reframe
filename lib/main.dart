@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 
 import 'package:reframe/constants/color.dart';
-import 'package:reframe/model/enroll_form.dart';
-import 'package:reframe/model/product_input_format.dart';
 import 'package:reframe/pages/auth/join_page.dart';
 import 'package:reframe/pages/auth/login_page.dart';
 import 'package:reframe/pages/auth/splash_page.dart';
@@ -15,7 +13,6 @@ import 'package:reframe/pages/deposit/deposit_list_page.dart';
 import 'package:reframe/pages/deposit/deposit_main_page.dart';
 import 'package:reframe/pages/enroll/enroll_first.dart';
 import 'package:reframe/pages/enroll/enroll_second.dart';
-import 'package:reframe/pages/enroll/enroll_third.dart';
 import 'package:reframe/pages/home_page.dart';
 import 'package:reframe/pages/walk/step_debug_page.dart';
 import 'package:reframe/service/firebase_service.dart';
@@ -100,39 +97,38 @@ class MyApp extends StatelessWidget {
           "/more-page": (context) => MorePage(),
           '/map': (context) => const MapPage(),
           "/enroll-first": (context) => FirstStepPage(),
-          "/enroll-second": (context) => SecondStepPage(),
-        "/depositList": (context) => const DepositListPage(), // ← 이름으로 집계
-        "/depositMain": (context) => DepositMainPage(),
-        "/step-debug": (context) => StepDebugPage(),
-        "/chat-debug": (context) => BnkChatPage(),
-        "/more-page": (context) => MorePage(),
-        '/map': (context) => const MapPage(),
-        "/enroll-first": (context) => FirstStepPage(),
-        '/savings/start': (_) => const StartScreen(),
-        '/savings/question': (_) => const QuestionScreen(),
-        '/savings/result': (_) => const ResultScreen(),
-        
-        //'/fortune':   (_) => const FortunePage(),
-      },
-      theme: ThemeData(
-        useMaterial3: true,
-        scaffoldBackgroundColor: Colors.white, // 각 화면 기본 배경
-        colorScheme: const ColorScheme.light(
-          // M3에서 표면색도 흰색으로
-          primary: primaryColor,
-          surface: Colors.white,
-          background: Colors.white,
-        ),
-        appBarTheme: const AppBarTheme(
-          // AppBar도 완전 흰색
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
-          elevation: 0,
-          surfaceTintColor: Colors.transparent, // M3 틴트로 회색 끼 도는 것 방지
-        ),
-        bottomSheetTheme: const BottomSheetThemeData(
-          surfaceTintColor: Colors.transparent,
-          backgroundColor: Colors.white,
+          // Savings 테스트 라우트
+          '/savings/start': (_) => const StartScreen(),
+          '/savings/question': (_) => const QuestionScreen(),
+          '/savings/result': (_) => const ResultScreen(),
+
+          // 운세 이벤트(선택) 네임드 라우트
+          '/event/hub': (_) => const FortuneHubPage(),
+          '/event/fortune': (_) => const StartPage(),
+          '/event/coupons': (_) => const CouponsPage(stampCount: 0),
+          // 필요 시 추가:
+          // '/event/input': (_) => const InputPage(),
+          // '/event/result': (_) => ResultPage(args: (isAgreed:false, name:null, birthDate:null, gender:null, invitedBy:null)),
+          // '/event/loading': (_) => LoadingPage(args: (isAgreed:false, name:null, birthDate:null, gender:null, invitedBy:null)),
+        },
+        theme: ThemeData(
+          useMaterial3: true,
+          scaffoldBackgroundColor: Colors.white,
+          colorScheme: const ColorScheme.light(
+            primary: primaryColor,
+            surface: Colors.white,
+            background: Colors.white,
+          ),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black,
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
+          ),
+          bottomSheetTheme: const BottomSheetThemeData(
+            surfaceTintColor: Colors.transparent,
+            backgroundColor: Colors.white,
+          ),
         ),
       ),
     );

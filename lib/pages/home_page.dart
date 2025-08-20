@@ -126,6 +126,10 @@ class _HomePageState extends State<HomePage> {
               onPressed: () => Navigator.pushNamed(context, "/chat-debug"),
               child: Text("챗봇 테스트"),
             ),
+            ElevatedButton(
+              onPressed: () => Navigator.pushNamed(context, "/event/hub"),
+              child: Text("운세 테스트"),
+            ),
           ],
         ),
       ),

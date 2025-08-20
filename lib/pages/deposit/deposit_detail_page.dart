@@ -161,7 +161,7 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
 
   void _subscribeReviewTopic(int productId) {
     final wsUrl =
-    Uri.parse('${AppEndpoints.wsBase}?topic=product.$productId.reviews');
+        Uri.parse('${AppEndpoints.wsBase}?topic=product.$productId.reviews');
     debugPrint('🔌 WS connect → $wsUrl');
     try {
       _ws = ws_io.IOWebSocketChannel.connect(wsUrl.toString());
@@ -339,7 +339,14 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
       ),
       bottomNavigationBar: _bottomActionBar(),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          12 + MediaQuery.of(context).padding.bottom,
+        ),
+        // 튕기며 빈칸 보이는 느낌 줄이기(선택)
+        physics: const ClampingScrollPhysics(),
         children: [
           FadeSlideInOnVisible(child: _buildHeader(product!)),
           const SizedBox(height: 18),
@@ -350,7 +357,6 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
           _sectionDivider("추가 안내"),
           const SizedBox(height: 10),
           FadeSlideInOnVisible(child: _buildFooterSection(product!)),
-          const SizedBox(height: 80),
         ],
       ),
     );
@@ -597,7 +603,7 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
     try {
       final decodedOnce = jsonDecode(detail);
       final decoded =
-      decodedOnce is String ? jsonDecode(decodedOnce) : decodedOnce;
+          decodedOnce is String ? jsonDecode(decodedOnce) : decodedOnce;
 
       if (decoded is List &&
           decoded.isNotEmpty &&
@@ -660,7 +666,7 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
     final String content = fixLineBreaks(e['content'] ?? '');
     final String rawImageUrl = e['imageURL'] ?? '';
     final String imageUrl =
-    rawImageUrl.startsWith('/') ? 'assets$rawImageUrl' : rawImageUrl;
+        rawImageUrl.startsWith('/') ? 'assets$rawImageUrl' : rawImageUrl;
 
     return Center(
       child: ConstrainedBox(
@@ -705,43 +711,42 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
                     width: double.infinity,
                     child: imageUrl.startsWith("http")
                         ? Image.network(
-                      imageUrl,
-                      fit: BoxFit.contain,
-                      alignment: Alignment.center,
-                      filterQuality: FilterQuality.medium,
-                      loadingBuilder: (c, child, p) =>
-                      p == null
-                          ? child
-                          : const Center(
-                        child: SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                          ),
-                        ),
-                      ),
-                      errorBuilder: (c, e, s) => const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          size: 42,
-                          color: Colors.black26,
-                        ),
-                      ),
-                    )
+                            imageUrl,
+                            fit: BoxFit.contain,
+                            alignment: Alignment.center,
+                            filterQuality: FilterQuality.medium,
+                            loadingBuilder: (c, child, p) => p == null
+                                ? child
+                                : const Center(
+                                    child: SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  ),
+                            errorBuilder: (c, e, s) => const Center(
+                              child: Icon(
+                                Icons.broken_image,
+                                size: 42,
+                                color: Colors.black26,
+                              ),
+                            ),
+                          )
                         : Image.asset(
-                      imageUrl,
-                      fit: BoxFit.contain,
-                      alignment: Alignment.center,
-                      filterQuality: FilterQuality.medium,
-                      errorBuilder: (c, e, s) => const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          size: 42,
-                          color: Colors.black26,
-                        ),
-                      ),
-                    ),
+                            imageUrl,
+                            fit: BoxFit.contain,
+                            alignment: Alignment.center,
+                            filterQuality: FilterQuality.medium,
+                            errorBuilder: (c, e, s) => const Center(
+                              child: Icon(
+                                Icons.broken_image,
+                                size: 42,
+                                color: Colors.black26,
+                              ),
+                            ),
+                          ),
                   ),
                 ),
             ],
@@ -788,11 +793,14 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
               )
             else
               HtmlWidget(
-                toHtmlBreaks(
-                  title == '금리/이율 안내'
-                      ? cutHeadBeforeFirstTable(content, titleToStrip: title)
-                      : normalizeHtml(content, titleToStrip: title),
-                ),
+                // ✅ 금리/이율 안내는 개행→<br> 변환(toHtmlBreaks) 금지
+                title == '금리/이율 안내'
+                    ? _stripLeadingGaps(
+                        cutHeadBeforeFirstTable(content, titleToStrip: title),
+                      )
+                    : toHtmlBreaks(
+                        normalizeHtml(content, titleToStrip: title),
+                      ),
                 customStylesBuilder: _htmlStyleFixer,
               ),
           ],
@@ -838,4 +846,19 @@ class RateHighlight extends StatelessWidget {
       },
     );
   }
+}
+
+/// HTML 맨 앞의 빈 블록(<br>, 공백만 있는 <p>/<div>, &nbsp;)을 모두 제거
+String _stripLeadingGaps(String html) {
+  // 1) BOM/nbsp 정리
+  var h = html.replaceAll('\uFEFF', '').replaceAll('&nbsp;', ' ');
+  // 2) 맨 앞의 공백/개행/빈 태그(<p></p>, <div></div>, <br>)들 제거
+  final leadingEmpty = RegExp(
+    r'^((?:\s|<br\s*/?>)+|<(?:p|div|section|article|span)[^>]*>\s*</(?:p|div|section|article|span)>)+',
+    caseSensitive: false,
+  );
+  while (leadingEmpty.hasMatch(h)) {
+    h = h.replaceFirst(leadingEmpty, '');
+  }
+  return h.trimLeft();
 }

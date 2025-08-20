@@ -152,7 +152,8 @@ class ResultScreen extends StatelessWidget {
                       Expanded(
                         child: _BottomWidgetCard(
                           title: '오늘의 운세\n확인하고\n커피까지!',
-                          onTap: () => Navigator.pushNamed(context, '/fortune'),
+                          onTap: () =>
+                              Navigator.pushNamed(context, '/event/fortune'),
                           imageAsset: 'assets/images/coffee.png',
                         ),
                       ),

@@ -19,7 +19,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
 
   void _selectAndNext(String value) {
     answers[step] = value;
-    setState(() {});
+    setState(() {}); // 선택 표시 업데이트
     Future.delayed(const Duration(milliseconds: 120), () {
       if (step < 3) {
         setState(() => step += 1);
@@ -30,6 +30,17 @@ class _QuestionScreenState extends State<QuestionScreen> {
     });
   }
 
+  // ✅ 공통 '뒤로가기' 처리:
+  // - step > 0 이면 이전 문제로만 이동 (Route pop 안 함)
+  // - step == 0 이면 true 반환해서 실제 pop 허용
+  Future<bool> _handleBack() async {
+    if (step > 0) {
+      setState(() => step -= 1);
+      return false; // pop 막음 (같은 화면에서 이전 문제로만)
+    }
+    return true; // 첫 문제면 실제로 이전 화면으로 pop
+  }
+
   // 세로(가로 꽉 채우는) 버튼
   Widget _option(String label) {
     final selected = answers[step] == label;
@@ -38,9 +49,9 @@ class _QuestionScreenState extends State<QuestionScreen> {
       builder: (context, setLocalState) {
         bool isPressed = false;
 
-        final Color baseBg   = selected ? Colors.grey[200]! : Colors.white; // 평상시 배경
-        final Color pressedBg = Colors.grey[300]!;                           // 클릭 중 배경
-        final Color edge     = selected ? Colors.grey : Colors.grey.shade400; // 테두리 유지
+        final Color baseBg = selected ? Colors.grey[200]! : Colors.white;
+        final Color pressedBg = Colors.grey[300]!;
+        final Color edge = selected ? Colors.grey : Colors.grey.shade400;
 
         return SizedBox(
           width: double.infinity,
@@ -48,25 +59,24 @@ class _QuestionScreenState extends State<QuestionScreen> {
             color: Colors.transparent,
             child: InkWell(
               borderRadius: BorderRadius.circular(16),
-              onHighlightChanged: (v) => setLocalState(() => isPressed = v), // 눌림 감지
+              onHighlightChanged: (v) => setLocalState(() => isPressed = v),
               onTap: () => _selectAndNext(label),
-              // 리플은 유지되고, 배경은 AnimatedContainer로 제어
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 curve: Curves.easeOut,
                 padding: const EdgeInsets.symmetric(vertical: 22),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: isPressed ? pressedBg : baseBg, // 클릭 순간만 연회색
+                  color: isPressed ? pressedBg : baseBg,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: edge, width: 2), // 테두리 그대로
+                  border: Border.all(color: edge, width: 2),
                 ),
                 child: Text(
                   label,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 18,
-                    color: Colors.black, // 글자색 그대로
+                    color: Colors.black,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
@@ -77,9 +87,6 @@ class _QuestionScreenState extends State<QuestionScreen> {
       },
     );
   }
-
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -106,62 +113,100 @@ class _QuestionScreenState extends State<QuestionScreen> {
 
     final screenW = MediaQuery.of(context).size.width;
 
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // 상단 진행바
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 8,
-                  backgroundColor: Colors.grey.shade300,
+    return WillPopScope(
+      onWillPop: _handleBack, // ✅ 시스템/제스처 뒤로가기 커스텀
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text("예적금 추천"),
+          centerTitle: true,
+          // 왼쪽 ← 뒤로가기는 자동으로 유지됨
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.home),
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text("확인"),
+                    content: const Text("정말로 테스트를 중단하고 나가시겠습니까?"),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context), // 닫기
+                        child: const Text("취소"),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context); // 알럿 닫기
+                          Navigator.pushNamedAndRemoveUntil(
+                            context,
+                            '/', // 홈 라우트
+                            (route) => false,
+                          );
+                        },
+                        child: const Text("나가기"),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 상단 진행바
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 8,
+                    backgroundColor: Colors.grey.shade300,
+                  ),
                 ),
-              ),
 
-              const SizedBox(height: 80), // ← 진행바와 질문 텍스트 간격 넓힘
+                const SizedBox(height: 60),
 
-              // 질문 텍스트
-              Text(
-                titles[step],
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black87,
+                // 질문 텍스트
+                Text(
+                  titles[step],
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black87,
+                  ),
                 ),
-              ),
 
-              const SizedBox(height: 12),
+                const SizedBox(height: 12),
 
-              // 이미지: 화면 가운데에 오도록 Expanded+Center
-              Expanded(
-                child: Center(
-                  child: SizedBox(
-                    width: screenW * 0.7,      // 화면 폭의 70%
-                    height: screenW * 0.7,     // 정사각 영역(디자인에 맞게 조정 가능)
-                    child: Image.asset(
-                      images[step],
-                      fit: BoxFit.contain,
+                // 이미지
+                Expanded(
+                  child: Center(
+                    child: SizedBox(
+                      width: screenW * 0.7,
+                      height: screenW * 0.7,
+                      child: Image.asset(
+                        images[step],
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ),
                 ),
-              ),
 
-              // 버튼을 너무 아래로 내리지 않도록 여백만 살짝
-              const SizedBox(height: 8),
+                const SizedBox(height: 8),
 
-              // 답변 버튼 (세로 배치)
-              _option(options[step][0]),
-              const SizedBox(height: 12),
-              _option(options[step][1]),
+                // 답변 버튼 (세로 배치)
+                _option(options[step][0]),
+                const SizedBox(height: 12),
+                _option(options[step][1]),
 
-              const SizedBox(height: 12), // 하단 안전 여백
-            ],
+                const SizedBox(height: 12),
+              ],
+            ),
           ),
         ),
       ),

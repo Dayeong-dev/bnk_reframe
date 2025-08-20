@@ -114,8 +114,8 @@ class ResultScreen extends StatelessWidget {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) =>
-                                        DepositDetailPage(productId: p.productId),
+                                    builder: (_) => DepositDetailPage(
+                                        productId: p.productId),
                                     settings: const RouteSettings(
                                         name: '/deposit/detail'),
                                   ),
@@ -173,12 +173,12 @@ class ResultScreen extends StatelessWidget {
                     Navigator.pushNamedAndRemoveUntil(
                       context,
                       '/',
-                          (route) => false,
+                      (route) => false,
                     );
                   },
                   icon: const Icon(Icons.home_outlined, size: 18),
                   label: const Text(
-                    '처음으로 돌아가기',
+                    '홈으로 돌아가기',
                     style: TextStyle(fontSize: 16, color: Colors.black54),
                   ),
                 ),
@@ -189,34 +189,35 @@ class ResultScreen extends StatelessWidget {
       ),
     );
   }
+
   // helpers
   static Widget _chip(String text) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(999),
-      border: Border.all(color: Colors.grey.shade300),
-    ),
-    child: Text(text, style: const TextStyle(fontSize: 12)),
-  );
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Text(text, style: const TextStyle(fontSize: 12)),
+      );
 
   static Widget _cardSkeleton() => Container(
-    height: 100,
-    decoration: BoxDecoration(
-      color: const Color(0xFFF5F5F5),
-      borderRadius: BorderRadius.circular(14),
-    ),
-  );
+        height: 100,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF5F5F5),
+          borderRadius: BorderRadius.circular(14),
+        ),
+      );
 
   static Widget _errorBox(String msg) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: const Color(0xFFFFF3F3),
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: const Color(0xFFFFCACA)),
-    ),
-    child: Text(msg, style: const TextStyle(color: Colors.red)),
-  );
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF3F3),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFFFCACA)),
+        ),
+        child: Text(msg, style: const TextStyle(color: Colors.red)),
+      );
 }
 
 class _BottomWidgetCard extends StatelessWidget {

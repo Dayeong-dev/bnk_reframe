@@ -4,34 +4,53 @@ import 'package:reframe/service/review_service.dart';
 import '../../model/review.dart';
 
 const _brand = Color(0xFF304FFE);
+const _badgeBg = Color(0xFFE8F5E9);
+const _badgeFg = Color(0xFF2E7D32);
 
 enum SortMode { latest, ratingHigh, ratingLow }
 
 class ReviewPage extends StatefulWidget {
   final int productId;
   final String productName;
-  const ReviewPage({super.key, required this.productId, required this.productName});
+  final int presenceOthers;
+
+  /// 로그인 사용자 정보(있으면 ‘내 리뷰’ 정확도↑)
+  final String? currentUserId;
+  final String? currentUserName;
+
+  const ReviewPage({
+    super.key,
+    required this.productId,
+    required this.productName,
+    this.presenceOthers = 0,
+    this.currentUserId,
+    this.currentUserName,
+  });
 
   @override
   State<ReviewPage> createState() => _ReviewPageState();
 }
 
 class _ReviewPageState extends State<ReviewPage> {
+  // 상태
   final _controller = TextEditingController();
   final _focus = FocusNode();
 
   bool _loading = false;
   bool _submitting = false;
-  List<Review> _reviews = [];
 
-  int _rating = 5; // 작성 기본 별점
+  List<Review> _reviews = [];
+  int _rating = 5;
   SortMode _sort = SortMode.latest;
 
-  // 내가 쓴 리뷰 숨기기(기본 on)
-  bool _hideMine = true;
+  // 기본은 보이도록
+  bool _hideMine = false;
 
-  // 방금 내가 보낸 내용(휴리스틱용)
-  String? _lastSubmittedContent;
+  // 내가 보낸 내용 누적(재방문 시에도 인식)
+  final Set<String> _submittedContents = <String>{};
+
+  // 정렬 드롭다운 앵커
+  final GlobalKey _sortBtnKey = GlobalKey();
 
   @override
   void initState() {
@@ -74,12 +93,13 @@ class _ReviewPageState extends State<ReviewPage> {
         content: content,
         rating: _rating,
       );
-      _lastSubmittedContent = content; // 방금 쓴 리뷰 메모
+      _submittedContents.add(content); // 휴리스틱 누적
       _controller.clear();
       _focus.unfocus();
       await _load();
       if (!mounted) return;
       _toast('리뷰가 등록되었습니다');
+      Navigator.of(context).maybePop(); // 바텀시트 닫기
     } catch (e) {
       if (!mounted) return;
       _toast('등록 실패: $e');
@@ -88,24 +108,66 @@ class _ReviewPageState extends State<ReviewPage> {
     }
   }
 
-  // ---------------- Helpers ----------------
   void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    final m = ScaffoldMessenger.of(context);
+    m.hideCurrentSnackBar();
+    m.showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  // 현재 로그인 유저 이름을 알 수 있으면 여기에 연결(없으면 null 유지)
-  String? get _myName => null;
+  // ---------------- ‘내 리뷰’ 판정 ----------------
+  String? _authorIdOf(Review r) {
+    try {
+      final v = (r as dynamic).authorId;
+      if (v != null) return '$v';
+    } catch (_) {}
+    try {
+      final v = (r as dynamic).userId;
+      if (v != null) return '$v';
+    } catch (_) {}
+    try {
+      final v = (r as dynamic).writerId;
+      if (v != null) return '$v';
+    } catch (_) {}
+    return null;
+  }
 
-  bool _isMine(Review r) {
-    // 1) 이름이 있으면 이름 비교
-    final my = _myName?.trim();
-    if (my != null && my.isNotEmpty && (r.authorName ?? '').trim() == my) return true;
-    // 2) 방금 제출한 내용과 동일하면 내 것으로 간주(즉시 반영용 휴리스틱)
-    if (_lastSubmittedContent != null &&
-        r.content.trim() == _lastSubmittedContent) return true;
+  bool _isMineFlagOf(Review r) {
+    try {
+      final v = (r as dynamic).isMine;
+      if (v is bool) return v;
+    } catch (_) {}
+    try {
+      final v = (r as dynamic).mine;
+      if (v is bool) return v;
+    } catch (_) {}
     return false;
   }
 
+  String _norm(String? s) =>
+      (s ?? '').replaceAll(RegExp(r'\s+'), '').toLowerCase();
+
+  bool _isMine(Review r) {
+    if (_isMineFlagOf(r)) return true; // 서버 플래그 우선
+
+    final myId = widget.currentUserId?.trim();
+    final rid = _authorIdOf(r)?.trim();
+    final idHit = (myId != null &&
+        myId.isNotEmpty &&
+        rid != null &&
+        rid.isNotEmpty &&
+        myId == rid);
+
+    final myName = widget.currentUserName;
+    final nameHit = (myName != null && myName.trim().isNotEmpty)
+        ? _norm(myName) == _norm(r.authorName)
+        : false;
+
+    final recentHit = _submittedContents.contains(r.content.trim());
+
+    return idHit || nameHit || recentHit;
+  }
+
+  // ---------------- 정렬/유틸 ----------------
   double get _avg {
     if (_reviews.isEmpty) return 0;
     final sum = _reviews.fold<int>(0, (s, r) => s + (r.rating ?? 0));
@@ -113,7 +175,7 @@ class _ReviewPageState extends State<ReviewPage> {
   }
 
   List<int> get _dist {
-    final d = List<int>.filled(6, 0); // 0~5 (0은 미사용)
+    final d = List<int>.filled(6, 0); // 0~5
     for (final r in _reviews) {
       final rr = (r.rating ?? 0).clamp(0, 5);
       d[rr] += 1;
@@ -122,15 +184,16 @@ class _ReviewPageState extends State<ReviewPage> {
   }
 
   List<Review> get _visibleSorted {
-    // 1) 내 리뷰 숨김
-    final base = _hideMine ? _reviews.where((r) => !_isMine(r)).toList()
+    final base = _hideMine
+        ? _reviews.where((r) => !_isMine(r)).toList()
         : List<Review>.from(_reviews);
 
-    // 2) 정렬
     int cmpDate(Review a, Review b) {
-      final da = _toDateTime(a.createdAt) ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final db = _toDateTime(b.createdAt) ?? DateTime.fromMillisecondsSinceEpoch(0);
-      return db.compareTo(da); // 최신순(desc)
+      final da =
+          _toDateTime(a.createdAt) ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final db =
+          _toDateTime(b.createdAt) ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return db.compareTo(da);
     }
 
     switch (_sort) {
@@ -180,119 +243,184 @@ class _ReviewPageState extends State<ReviewPage> {
     return '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')}';
   }
 
-  Widget _starRow(int rating, {double size = 16, Color color = Colors.amber}) {
-    final r = rating.clamp(0, 5);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(5, (i) {
-        return Icon(i < r ? Icons.star : Icons.star_border, size: size, color: color);
-      }),
+  // ---------------- 상단 배너 ----------------
+  Widget _presenceBanner(int others) {
+    if (others <= 0) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE3F2FD),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF90CAF9)),
+      ),
+      child: Row(
+        children: const [
+          Icon(Icons.visibility, color: Color(0xFF1565C0)),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '현재 다른 사용자가 리뷰를 보고 있습니다.',
+              style: TextStyle(
+                  color: Color(0xFF0D47A1), fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _starPicker() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(5, (i) {
-        final idx = i + 1;
-        final active = idx <= _rating;
-        return IconButton(
-          tooltip: '$idx점',
-          onPressed: () => setState(() => _rating = idx),
-          iconSize: 30,
-          icon: Icon(active ? Icons.star : Icons.star_border,
-              color: active ? Colors.amber : Colors.grey),
+  // ---------------- 공통 위젯: 둥근 분포 막대 ----------------
+  Widget _roundedBar(double ratio) {
+    return LayoutBuilder(
+      builder: (context, c) {
+        final w = c.maxWidth;
+        final fill = (ratio.clamp(0, 1.0)) * w;
+        return Container(
+          height: 8,
+          decoration: BoxDecoration(
+            color: Colors.white24,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              width: fill,
+              height: 8,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(999), // 끝단도 둥글게
+              ),
+            ),
+          ),
         );
-      }),
+      },
     );
   }
 
-  // ---------------- Widgets ----------------
+  // ---------------- 공통 위젯: 부분 채워지는 별 ----------------
+  Widget _partialStars(double rating, {double size = 20}) {
+    final factor = (rating.clamp(0, 5)) / 5.0;
+    return SizedBox(
+      height: size,
+      child: Stack(
+        children: [
+          // 바탕: 회색 테두리 별 5개
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(
+                5,
+                (_) => Icon(Icons.star_border_rounded,
+                    size: size, color: Colors.white.withOpacity(.7))),
+          ),
+          // 위: 노란 별 5개를 왼쪽에서 factor 만큼만 보여줌
+          ClipRect(
+            clipBehavior: Clip.hardEdge,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              widthFactor: factor, // 0.0 ~ 1.0
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(
+                    5,
+                    (_) => const Icon(Icons.star_rounded,
+                        size: 20, color: Colors.amber)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------- 헤더 ----------------
   Widget _header() {
-    final dist = _dist;
     final total = _reviews.length;
+    final dist = _dist;
     double ratio(int star) => total == 0 ? 0 : dist[star] / total;
+
+    // 오른쪽: ‘둥근 막대 + 숫자’ (간격 좁게)
+    Widget ratioRow(int star) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 26,
+              child: Text('${star}점',
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w800)),
+            ),
+            const SizedBox(width: 6),
+            Expanded(child: _roundedBar(ratio(star))),
+            const SizedBox(width: 0), // ← 요청 2: 숫자와 더 촘촘
+            SizedBox(
+              width: 24,
+              child: Text('${dist[star]}',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(.95),
+                    fontWeight: FontWeight.w700,
+                  )),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF4F8BFF), _brand], // 살짝 더 밝게
+          colors: [Color(0xFF3B82F6), _brand],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(18),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x22000000),
-            blurRadius: 16,
-            offset: Offset(0, 8),
-          ),
+              color: Color(0x22000000), blurRadius: 16, offset: Offset(0, 8)),
         ],
       ),
       padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Row(
         children: [
-          // 평균
+          // 좌측: 평균점수 / 부분별 / (총개수)
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text('${_avg.toStringAsFixed(1)}점',
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                    )),
+                Text(
+                  _avg.toStringAsFixed(1),
+                  style: const TextStyle(
+                    fontSize: 36,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    height: 1.0, // 들뜸 방지
+                  ),
+                ),
+                const SizedBox(height: 2), // ← 요청 3: 숫자-별 간 여백 최소화
+                _partialStars(_avg, size: 20), // ← 요청 4: 4.3이면 4.3개 채움
                 const SizedBox(height: 4),
-                _starRow(_avg.round(), size: 20, color: Colors.white),
-                const SizedBox(height: 6),
-                Text('리뷰 $total개',
+                Text('(${total})',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: .9),
+                      color: Colors.white.withOpacity(.9),
+                      fontWeight: FontWeight.w700,
                     )),
               ],
             ),
           ),
           const SizedBox(width: 16),
-          // 분포
           SizedBox(
-            width: 140,
+            width: 180,
             child: Column(
-              children: List.generate(5, (i) {
-                final star = 5 - i;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 18,
-                        child: Text('$star★',
-                            style: const TextStyle(color: Colors.white, fontSize: 12)),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: LinearProgressIndicator(
-                            value: ratio(star),
-                            minHeight: 8,
-                            backgroundColor: Colors.white.withValues(alpha: .25),
-                            valueColor: const AlwaysStoppedAnimation(Colors.white),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      SizedBox(
-                        width: 24,
-                        child: Text('${dist[star]}',
-                            textAlign: TextAlign.right,
-                            style: const TextStyle(color: Colors.white, fontSize: 12)),
-                      ),
-                    ],
-                  ),
-                );
-              }),
+              children: [
+                ratioRow(5),
+                ratioRow(4),
+                ratioRow(3),
+                ratioRow(2),
+                ratioRow(1),
+              ],
             ),
           ),
         ],
@@ -300,200 +428,305 @@ class _ReviewPageState extends State<ReviewPage> {
     );
   }
 
-  PopupMenuButton _sortMenu() {
+  // ---------------- 컨트롤(정렬/숨기기/작성) ----------------
+  Widget _controlRow() {
     String label(SortMode m) => switch (m) {
-      SortMode.latest => '최신순',
-      SortMode.ratingHigh => '별점 높은 순',
-      SortMode.ratingLow => '별점 낮은 순',
-    };
+          SortMode.latest => '최신순',
+          SortMode.ratingHigh => '별점 높은 순',
+          SortMode.ratingLow => '별점 낮은 순',
+        };
 
-    IconData mark(SortMode m) =>
-        _sort == m ? Icons.radio_button_checked : Icons.radio_button_unchecked;
+    final textBtn = TextButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      foregroundColor: Colors.black87,
+      textStyle: const TextStyle(fontWeight: FontWeight.w700),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+    );
 
-    return PopupMenuButton(
-      tooltip: '정렬/옵션',
-      position: PopupMenuPosition.under,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      onSelected: (value) {
-        if (value is SortMode) {
-          setState(() => _sort = value);
-        } else if (value is String && value == 'toggle_hide_mine') {
-          setState(() => _hideMine = !_hideMine);
-        }
-      },
-      itemBuilder: (ctx) => [
-        PopupMenuItem(
-          value: SortMode.latest,
-          child: Row(
-            children: [
-              Icon(mark(SortMode.latest), size: 18, color: _brand),
-              const SizedBox(width: 8),
-              const Text('최신순', style: TextStyle(fontWeight: FontWeight.w600)),
-            ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+      child: Row(
+        children: [
+          // 정렬 드롭다운(버튼 바로 아래)
+          Builder(
+            builder: (btnCtx) {
+              return TextButton.icon(
+                key: _sortBtnKey,
+                onPressed: () => _openSortMenu(btnCtx),
+                icon: const Icon(Icons.sort, size: 18),
+                label: Text(label(_sort)),
+                style: textBtn,
+              );
+            },
           ),
-        ),
-        PopupMenuItem(
-          value: SortMode.ratingHigh,
-          child: Row(
-            children: [
-              Icon(mark(SortMode.ratingHigh), size: 18, color: _brand),
-              const SizedBox(width: 8),
-              const Text('별점 높은 순', style: TextStyle(fontWeight: FontWeight.w600)),
-            ],
+          const SizedBox(width: 4),
+          // 내 리뷰 숨기기
+          TextButton.icon(
+            onPressed: () => setState(() => _hideMine = !_hideMine),
+            icon: Icon(_hideMine ? Icons.visibility_off : Icons.visibility,
+                size: 18),
+            label: const Text('내 리뷰 숨기기'),
+            style: textBtn.copyWith(
+              foregroundColor: WidgetStatePropertyAll(
+                  _hideMine ? Colors.black87 : Colors.black87),
+            ),
           ),
-        ),
-        PopupMenuItem(
-          value: SortMode.ratingLow,
-          child: Row(
-            children: [
-              Icon(mark(SortMode.ratingLow), size: 18, color: _brand),
-              const SizedBox(width: 8),
-              const Text('별점 낮은 순', style: TextStyle(fontWeight: FontWeight.w600)),
-            ],
+          const Spacer(),
+          // 작성은 TextButton 유지
+          TextButton(
+            onPressed: _openComposerSheet,
+            style: TextButton.styleFrom(
+              foregroundColor: _brand,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              textStyle: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            child: const Text('리뷰 작성하기'),
           ),
-        ),
-        const PopupMenuDivider(),
-        CheckedPopupMenuItem(
-          value: 'toggle_hide_mine',
-          checked: _hideMine,
-          child: const Text('내 리뷰 숨기기'),
-        ),
-      ],
-      child: Container(
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.black12.withValues(alpha: .06),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.black26.withValues(alpha: .3)),
-        ),
-        child: Row(
-          children: const [
-            Icon(Icons.sort, size: 18),
-            SizedBox(width: 6),
-            Text('정렬', style: TextStyle(fontWeight: FontWeight.w600)),
-          ],
-        ),
+        ],
       ),
     );
   }
 
-  Widget _reviewCard(Review r) {
-    final name = (r.authorName ?? '익명').trim();
-    final initial = name.isNotEmpty ? name[0] : '익'; // 한 글자 아바타
-    final created = _relative(r.createdAt);
+  Future<void> _openSortMenu(BuildContext anchorContext) async {
+    final renderBox = anchorContext.findRenderObject() as RenderBox?;
+    final overlay = Navigator.of(anchorContext)
+        .overlay!
+        .context
+        .findRenderObject() as RenderBox;
+    if (renderBox == null) return;
 
-    return Card(
-      elevation: 1.5,
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: _brand.withValues(alpha: .15),
-              child: Text(initial, style: const TextStyle(fontWeight: FontWeight.w800)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 이름 + 별점
-                  Row(
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        renderBox.localToGlobal(Offset.zero, ancestor: overlay),
+        renderBox.localToGlobal(renderBox.size.bottomRight(Offset.zero),
+            ancestor: overlay),
+      ),
+      Offset.zero & overlay.size,
+    );
+
+    final v = await showMenu<SortMode>(
+      context: anchorContext,
+      position: position,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      items: const [
+        PopupMenuItem(value: SortMode.latest, child: Text('최신순')),
+        PopupMenuItem(value: SortMode.ratingHigh, child: Text('별점 높은 순')),
+        PopupMenuItem(value: SortMode.ratingLow, child: Text('별점 낮은 순')),
+      ],
+    );
+    if (v != null) setState(() => _sort = v);
+  }
+
+  // ---------------- 바텀시트 작성창 ----------------
+  void _openComposerSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
+
+        // 바텀시트 내부에서만 즉시 반영될 로컬 상태
+        int localRating = _rating;
+
+        return Padding(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: StatefulBuilder(
+            // ← ★ 바텀시트 내부 리빌드 전용
+            builder: (ctx, setModalState) {
+              return SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Expanded(
-                        child: Text(
-                          name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14,
+                      const SizedBox(height: 2),
+                      Text('$localRating점',
+                          style: const TextStyle(fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 8),
+
+                      // 별점 선택: setModalState로 즉시 갱신
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(5, (i) {
+                          final idx = i + 1;
+                          final active = idx <= localRating;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 3),
+                            child: InkResponse(
+                              onTap: () =>
+                                  setModalState(() => localRating = idx),
+                              // ↓↓↓ 번짐(리플/하이라이트/호버) 제거
+                              splashColor: Colors.transparent,
+                              highlightColor: Colors.transparent,
+                              hoverColor: Colors.transparent,
+                              focusColor: Colors.transparent,
+                              radius: 26,
+                              child: Icon(
+                                active
+                                    ? Icons.star_rounded
+                                    : Icons.star_border_rounded,
+                                size: 30,
+                                color: active ? Colors.amber : Colors.grey,
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _controller,
+                        focusNode: _focus,
+                        minLines: 4,
+                        maxLines: 8,
+                        decoration: InputDecoration(
+                          hintText: '리뷰를 작성하세요',
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
+                          focusedBorder: const OutlineInputBorder(
+                            borderSide: BorderSide(color: _brand, width: 1.5),
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
                         ),
                       ),
-                      if ((r.rating ?? 0) > 0)
-                        _starRow(r.rating ?? 0, size: 14, color: Colors.amber),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: _submitting
+                              ? null
+                              : () async {
+                                  // 부모 상태에도 최종 반영
+                                  setState(() => _rating = localRating);
+                                  await _submit();
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _brand,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            textStyle:
+                                const TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                          child: _submitting
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Text('등록'),
+                        ),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    created,
-                    style: TextStyle(color: Colors.black54.withValues(alpha: .9), fontSize: 12),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    r.content,
-                    style: const TextStyle(fontSize: 15, height: 1.4),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
-  Widget _inputBar() {
-    return SafeArea(
-      top: false,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Colors.black12.withValues(alpha: .06))),
-          boxShadow: const [
-            BoxShadow(color: Color(0x14000000), blurRadius: 8, offset: Offset(0, -2)),
-          ],
-        ),
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _starPicker(),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    focusNode: _focus,
-                    minLines: 1,
-                    maxLines: 4,
-                    decoration: InputDecoration(
-                      hintText: '리뷰를 작성하세요',
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+  // ---------------- 리뷰 아이템 ----------------
+  Widget _reviewItem(Review r) {
+    final name = (r.authorName ?? '익명').trim();
+    final initial = name.isNotEmpty ? name[0] : '익';
+    final created = _relative(r.createdAt);
+    final mine = _isMine(r);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: _brand.withOpacity(.12),
+                child: Text(initial,
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w800, fontSize: 14),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _submitting
-                    ? const SizedBox(
-                  width: 38,
-                  height: 38,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-                    : Material(
-                  color: _brand,
-                  borderRadius: BorderRadius.circular(12),
-                  child: InkWell(
-                    onTap: _submit,
-                    borderRadius: BorderRadius.circular(12),
-                    child: const Padding(
-                      padding: EdgeInsets.all(10),
-                      child: Icon(Icons.send, color: Colors.white),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(5, (i) {
+                            final filled = i < (r.rating ?? 0);
+                            return Icon(
+                              filled
+                                  ? Icons.star_rounded
+                                  : Icons.star_border_rounded,
+                              size: 14,
+                              color: Colors.amber,
+                            );
+                          }),
+                        ),
+                        if (mine) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: _badgeBg,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: const Text(
+                              '내 리뷰',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: _badgeFg,
+                              ),
+                            ),
+                          ),
+                        ],
+                        const Spacer(),
+                        Text(
+                          created,
+                          style: TextStyle(
+                              color: Colors.black54.withOpacity(.9),
+                              fontSize: 12),
+                        ),
+                      ],
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            r.content,
+            style: const TextStyle(fontSize: 15, height: 1.45),
+          ),
+        ],
       ),
     );
   }
@@ -502,32 +735,46 @@ class _ReviewPageState extends State<ReviewPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text('${widget.productName} 리뷰'),
+        title: Text(widget.productName,
+            style: const TextStyle(fontWeight: FontWeight.w700)),
         centerTitle: true,
         elevation: 0.5,
-        actions: [
-          _sortMenu(), // ← 오른쪽 액션에 정렬/옵션
-        ],
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
       ),
       body: Column(
         children: [
+          _presenceBanner(widget.presenceOthers),
           _header(),
+          _controlRow(),
           Expanded(
             child: RefreshIndicator(
               onRefresh: _load,
+              triggerMode: RefreshIndicatorTriggerMode.onEdge,
+              notificationPredicate: (n) => n.depth == 0, // ← 중복 방지 핵심
               child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _visibleSorted.isEmpty
-                  ? const Center(child: Text('아직 리뷰가 없습니다'))
-                  : ListView.builder(
-                padding: const EdgeInsets.only(bottom: 120),
-                itemCount: _visibleSorted.length,
-                itemBuilder: (_, i) => _reviewCard(_visibleSorted[i]),
-              ),
+                  ? const Center(child: SizedBox())
+                  : (_visibleSorted.isEmpty
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(
+                            parent: ClampingScrollPhysics(),
+                          ),
+                          children: const [
+                            SizedBox(height: 160),
+                            Center(child: Text('아직 리뷰가 없습니다')),
+                          ],
+                        )
+                      : ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(
+                            parent: ClampingScrollPhysics(),
+                          ),
+                          itemCount: _visibleSorted.length,
+                          itemBuilder: (_, i) => _reviewItem(_visibleSorted[i]),
+                        )),
             ),
           ),
-          _inputBar(),
         ],
       ),
     );

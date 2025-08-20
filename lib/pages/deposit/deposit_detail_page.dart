@@ -22,7 +22,7 @@ import 'package:web_socket_channel/io.dart' as ws_io;
 import 'package:reframe/env/app_endpoints.dart';
 
 /// =======================================================
-///  DepositDetailPage (심플 센터 정렬 버전)
+///  DepositDetailPage (심플 센터 정렬 버전) — 공백 개선 적용
 /// =======================================================
 
 const _brand = Color(0xFF304FFE);
@@ -99,12 +99,9 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
   bool _pvLogged = false;
 
-  // 실시간(WebSocket)
+  // 실시간 알림(WebSocket)
   WebSocketChannel? _ws;
   StreamSubscription? _wsSub;
-
-  // 프레즌스(동시 시청자) 표시용
-  int _presenceOthers = 0; // 본인 제외 후 표시
 
   String _productTypeOf(DepositProduct p) {
     final c = (p.category ?? '').trim();
@@ -156,23 +153,23 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
       if (!mounted) return;
       setState(() => product = result);
       await _logProductViewOnce(result);
-      _connectAndSubscribe(result.productId);
+      _subscribeReviewTopic(result.productId);
     } catch (e) {
       debugPrint("❌ 상품 불러오기 실패: $e");
     }
   }
 
-  /// 하나의 소켓으로 리뷰/프레즌스 두 토픽 구독
-  void _connectAndSubscribe(int productId) {
-    final wsUrl = Uri.parse('${AppEndpoints.wsBase}?topic=product.$productId.reviews');
+  void _subscribeReviewTopic(int productId) {
+    final wsUrl =
+        Uri.parse('${AppEndpoints.wsBase}?topic=product.$productId.reviews');
     debugPrint('🔌 WS connect → $wsUrl');
     try {
       _ws = ws_io.IOWebSocketChannel.connect(wsUrl.toString());
 
-      // 연결되자마자 안전빵 수동 구독 프레임(리뷰 + 프레즌스)
+      // 연결되자마자 안전빵 수동 구독 프레임 전송
       _ws!.sink.add(jsonEncode({
         "op": "subscribe",
-        "topics": ["product.$productId.reviews", "product.$productId.presence"]
+        "topics": ["product.$productId.reviews"]
       }));
 
       _wsSub = _ws!.stream.listen((raw) {
@@ -181,8 +178,7 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
           debugPrint('📩 WS recv: $text');
           final Map<String, dynamic> msg = jsonDecode(text);
 
-          final type = msg['type'];
-          if (type == 'review_created' && mounted) {
+          if (msg['type'] == 'review_created' && mounted) {
             final author = (msg['authorMasked'] as String?) ?? '고객';
             final rating = (msg['rating'] as num?)?.toInt() ?? 0;
             final snippet = (msg['contentSnippet'] as String?) ?? '';
@@ -191,52 +187,20 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
               rating: rating,
               snippet: snippet,
             );
-          } else if (type == 'presence' && mounted) {
-            final count = (msg['count'] as num?)?.toInt() ?? 0;
-            // 본인 제외하고 표시
-            final others = (count - 1).clamp(0, 9999);
-            setState(() => _presenceOthers = others);
           }
         } catch (e) {
-          debugPrint('WS parse error: $e'); // ping 등 문자열이면 무시
+          // ping 등 문자열이면 무시
+          debugPrint('WS parse error: $e');
         }
       }, onError: (e) {
         debugPrint('WS error: $e');
       }, onDone: () {
         debugPrint('WS closed.');
+        // 필요 시 재연결 로직 추가 가능
       });
     } catch (e) {
       debugPrint('WebSocket connect fail: $e');
     }
-  }
-
-  /// 상단 프레즌스 배너
-  Widget _presenceBanner() {
-    if (_presenceOthers <= 0) return const SizedBox.shrink();
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE3F2FD),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF90CAF9)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.visibility, color: Color(0xFF1565C0)),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '현재 $_presenceOthers명이 이 상품을 보고 있습니다.',
-              style: const TextStyle(
-                color: Color(0xFF0D47A1),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   /// 상세 배너 (박**님이 ★★★★★ 리뷰 등록: ‘…’)
@@ -245,29 +209,23 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
     required int rating,
     required String snippet,
   }) {
-    final stars = '★★★★★'.substring(0, rating.clamp(0, 5));
-    final msg = "$authorMasked님이 $stars 리뷰 등록: ‘$snippet’";
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearMaterialBanners();
 
-    final snack = SnackBar(
-      behavior: SnackBarBehavior.floating,
-      margin: const EdgeInsets.all(12),
-      backgroundColor: const Color(0xFF1565C0), // 파란 말풍선
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      content: Row(
-        children: [
-          const Icon(Icons.chat_bubble, color: Colors.white),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              msg,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white),
-            ),
-          ),
+    final int count = rating.clamp(0, 5).toInt();
+    final stars = '★★★★★'.substring(0, count);
+    final msg = count > 0
+        ? "$authorMasked님이 $stars 리뷰 등록: ‘$snippet’"
+        : "$authorMasked님이 리뷰 등록: ‘$snippet’";
+
+    messenger.showMaterialBanner(
+      MaterialBanner(
+        content: Text(msg),
+        leading: const Icon(Icons.rate_review_outlined),
+        actions: [
           TextButton(
             onPressed: () {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              messenger.hideCurrentMaterialBanner();
               final p = product;
               if (p != null) {
                 Navigator.push(
@@ -281,19 +239,19 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
                 );
               }
             },
-            child: const Text('보기', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+            child: const Text('바로 보기'),
+          ),
+          TextButton(
+            onPressed: () => messenger.hideCurrentMaterialBanner(),
+            child: const Text('닫기'),
           ),
         ],
       ),
-      duration: const Duration(seconds: 4),
     );
-
-    final m = ScaffoldMessenger.of(context);
-    m.hideCurrentSnackBar();
-    m.showSnackBar(snack); // 하단에 표시
   }
 
   // --------- 내용 렌더링 유틸 ----------
+
   String fixLineBreaks(String text) {
     return text
         .replaceAll('<br>', '\n')
@@ -305,6 +263,19 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
 
   String toHtmlBreaks(String text) =>
       fixLineBreaks(text).replaceAll('\n', '<br />');
+
+  /// HTML 앞부분의 보이지 않는 빈 블록(<br>, 빈 p/div 등)을 모두 제거
+  String _stripLeadingGaps(String html) {
+    var h = html.replaceAll('\uFEFF', '').replaceAll('&nbsp;', ' ');
+    final leadingEmpty = RegExp(
+      r'^((?:\s|<br\s*/?>)+|<(?:p|div|section|article|span)[^>]*>\s*</(?:p|div|section|article|span)>)+',
+      caseSensitive: false,
+    );
+    while (leadingEmpty.hasMatch(h)) {
+      h = h.replaceFirst(leadingEmpty, '');
+    }
+    return h.trimLeft();
+  }
 
   String normalizeHtml(String html, {String? titleToStrip}) {
     var h = html.replaceAll('\uFEFF', '').trim();
@@ -338,6 +309,7 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
     return h;
   }
 
+  /// 표가 있는 HTML에서 제목/머리글 전에 있는 군더더기를 걷어냄
   String cutHeadBeforeFirstTable(String html, {String? titleToStrip}) {
     if (html.isEmpty) return html;
     var h = html.replaceAll('\uFEFF', '').replaceAll('&nbsp;', ' ').trimLeft();
@@ -367,6 +339,8 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
       );
     }
 
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
@@ -381,11 +355,10 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
       ),
       bottomNavigationBar: _bottomActionBar(),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        // ✅ 고정 80 제거, 기기별 안전영역만큼만 여백
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 12 + safeBottom),
+        physics: const ClampingScrollPhysics(),
         children: [
-          // ✅ 동시 시청자 배너 (필요할 때만 노출)
-          _presenceBanner(),
-
           FadeSlideInOnVisible(child: _buildHeader(product!)),
           const SizedBox(height: 18),
           _sectionDivider("상품 상세"),
@@ -395,7 +368,7 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
           _sectionDivider("추가 안내"),
           const SizedBox(height: 10),
           FadeSlideInOnVisible(child: _buildFooterSection(product!)),
-          const SizedBox(height: 80),
+          // ⛔️ SizedBox(height: 80) 삭제
         ],
       ),
     );
@@ -642,7 +615,7 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
     try {
       final decodedOnce = jsonDecode(detail);
       final decoded =
-      decodedOnce is String ? jsonDecode(decodedOnce) : decodedOnce;
+          decodedOnce is String ? jsonDecode(decodedOnce) : decodedOnce;
 
       if (decoded is List &&
           decoded.isNotEmpty &&
@@ -705,7 +678,7 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
     final String content = fixLineBreaks(e['content'] ?? '');
     final String rawImageUrl = e['imageURL'] ?? '';
     final String imageUrl =
-    rawImageUrl.startsWith('/') ? 'assets$rawImageUrl' : rawImageUrl;
+        rawImageUrl.startsWith('/') ? 'assets$rawImageUrl' : rawImageUrl;
 
     return Center(
       child: ConstrainedBox(
@@ -750,43 +723,42 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
                     width: double.infinity,
                     child: imageUrl.startsWith("http")
                         ? Image.network(
-                      imageUrl,
-                      fit: BoxFit.contain,
-                      alignment: Alignment.center,
-                      filterQuality: FilterQuality.medium,
-                      loadingBuilder: (c, child, p) =>
-                      p == null
-                          ? child
-                          : const Center(
-                        child: SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                          ),
-                        ),
-                      ),
-                      errorBuilder: (c, e, s) => const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          size: 42,
-                          color: Colors.black26,
-                        ),
-                      ),
-                    )
+                            imageUrl,
+                            fit: BoxFit.contain,
+                            alignment: Alignment.center,
+                            filterQuality: FilterQuality.medium,
+                            loadingBuilder: (c, child, p) => p == null
+                                ? child
+                                : const Center(
+                                    child: SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  ),
+                            errorBuilder: (c, e, s) => const Center(
+                              child: Icon(
+                                Icons.broken_image,
+                                size: 42,
+                                color: Colors.black26,
+                              ),
+                            ),
+                          )
                         : Image.asset(
-                      imageUrl,
-                      fit: BoxFit.contain,
-                      alignment: Alignment.center,
-                      filterQuality: FilterQuality.medium,
-                      errorBuilder: (c, e, s) => const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          size: 42,
-                          color: Colors.black26,
-                        ),
-                      ),
-                    ),
+                            imageUrl,
+                            fit: BoxFit.contain,
+                            alignment: Alignment.center,
+                            filterQuality: FilterQuality.medium,
+                            errorBuilder: (c, e, s) => const Center(
+                              child: Icon(
+                                Icons.broken_image,
+                                size: 42,
+                                color: Colors.black26,
+                              ),
+                            ),
+                          ),
                   ),
                 ),
             ],
@@ -806,6 +778,17 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
   }
 
   Widget _footerCard(String title, String content) {
+    // 공통: 타이틀/빈 블록 정리
+    final normalized = title == '금리/이율 안내'
+        // ✅ 표 영역만 남기고, 선행 빈 블록 제거 (개행→<br> 변환 금지)
+        ? _stripLeadingGaps(
+            cutHeadBeforeFirstTable(content, titleToStrip: title),
+          )
+        // ✅ 일반 안내는 줄바꿈 정규화 후 <br> 변환
+        : toHtmlBreaks(
+            normalizeHtml(content, titleToStrip: title),
+          );
+
     return Card(
       color: Colors.white,
       elevation: 2,
@@ -833,11 +816,7 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
               )
             else
               HtmlWidget(
-                toHtmlBreaks(
-                  title == '금리/이율 안내'
-                      ? cutHeadBeforeFirstTable(content, titleToStrip: title)
-                      : normalizeHtml(content, titleToStrip: title),
-                ),
+                normalized,
                 customStylesBuilder: _htmlStyleFixer,
               ),
           ],

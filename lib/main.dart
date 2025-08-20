@@ -102,7 +102,6 @@ class MyApp extends StatelessWidget {
           // Savings 테스트 라우트
           '/savings/start': (_) => const StartScreen(),
           '/savings/question': (_) => const QuestionScreen(),
-          '/savings/result': (_) => const ResultScreen(),
 
           // 운세 이벤트(선택) 네임드 라우트
           '/event/hub': (_) => const FortuneHubPage(),
@@ -160,7 +159,8 @@ class _DeepLinkBootstrapperState extends State<DeepLinkBootstrapper> {
 
       // 2) inviter/code 파라미터 통합
       final inviter = uri.queryParameters['inviter'];
-      final code = uri.queryParameters['code'] ?? uri.queryParameters['inviteCode'];
+      final code =
+          uri.queryParameters['code'] ?? uri.queryParameters['inviteCode'];
       final inviterOrCode = inviter ?? code;
 
       // 3) 중복 네비 방지 후 네비게이션
@@ -197,5 +197,3 @@ class _DeepLinkBootstrapperState extends State<DeepLinkBootstrapper> {
   @override
   Widget build(BuildContext context) => widget.child;
 }
-
-

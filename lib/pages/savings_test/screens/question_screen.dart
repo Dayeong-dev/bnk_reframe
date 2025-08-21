@@ -106,7 +106,7 @@ class _QuestionScreenState extends State<QuestionScreen> {
 
     const images = <String>[
       'assets/images/q1.jpg',
-      'assets/images/q2.png',
+      'assets/images/q2.gif',
       'assets/images/q3.jpg',
       'assets/images/q4.jpg',
     ];

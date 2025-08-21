@@ -87,7 +87,7 @@ class _LoadingPageState extends State<LoadingPage> with TickerProviderStateMixin
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
             SizedBox(width: 200, height: 200, child: Image.asset('assets/images/fortune_gacha.gif', gaplessPlayback: true)),
             const SizedBox(height: 20),
-            const Text("잠시만 기다려주세요...", style: TextStyle(fontSize: 18)),
+            const Text("운세 뽑는 중...", style: TextStyle(fontSize: 18, color: Colors.grey,)),
           ]),
         ),
       ),

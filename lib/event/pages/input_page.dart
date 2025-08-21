@@ -28,6 +28,37 @@ class _InputPageState extends State<InputPage> {
   StreamSubscription<Uri>? _linkSub;
   String? _lastHandled; // 같은 URI 중복 처리 방지
 
+  // ==== 타이핑 효과 ====
+  static const String _fullTitle = '정보를 입력해주세요';
+  String _typedTitle = '';
+  Timer? _typeTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _initAuthAndLinks();
+
+    // 시작 지연 후 타이핑 시작 (300ms 지연)
+    Future.delayed(const Duration(milliseconds: 300), _startTyping);
+  }
+
+  void _startTyping() {
+    // 타이핑 속도: 글자당 90ms (원하면 변경)
+    _typeTimer = Timer.periodic(const Duration(milliseconds: 90), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      if (_typedTitle.length >= _fullTitle.length) {
+        t.cancel();
+        return;
+      }
+      setState(() {
+        _typedTitle = _fullTitle.substring(0, _typedTitle.length + 1);
+      });
+    });
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -35,15 +66,9 @@ class _InputPageState extends State<InputPage> {
     if (raw is Map) {
       final v = (raw['inviter'] ?? raw['inviteCode'] ?? raw['code'])?.toString();
       if (v != null && v.isNotEmpty && invitedBy == null) {
-        setState(() => invitedBy = v);   // ★ StartPage → InputPage 전달분 반영
+        setState(() => invitedBy = v); // StartPage → InputPage 전달분 반영
       }
     }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _initAuthAndLinks();
   }
 
   Future<void> _initAuthAndLinks() async {
@@ -67,14 +92,12 @@ class _InputPageState extends State<InputPage> {
     );
   }
 
-  // 내 앱에서 온 링크만 true
   bool _isOurLink(Uri link) {
     final isCustom = link.scheme == 'abcd1234' && link.host == 'fortune';
-    final isHttps  = link.scheme == 'https'
+    final isHttps = link.scheme == 'https'
         && link.host == 'abc123-2580c.web.app'
         && link.pathSegments.isNotEmpty
         && link.pathSegments.first == 'fortune'; // /fortune/...
-
     return isCustom || isHttps;
   }
 
@@ -86,14 +109,13 @@ class _InputPageState extends State<InputPage> {
     if (_lastHandled == key) return; // 같은 링크 두 번 방지
     _lastHandled = key;
 
-    // 다양한 키 허용: inviteCode / inviter / code
     final invite =
         link.queryParameters['inviteCode'] ??
             link.queryParameters['inviter'] ??
             link.queryParameters['code'];
 
     if (invite != null && invite.isNotEmpty) {
-      setState(() => invitedBy = invite);
+      setState(() => invitedBy = invite); // 내부적으로만 저장, 화면엔 노출 X
       debugPrint('📩 invitedBy captured($source): $invitedBy | $link');
     }
   }
@@ -101,6 +123,7 @@ class _InputPageState extends State<InputPage> {
   @override
   void dispose() {
     _linkSub?.cancel();
+    _typeTimer?.cancel();
     nameController.dispose();
     yearController.dispose();
     monthController.dispose();
@@ -137,7 +160,6 @@ class _InputPageState extends State<InputPage> {
   Future<void> _onStart() async {
     if (!_validateInputs()) return;
 
-    // 로그인 보장(한 번 더 안전)
     await FortuneAuthService.ensureSignedIn();
 
     final name = nameController.text.trim();
@@ -160,7 +182,7 @@ class _InputPageState extends State<InputPage> {
       name: isAgreed ? name : null,
       birthDate: isAgreed ? birth : null,
       gender: isAgreed ? gender : null,
-      invitedBy: invitedBy, // ← 여기서 Result/Loading으로 넘김
+      invitedBy: invitedBy, // 내부 전달만, 화면 노출 없음
       );
 
       Navigator.push(
@@ -176,27 +198,69 @@ class _InputPageState extends State<InputPage> {
     }
   }
 
+  // 공통 스타일 (StartPage와 톤 맞춤)
+  InputDecoration _decor(String label, {String? hint}) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      filled: true,
+      fillColor: Colors.grey.shade50,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.black87, width: 1.2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final hint = invitedBy == null ? '초대 코드 없음' : '초대한 사람: $invitedBy';
-
     return Scaffold(
-      appBar: AppBar(title: const Text("이름 / 생년월일 입력")),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+      appBar: AppBar(
+        title: const Text('이름 / 생년월일 입력'),
+        centerTitle: true,
+        elevation: 0.5,
+      ),
+      body: SafeArea(
         child: ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           children: [
-            Text(hint, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            const SizedBox(height: 8),
+            // 상단 타이틀(지연 시작 + 타이핑, 커서 없음)
+            Padding(
+              padding: const EdgeInsets.only(top: 16, bottom: 8),
+              child: Text(
+                _typedTitle.isEmpty ? ' ' : _typedTitle,
+                textAlign: TextAlign.left,
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
 
+            const SizedBox(height: 16),
+
+            // 이름
             TextField(
               controller: nameController,
-              decoration: const InputDecoration(labelText: "이름"),
+              decoration: _decor('이름'),
               textInputAction: TextInputAction.next,
             ),
             const SizedBox(height: 20),
 
-            const Text("성별"),
+            // 성별
+            const Text(
+              "성별",
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -204,18 +268,37 @@ class _InputPageState extends State<InputPage> {
                   label: const Text("남"),
                   selected: gender == "남",
                   onSelected: (_) => setState(() => gender = "남"),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  backgroundColor: Colors.white,          // 기본 흰색
+                  selectedColor: Colors.grey.shade300,    // 선택 시 연회색
+                  labelStyle: TextStyle(
+                    color: gender == "남" ? Colors.black87 : Colors.black54,
+                    fontWeight: gender == "남" ? FontWeight.w600 : FontWeight.w400,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 ChoiceChip(
                   label: const Text("여"),
                   selected: gender == "여",
                   onSelected: (_) => setState(() => gender = "여"),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  backgroundColor: Colors.white,
+                  selectedColor: Colors.grey.shade300,
+                  labelStyle: TextStyle(
+                    color: gender == "여" ? Colors.black87 : Colors.black54,
+                    fontWeight: gender == "여" ? FontWeight.w600 : FontWeight.w400,
+                  ),
                 ),
               ],
             ),
 
             const SizedBox(height: 20),
-            const Text("생년월일"),
+
+            // 생년월일
+            const Text(
+              "생년월일",
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -223,7 +306,7 @@ class _InputPageState extends State<InputPage> {
                   child: TextField(
                     controller: yearController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: "년 (예: 1998)"),
+                    decoration: _decor('년', hint: '예: 1998'),
                     textInputAction: TextInputAction.next,
                   ),
                 ),
@@ -232,7 +315,7 @@ class _InputPageState extends State<InputPage> {
                   child: TextField(
                     controller: monthController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: "월"),
+                    decoration: _decor('월'),
                     textInputAction: TextInputAction.next,
                   ),
                 ),
@@ -241,7 +324,7 @@ class _InputPageState extends State<InputPage> {
                   child: TextField(
                     controller: dayController,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: "일"),
+                    decoration: _decor('일'),
                     textInputAction: TextInputAction.done,
                   ),
                 ),
@@ -249,29 +332,46 @@ class _InputPageState extends State<InputPage> {
             ),
 
             const SizedBox(height: 20),
+
+            // 동의
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Checkbox(
                   value: isAgreed,
                   onChanged: (v) => setState(() => isAgreed = v ?? false),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                 ),
                 const Expanded(
                   child: Text(
                     "개인정보 수집·이용에 동의합니다. (동의 시 이름/생년월일/성별을 서버에 저장하며, "
                         "동의하지 않으면 결과 페이지에서만 일시적으로 사용됩니다.)",
-                    style: TextStyle(fontSize: 13),
+                    style: TextStyle(fontSize: 13, height: 1.3),
                   ),
                 ),
               ],
             ),
 
             const SizedBox(height: 30),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _onStart,
-                child: const Text("운세 보러가기"),
+
+            // 하단 버튼 (StartPage와 동일 스타일)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 40),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: _onStart,
+                  child: const Text(
+                    '운세 보러가기',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
+                ),
               ),
             ),
           ],

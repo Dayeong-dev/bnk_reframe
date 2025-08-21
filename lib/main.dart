@@ -61,7 +61,6 @@ Future<void> main() async {
 
   // 4) 기존 FirebaseService(Analytics 등) 초기화
   final firebaseService = await FirebaseService.init(
-    baseUrl: FirebaseService.defaultBaseUrl,
     forceRefreshToken: true,
   );
 

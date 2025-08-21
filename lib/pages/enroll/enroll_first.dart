@@ -5,6 +5,7 @@ import 'package:reframe/pages/enroll/appbar.dart';
 import 'package:reframe/pages/enroll/enroll_second.dart';
 import 'package:reframe/pages/enroll/pdf_view_page.dart';
 
+import 'package:firebase_analytics/firebase_analytics.dart'; // ★ 추가: Analytics
 import '../../constants/api_constants.dart';
 import '../../model/deposit_product.dart';
 
@@ -21,6 +22,24 @@ class FirstStepPage extends StatefulWidget {
 }
 
 class _FirstStepPageState extends State<FirstStepPage> {
+  // ★ 추가: 퍼널 로깅 헬퍼
+  Future<void> _logStep({
+    required int stepIndex,
+    required String stepName,
+    required String stage, // "view" | "submit"
+  }) {
+    return FirebaseAnalytics.instance.logEvent(
+      name: 'bnk_apply_step',
+      parameters: {
+        'funnel_id': 'deposit_apply_v1',
+        'step_index': stepIndex,
+        'step_name': stepName,
+        'stage': stage,
+        'product_id': widget.product.productId.toString(),
+      },
+    );
+  }
+
   late String _termFileName;
   late String _manualFileName;
   late String _category;
@@ -56,8 +75,6 @@ class _FirstStepPageState extends State<FirstStepPage> {
           '$apiBaseUrl/uploads/common/%E1%84%80%E1%85%A5%E1%84%8E%E1%85%B5%E1%84%89%E1%85%B5%E1%86%A8%20%E1%84%8B%E1%85%A8%E1%84%80%E1%85%B3%E1%86%B7%20%E1%84%8B%E1%85%A3%E1%86%A8%E1%84%80%E1%85%AA%E1%86%AB.pdf',
         )
       ]),
-      // _ConsentItem(kind: ConsentKind.pdf, title: '자동이체(송금) 약관 동의', required: true, pdfUrl: '$apiBaseUrl/uploads/common/%E1%84%8C%E1%85%A1%E1%84%83%E1%85%A9%E1%86%BC%E1%84%8B%E1%85%B5%E1%84%8E%E1%85%A6(%E1%84%89%E1%85%A9%E1%86%BC%E1%84%80%E1%85%B3%E1%86%B7)%20%E1%84%8B%E1%85%A3%E1%86%A8%E1%84%80%E1%85%AA%E1%86%AB.pdf'),
-      // _ConsentItem(kind: ConsentKind.pdf, title: '비과세종합저축 특약 동의', required: true, pdfUrl: '$apiBaseUrl/ntsa.pdf'),
       _ConsentItem(
           kind: ConsentKind.info,
           title: '예금자 보호법 확인',
@@ -77,6 +94,9 @@ class _FirstStepPageState extends State<FirstStepPage> {
         infoText: "개인사업자 또는 신용점수가 낮은 개인인 경우, 금융소비자보호법(제 20조)상 구속행위 여부 판정에 따라 신규일 이후 1개월 이내 본인명의 대출거래가 제한될 수 있습니다.",
       ),
     ];
+
+    // ★ 추가: 1단계 화면 진입(view) 로깅
+    _logStep(stepIndex: 1, stepName: '약관동의', stage: 'view');
 
     super.initState();
   }
@@ -218,7 +238,11 @@ class _FirstStepPageState extends State<FirstStepPage> {
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: _nextStep,
+                  // ★ 변경: submit 로깅 후 다음 단계로
+                  onPressed: () async {
+                    await _logStep(stepIndex: 1, stepName: '약관동의', stage: 'submit');
+                    _nextStep();
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryColor,
                     shape: RoundedRectangleBorder(

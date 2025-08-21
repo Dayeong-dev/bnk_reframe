@@ -9,6 +9,7 @@ import 'package:reframe/pages/enroll/appbar.dart';
 import 'package:reframe/pages/enroll/enroll_third.dart';
 import 'package:reframe/model/group_type.dart';
 import 'package:reframe/service/deposit_service.dart';
+import 'package:firebase_analytics/firebase_analytics.dart'; // ★ 추가: Analytics
 
 class SecondStepPage extends StatefulWidget {
   const SecondStepPage({
@@ -23,44 +24,89 @@ class SecondStepPage extends StatefulWidget {
 }
 
 class _SecondStepPageState extends State<SecondStepPage> {
+  // ★ 그대로: 폼키, 입력데이터, Future 핸들러
   final _formKey = GlobalKey<FormState>();
   final EnrollForm _data = EnrollForm();
+  ProductInputFormat? _productInput;
+  late Future<ProductInputFormat> _future;
+
+  // ★ 범위 기본값을 명시적으로 부여(Null/0으로 인한 오류 방지)
+  int _minMonths = 1;
+  int _maxMonths = 60;
+  int _minAmount = 5;     // 만원
+  int _maxAmount = 1000;  // 만원
 
   String? _fromAccountName;
   String? _maturityAccountName;
 
-  ProductInputFormat? _productInput;
-  late Future<ProductInputFormat> _future;
+  bool _viewLogged = false; // ★ view 로깅 중복 방지
 
-  int _minMonths = 0;
-  int _maxMonths = 0;
-  int _minAmount = 0;     // 만원
-  int _maxAmount = 0;  // 만원
+  // ★ 퍼널 로깅 헬퍼
+  Future<void> _logStep({
+    required String stage, // "view" | "submit"
+    int? amount,
+    int? months,
+  }) {
+    return FirebaseAnalytics.instance.logEvent(
+      name: 'bnk_apply_step',
+      parameters: {
+        'funnel_id': 'deposit_apply_v1',
+        'step_index': 2,
+        'step_name': '상품설정',
+        'stage': stage,
+        'product_id': widget.product.productId.toString(),
+        if (amount != null) 'amount': amount,
+        if (months != null) 'months': months,
+      },
+    );
+  }
 
   @override
   void initState() {
+    super.initState();
 
+    // 서버에서 입력 포맷을 받아오고 기본값/로깅 처리
     _future = getProductInputFormat(widget.product.productId).then((result) {
-      _minMonths = widget.product.minPeriodMonths ?? 1;
-      _maxMonths = widget.product.maxPeriodMonths ?? 12;
+      // 서버에서 온 실제 min/max가 있다면 여기서 덮어써도 됨
+      _minMonths = widget.product.minPeriodMonths ?? _minMonths;
+      _maxMonths = widget.product.maxPeriodMonths ?? _maxMonths;
 
-      // 도착 후 한 번만 기본값 세팅
+      // 기본값(초기 진입 시 Null 방지)
       if (result.input1 && _data.periodMonths == null) {
         _data.periodMonths = _minMonths;
       }
       if (result.input2 && _data.paymentAmount == null) {
         _data.paymentAmount = _minAmount;
       }
-      setState(() {
-        _productInput = result;
-      });
+
+      setState(() => _productInput = result);
+
+      // 화면 진입(view) 로깅(딱 1회)
+      if (!_viewLogged) {
+        _viewLogged = true;
+        _logStep(stage: 'view');
+      }
 
       return result;
     });
-
-    super.initState();
   }
 
+  // ★ _SecondStepPageState 클래스 안 어딘가(필드 아래)에 추가
+  int? _toIntId(Object? v) {
+    if (v == null) return null;
+    if (v is int) return v;
+    if (v is String) {
+      // 1) "123"처럼 숫자만이면 그대로 파싱
+      final direct = int.tryParse(v);
+      if (direct != null) return direct;
+      // 2) "A-1111"처럼 문자+숫자면 숫자만 추출
+      final m = RegExp(r'\d+').firstMatch(v);
+      if (m != null) return int.tryParse(m.group(0)!);
+    }
+    return null;
+  }
+
+  // === 유효성 검사 ===
   bool _isValidAnchor(int? a) {
     if (a == null) return false;
     if (a == kLastDay) return true;
@@ -121,7 +167,8 @@ class _SecondStepPageState extends State<SecondStepPage> {
 
   bool get _canSubmit => _productInput != null && _validate(_productInput!).isEmpty;
 
-  void _nextStep() {
+  // === 다음 단계로 ===
+  void _nextStep() async {
     final errs = _validate(_productInput!);
     if (errs.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -130,10 +177,26 @@ class _SecondStepPageState extends State<SecondStepPage> {
       return;
     }
 
-    Navigator.push(context, MaterialPageRoute(builder: (context) => ThirdStepPage(product: widget.product, enrollForm: _data)));
+    // submit 로깅
+    await _logStep(
+      stage: 'submit',
+      amount: _data.paymentAmount,
+      months: _data.periodMonths,
+    );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ThirdStepPage(
+          product: widget.product,
+          enrollForm: _data,
+        ),
+      ),
+    );
   }
 
-  final  _accounts = const [
+  // === 더미 계좌 목록(실서비스에 맞춰 교체) ===
+  final _accounts = const [
     {'id': 'A-1111', 'accountNumber': '112-1111-1111-11', 'bankName': '부산은행', 'balance': 300000},
     {'id': 'A-2222', 'accountNumber': '112-2222-1111-11', 'bankName': '부산은행', 'balance': 500000},
     {'id': 'A-3333', 'accountNumber': '112-3333-1111-11', 'bankName': '부산은행', 'balance': 800000},
@@ -153,10 +216,10 @@ class _SecondStepPageState extends State<SecondStepPage> {
               Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
               ..._accounts.map((acc) => ListTile(
-                title: Text('${acc['bankName']!} ${acc['accountNumber']!}'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.pop(context, acc),
-              )),
+                    title: Text('${acc['bankName']!} ${acc['accountNumber']!}'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.pop(context, acc),
+                  )),
               const SizedBox(height: 8),
             ],
           ),
@@ -178,7 +241,7 @@ class _SecondStepPageState extends State<SecondStepPage> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('입력 포맷을 불러오지 못했습니다.'));
+            return const Center(child: Text('입력 포맷을 불러오지 못했습니다.'));
           }
 
           final p = snapshot.data as ProductInputFormat;
@@ -196,9 +259,9 @@ class _SecondStepPageState extends State<SecondStepPage> {
                 // 납입 기간
                 if (p.input1) ...[
                   PeriodSection(
-                    value: _data.periodMonths!,
-                    min: 1,
-                    max: 60,
+                    value: _data.periodMonths!,  // initState에서 기본값 주입됨
+                    min: _minMonths,
+                    max: _maxMonths,
                     onChanged: (v) => setState(() => _data.periodMonths = v),
                   ),
                   const SizedBox(height: 12),
@@ -207,9 +270,9 @@ class _SecondStepPageState extends State<SecondStepPage> {
                 // 납입 금액
                 if (p.input2) ...[
                   AmountSection(
-                    value: _data.paymentAmount!,
-                    min: 5,
-                    max: 1000,
+                    value: _data.paymentAmount!, // initState에서 기본값 주입됨
+                    min: _minAmount,
+                    max: _maxAmount,
                     onChanged: (v) => setState(() => _data.paymentAmount = v),
                   ),
                   const SizedBox(height: 12),
@@ -234,9 +297,11 @@ class _SecondStepPageState extends State<SecondStepPage> {
                     onPick: () async {
                       final account = await _pickAccount('출금 계좌 선택');
                       if (account != null) {
-                        _data.fromAccountId = account['id'] as int;
+                        // NOTE: EnrollForm.fromAccountId 타입에 맞게 변경 필요(여기선 String 예시)
+                        _data.fromAccountId = _toIntId(account['id']);
                         setState(() {
-                          _fromAccountName = account["accountName"] as String;
+                          _fromAccountName =
+                              '${account["bankName"]} ${account["accountNumber"]}';
                         });
                       }
                     },
@@ -253,9 +318,10 @@ class _SecondStepPageState extends State<SecondStepPage> {
                     onPick: () async {
                       final account = await _pickAccount('만기 시 입금 계좌 선택');
                       if (account != null) {
-                        _data.maturityAccountId = account['id'] as int;
+                        _data.maturityAccountId = _toIntId(account['id']);
                         setState(() {
-                          _maturityAccountName = account["accountName"] as String;
+                          _maturityAccountName =
+                              '${account["bankName"]} ${account["accountNumber"]}';
                         });
                       }
                     },
@@ -274,16 +340,20 @@ class _SecondStepPageState extends State<SecondStepPage> {
 
                 // 모임 구분
                 if (p.input8) ...[
-                  GroupTypeSection(selectedCode: '', onChanged: (String code, String label) {
-                    setState(() {
-                      _data.groupType = code;
-                    });
-                  }),
+                  GroupTypeSection(
+                    selectedCode: _data.groupType ?? '',
+                    onChanged: (String code, String label) {
+                      setState(() {
+                        _data.groupType = code;
+                      });
+                    },
+                  ),
                 ]
               ],
             ),
           );
-        })
+        },
+      ),
     );
   }
 }
@@ -300,7 +370,7 @@ class _BottomButton extends StatelessWidget {
       child: Container(
         color: Colors.white,
         padding:
-        EdgeInsets.fromLTRB(16, 8, 16, 8 + MediaQuery.of(context).padding.bottom),
+            EdgeInsets.fromLTRB(16, 8, 16, 8 + MediaQuery.of(context).padding.bottom),
         child: SizedBox(
           width: double.infinity,
           height: 48,
@@ -311,12 +381,12 @@ class _BottomButton extends StatelessWidget {
               backgroundColor: primaryColor,
               disabledBackgroundColor: const Color(0xFFD0D0D0),
             ),
-            child: Text(
+            child: const Text(
               '다음',
               style: TextStyle(
                 color: Colors.white,
-                fontWeight: FontWeight.w800
-              )
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
         ),
@@ -346,7 +416,7 @@ class SectionCard extends StatelessWidget {
             Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
             if (subtitle != null) ...[
               const SizedBox(height: 4),
-              Text(subtitle!, style: TextStyle(color: Colors.black45)),
+              Text(subtitle!, style: const TextStyle(color: Colors.black45)),
             ],
             const SizedBox(height: 12),
             child,
@@ -365,7 +435,8 @@ class PeriodSection extends StatelessWidget {
     required this.max,
     required this.value,
     required this.onChanged,
-    this.divisions, });
+    this.divisions,
+  });
 
   final int value;  // months
   final int min;
@@ -384,15 +455,18 @@ class PeriodSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Slider(
-            value: value.toDouble(),
-            min: min.toDouble(),
-            max: max.toDouble(),
-            divisions: divisions ?? (max - min),
-            label: '$value개월',
-            inactiveColor: Colors.black12,
-            onChanged: (v) => onChanged(v.round()),
-            padding: EdgeInsets.symmetric(vertical: 20, horizontal: 8),
+          // ❗ Slider에는 padding 파라미터가 없음 → Padding 위젯으로 감싸기
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
+            child: Slider(
+              value: value.toDouble(),
+              min: min.toDouble(),
+              max: max.toDouble(),
+              divisions: divisions ?? (max - min),
+              label: '$value개월',
+              inactiveColor: Colors.black12,
+              onChanged: (v) => onChanged(v.round()),
+            ),
           ),
           const SizedBox(height: 20),
           Row(
@@ -404,25 +478,23 @@ class PeriodSection extends StatelessWidget {
                     controller: controller,
                     decoration: InputDecoration(
                       labelText: '개월 수 직접입력',
-                      labelStyle: TextStyle(
-                          color: Colors.grey[500]
-                      ),
+                      labelStyle: TextStyle(color: Colors.grey[500]),
                       isDense: true,
                       enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.black12)
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.black12),
                       ),
                       errorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.black12)
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.black12),
                       ),
                       focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.black)
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.black),
                       ),
                       focusedErrorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.black)
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.black),
                       ),
                     ),
                     keyboardType: TextInputType.number,
@@ -452,9 +524,10 @@ class AmountSection extends StatelessWidget {
     required this.max,
     required this.value,
     required this.onChanged,
-    this.divisions, });
+    this.divisions,
+  });
 
-  final int value;  // months
+  final int value;  // 만원 단위
   final int min;
   final int max;
   final int? divisions;
@@ -479,26 +552,24 @@ class AmountSection extends StatelessWidget {
                   child: TextFormField(
                     controller: controller,
                     decoration: InputDecoration(
-                      hintText: '월 납입 금액(원)',
-                      hintStyle: TextStyle(
-                          color: Colors.grey[500]
-                      ),
+                      hintText: '월 납입 금액(만원)',
+                      hintStyle: TextStyle(color: Colors.grey[500]),
                       isDense: true,
                       enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.black12)
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.black12),
                       ),
                       errorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.black12)
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.black12),
                       ),
                       focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.black)
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.black),
                       ),
                       focusedErrorBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.black)
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Colors.black),
                       ),
                     ),
                     keyboardType: TextInputType.number,
@@ -552,7 +623,7 @@ class _CupertinoMonthlyWheelState extends State<CupertinoMonthlyWheel> {
     final t = _today;
     if (anchor == kLastDay) {
       final lastThis = _lastDayOfMonth(t.year, t.month);
-      if (t.day <= lastThis) return DateTime(t.year, t.month, lastThis); // 오늘이 말일이어도 이번달
+      if (t.day <= lastThis) return DateTime(t.year, t.month, lastThis);
       final lastNext = _lastDayOfMonth(t.year, t.month + 1);
       return DateTime(t.year, t.month + 1, lastNext);
     } else {
@@ -724,7 +795,6 @@ class _WheelItem {
 
 // 모임 이름 섹션
 class GroupNameSection extends StatefulWidget {
-
   const GroupNameSection({super.key, required this.value, required this.onChanged});
   final String value;
   final ValueChanged<String> onChanged;
@@ -751,26 +821,20 @@ class _GroupNameSectionState extends State<GroupNameSection> {
         maxLength: 20,
         decoration: InputDecoration(
           hintText: '예) 제주도 여행 모임',
-          hintStyle: TextStyle(
-            color: Colors.grey[500]
-          ),
+          hintStyle: TextStyle(color: Colors.grey[500]),
           isDense: true,
           enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.black12)
-          ),
+              borderSide: const BorderSide(color: Colors.black12)),
           errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.black12)
-          ),
+              borderSide: const BorderSide(color: Colors.black12)),
           focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.black)
-          ),
+              borderSide: const BorderSide(color: Colors.black)),
           focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.black)
-          ),
+              borderSide: const BorderSide(color: Colors.black)),
         ),
         onChanged: widget.onChanged,
       ),
@@ -782,8 +846,8 @@ class _GroupNameSectionState extends State<GroupNameSection> {
 class GroupTypeSection extends StatefulWidget {
   const GroupTypeSection({
     super.key,
-    required this.selectedCode,     // 현재 선택 코드 (없으면 null)
-    required this.onChanged,        // (code, label?) 콜백
+    required this.selectedCode,
+    required this.onChanged,
   });
 
   final String? selectedCode;       // 'CLUB' | 'DATE' | ... | 'ETC' | null
@@ -795,16 +859,6 @@ class GroupTypeSection extends StatefulWidget {
 
 class _GroupTypeSectionState extends State<GroupTypeSection> {
   late String? _code = widget.selectedCode;
-
-  @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
 
   void _select(String code, String label) {
     setState(() => _code = code);

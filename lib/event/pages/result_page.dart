@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+
 import '../models/types.dart';
 import '../service/fortune_auth_service.dart';
 import '../service/fortune_firestore_service.dart';
 import '../config/share_links.dart';
 
-const kBoxPadding = EdgeInsets.all(16);
-
+// 추천 상품 상세로 진입
+import 'package:reframe/pages/deposit/deposit_detail_page.dart';
 
 class ResultPage extends StatefulWidget {
   final FortuneFlowArgs args;
@@ -19,6 +20,9 @@ class ResultPage extends StatefulWidget {
 
 class _ResultPageState extends State<ResultPage> {
   static const bool kBypassDailyLimitForTest = true;
+
+  // 공통 패딩 상수
+  static const kBoxPadding = EdgeInsets.all(16);
 
   @override
   void initState() {
@@ -115,11 +119,11 @@ class _ResultPageState extends State<ResultPage> {
               Text('키워드: ${widget.data.keyword}', style: const TextStyle(fontSize: 14, color: Colors.grey), textAlign: TextAlign.center),
               const SizedBox(height: 24),
 
-              // 추천 상품 박스
+              // ✅ 추천 상품들: 카드 탭 → DepositDetailPage 로 이동
               if (widget.data.products.isNotEmpty)
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(16),
+                  padding: kBoxPadding,
                   decoration: BoxDecoration(
                     color: const Color(0xFFD4F3D8),
                     borderRadius: BorderRadius.circular(12),
@@ -130,15 +134,18 @@ class _ResultPageState extends State<ResultPage> {
                       const SizedBox(height: 8),
                       ...widget.data.products.map((p) => Padding(
                         padding: const EdgeInsets.symmetric(vertical: 6),
-                        child: Column(
-                          children: [
-                            Text(p.name, style: const TextStyle(fontSize: 16)),
-                            if (p.summary != null && p.summary!.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(p.summary!, textAlign: TextAlign.center),
+                        child: _ProductCard(
+                          name: p.name,
+                          summary: p.summary ?? '',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => DepositDetailPage(productId: p.productId),
+                                settings: const RouteSettings(name: '/deposit/detail'),
                               ),
-                          ],
+                            );
+                          },
                         ),
                       )),
                     ],
@@ -166,6 +173,52 @@ class _ResultPageState extends State<ResultPage> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 추천 상품 한 개 카드 위젯 (탭 가능)
+class _ProductCard extends StatelessWidget {
+  final String name;
+  final String summary;
+  final VoidCallback onTap;
+  const _ProductCard({
+    required this.name,
+    required this.summary,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Ink(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF5F5F5),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Column(
+          children: [
+            Text(
+              name,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            if (summary.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(summary, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14)),
+            ],
+            const SizedBox(height: 10),
+            FilledButton.tonal(
+              onPressed: onTap,
+              child: const Text('자세히 보기'),
+            ),
+          ],
         ),
       ),
     );

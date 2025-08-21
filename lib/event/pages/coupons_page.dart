@@ -3,10 +3,9 @@ import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart';
 import '../service/fortune_auth_service.dart';
 import '../config/share_links.dart';
+import 'my_coupons_page.dart';
 
-
-/// 쿠폰 스탬프 페이지 (UI 전용)
-/// - '쾅!' 임팩트: 팝 스케일 + 미세 회전 + 순간 하강(nudge) + 라디얼 플래시 + 이중 햅틱
+/// 쿠폰 스탬프 페이지 (컨텐츠 전용)
 class CouponsPage extends StatefulWidget {
   final int stampCount; // 현재 스탬프 개수
   final VoidCallback? onFull; // 가득 찼을 때 호출
@@ -104,16 +103,14 @@ class _CouponsPageState extends State<CouponsPage>
       ),
     ]).animate(_popCtrl);
 
-    // 진입 시 이미 1개 이상이면 한 번 팝(상태 강조)
     if (widget.stampCount > 0) {
-      WidgetsBinding.instance!.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _popCtrl.forward(from: 0);
       });
     }
 
-    // 가득 찼다면 안내
     if (widget.stampCount >= total) {
-      WidgetsBinding.instance!.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         widget.onFull?.call();
         _showCongrats();
       });
@@ -123,7 +120,6 @@ class _CouponsPageState extends State<CouponsPage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // 첫 표시 시 로딩 지연 방지(깜빡임 방지)
     precacheImage(const AssetImage('assets/images/stamp_on.png'), context);
     precacheImage(const AssetImage('assets/images/stamp_base.png'), context);
   }
@@ -132,9 +128,7 @@ class _CouponsPageState extends State<CouponsPage>
   void didUpdateWidget(covariant CouponsPage oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // 스탬프 증가시에만 팝
     if (widget.stampCount > oldWidget.stampCount) {
-      // 이중 햅틱: 톡 → 30~40ms → 쾅
       Future(() => HapticFeedback.mediumImpact())
           .then((_) => Future.delayed(const Duration(milliseconds: 35)))
           .then((_) => HapticFeedback.heavyImpact());
@@ -142,7 +136,7 @@ class _CouponsPageState extends State<CouponsPage>
       _popCtrl.forward(from: 0);
 
       if (widget.stampCount >= total) {
-        WidgetsBinding.instance!.addPostFrameCallback((_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
           widget.onFull?.call();
           _showCongrats();
         });
@@ -184,103 +178,103 @@ class _CouponsPageState extends State<CouponsPage>
     await Share.share(text.toString(), subject: '친구에게 공유하기');
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     final int stamped = widget.stampCount.clamp(0, total).toInt();
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('나의 쿠폰함')),
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              '나의 쿠폰함',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w700),
-              textAlign: TextAlign.center,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 스탬프 2행 5열
+          AspectRatio(
+            aspectRatio: 5 / 2,
+            child: GridView.builder(
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(8),
+              itemCount: total,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 5,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+              ),
+              itemBuilder: (context, index) {
+                final isStamped = index < stamped;
+                final isJustStamped = isStamped && (index == stamped - 1);
+
+                return _StampSlot(
+                  isStamped: isStamped,
+                  scale: isJustStamped ? _scale : null,
+                  fade: isJustStamped ? _fade : null,
+                  rotate: isJustStamped ? _rotate : null,
+                  flashOpacity: isJustStamped ? _flashOpacity : null,
+                  flashScale: isJustStamped ? _flashScale : null,
+                  nudgeY: isJustStamped ? _nudgeY : null,
+                );
+              },
             ),
-            const SizedBox(height: 20),
+          ),
 
-            // 스탬프 2행 5열
-            AspectRatio(
-              aspectRatio: 5 / 2,
-              child: GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(8),
-                itemCount: total,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 5,
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                ),
-                itemBuilder: (context, index) {
-                  final isStamped = index < stamped;
-                  final isJustStamped = isStamped && (index == stamped - 1);
+          const SizedBox(height: 24),
 
-                  return _StampSlot(
-                    isStamped: isStamped,
-                    // 방금 찍힌 칸에만 트랙 전달
-                    scale: isJustStamped ? _scale : null,
-                    fade: isJustStamped ? _fade : null,
-                    rotate: isJustStamped ? _rotate : null,
-                    flashOpacity: isJustStamped ? _flashOpacity : null,
-                    flashScale: isJustStamped ? _flashScale : null,
-                    nudgeY: isJustStamped ? _nudgeY : null,
-                  );
-                },
+          // 내 쿠폰함 보기
+          SizedBox(
+            height: 56,
+            child: OutlinedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MyCouponsPage()),
+                );
+              },
+              child: const Text('내 쿠폰함 보기'),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // 공유 버튼(옵션)
+          SizedBox(
+            height: 56,
+            child: ElevatedButton(
+              onPressed: _share,
+              child: const Text(
+                '친구에게 공유하기',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
             ),
+          ),
 
-            const SizedBox(height: 38),
+          const SizedBox(height: 40),
 
-            // 공유 버튼(옵션)
-            SizedBox(
-              height: 60,
-              child: ElevatedButton(
-                onPressed: _share,
-                child: const Text(
-                  '친구에게 공유하기',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          // 🔶 하단 CTA 카드 2개 (텍스트 + 하단 이미지)
+          Row(
+            children: [
+              Expanded(
+                child: _CTAImageCard(
+                  title: '나에게 딱 맞는\n예·적금 상품\n추천받기',
+                  imagePath: 'assets/images/pig.png',
+                  onTap: () {
+                    // ✅ Savings 테스트: StartScreen
+                    Navigator.pushNamed(context, '/savings/start');
+                  },
                 ),
               ),
-            ),
-
-            const SizedBox(height: 50),
-
-            // 🔶 하단 CTA 카드 2개 (텍스트 + 하단 이미지)
-            Row(
-              children: [
-                Expanded(
-                  child: _CTAImageCard(
-                    title: '나에게 딱 맞는\n예·적금 상품\n추천받기',
-                    imagePath: 'assets/images/pig.png',
-                    onTap: () {
-                      // TODO: 예·적금 추천 페이지 이동
-                      // Navigator.pushNamed(context, '/savings');
-                    },
-                  ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _CTAImageCard(
+                  title: '오늘의 운세\n확인하고\n커피까지!',
+                  imagePath: 'assets/images/coffee.png',
+                  onTap: () {
+                    // ✅ 운세 시작 페이지
+                    Navigator.pushNamed(context, '/event/fortune');
+                  },
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _CTAImageCard(
-                    title: '오늘의 운세\n확인하고\n커피까지!',
-                    imagePath: 'assets/images/coffee.png',
-                    onTap: () {
-                      // TODO: 운세 확인 페이지 이동
-                      // Navigator.pushNamed(context, '/fortune');
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -338,7 +332,6 @@ class _StampSlot extends StatelessWidget {
       children: [
         base,
 
-        // (A) 라디얼 플래시
         if (flashOpacity != null && flashScale != null)
           AnimatedBuilder(
             animation: Listenable.merge([flashOpacity!, flashScale!]),
@@ -363,11 +356,11 @@ class _StampSlot extends StatelessWidget {
             },
           ),
 
-        // (B) 스탬프 본체
         FadeTransition(
           opacity: fade!,
           child: AnimatedBuilder(
-            animation: Listenable.merge([scale!, rotate!, if (nudgeY != null) nudgeY!]),
+            animation:
+            Listenable.merge([scale!, rotate!, if (nudgeY != null) nudgeY!]),
             builder: (context, _) {
               return Transform.translate(
                 offset: Offset(0, nudgeY?.value ?? 0.0),
@@ -408,11 +401,10 @@ class _CTAImageCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Container(
-          height: 120, // 카드 높이 고정
+          height: 120,
           padding: const EdgeInsets.all(14),
           child: Stack(
             children: [
-              // 상단 텍스트
               Positioned.fill(
                 child: Align(
                   alignment: Alignment.topLeft,
@@ -426,7 +418,6 @@ class _CTAImageCard extends StatelessWidget {
                   ),
                 ),
               ),
-              // 하단 우측 이미지
               Positioned(
                 right: 0,
                 bottom: 0,

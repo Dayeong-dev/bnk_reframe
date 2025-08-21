@@ -32,7 +32,6 @@ Future<void> main() async {
   );
 
   final firebaseService = await FirebaseService.init(
-    baseUrl: FirebaseService.defaultBaseUrl,
     forceRefreshToken: true,
   );
 
@@ -66,7 +65,7 @@ class MyApp extends StatelessWidget {
         "/more-page": (context) => MorePage(),
         '/map': (context) => const MapPage(),
         "/enroll-first": (context) => FirstStepPage(),
-        "/enroll-second": (context) => SecondStepPage()
+        "/enroll-second": (context) => SecondStepPage(),
         '/savings/start':   (_) => const StartScreen(),
         '/savings/question':(_) => const QuestionScreen(),
         '/savings/result':  (_) => const ResultScreen(),

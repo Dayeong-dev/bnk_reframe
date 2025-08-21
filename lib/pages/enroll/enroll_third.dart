@@ -7,6 +7,8 @@ import 'package:reframe/model/group_type.dart';
 import 'package:reframe/pages/enroll/success_enroll.dart';
 import 'package:reframe/service/enroll_service.dart';
 
+import 'package:firebase_analytics/firebase_analytics.dart'; // ★ 추가: Analytics
+
 class ThirdStepPage extends StatefulWidget {
   const ThirdStepPage({
     super.key,
@@ -23,7 +25,44 @@ class ThirdStepPage extends StatefulWidget {
 
 class _ThirdStepPageState extends State<ThirdStepPage> {
 
+  // ★ 교체: 퍼널 로깅 헬퍼 (ThirdStepPage)
+  Future<void> _logStep({required String stage}) {
+    // 값이 전부 non-null인 맵으로 선언
+    final Map<String, Object> params = <String, Object>{
+      'funnel_id': 'deposit_apply_v1',
+      'step_index': 3,
+      'step_name': '최종확인',
+      'stage': stage, // "view" | "submit"
+      'product_id': widget.product.productId.toString(),
+    };
+
+    final amount = widget.enrollForm.paymentAmount; // int?
+    if (amount != null) {
+      params['amount'] = amount; // Object로 안전
+    }
+
+    final months = widget.enrollForm.periodMonths; // int?
+    if (months != null) {
+      params['months'] = months;
+    }
+
+    return FirebaseAnalytics.instance.logEvent(
+      name: 'bnk_apply_step',
+      parameters: params, // <- 이제 타입 일치(Map<String, Object>?)
+    );
+  }
+
+
+  @override
+  void initState() {
+    // ★ 추가: 화면 진입(view)
+    _logStep(stage: 'view');
+    super.initState();
+  }
+
   Future<void> _submit() async {
+    // ★ 추가: 최종 확인 버튼 클릭(submit) — result는 서버에서 전송!
+    await _logStep(stage: 'submit');
     await addApplication(widget.product.productId, widget.enrollForm, context);
   }
 

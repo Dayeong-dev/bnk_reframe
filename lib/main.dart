@@ -1,5 +1,3 @@
-// lib/main.dart  (교체본)
-
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 
@@ -63,7 +61,6 @@ Future<void> main() async {
 
   // 4) 기존 FirebaseService(Analytics 등) 초기화
   final firebaseService = await FirebaseService.init(
-    baseUrl: FirebaseService.defaultBaseUrl,
     forceRefreshToken: true,
   );
 

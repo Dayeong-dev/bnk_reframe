@@ -53,28 +53,30 @@ class _FirstStepPageState extends State<FirstStepPage> {
     _category = widget.product.category ?? "기타";
 
     _items = [
-      _ConsentItem(kind: ConsentKind.pdf, title: '[상품명] 상품 설명서', required: true, pdfUrl: '$apiBaseUrl/uploads/terms/$_termFileName.pdf'),
-      _ConsentItem(kind: ConsentKind.pdf, title: '[상품명] 이용약관', required: true, pdfUrl: '$apiBaseUrl/uploads/manuals/$_manualFileName.pdf'),
-      _ConsentItem(kind: ConsentKind.pdf, title: '예금거래기본약관 동의', required: true, pdfUrl: '$apiBaseUrl/uploads/common/%E1%84%8B%E1%85%A8%E1%84%80%E1%85%B3%E1%86%B7%E1%84%80%E1%85%A5%E1%84%85%E1%85%A2%E1%84%80%E1%85%B5%E1%84%87%E1%85%A9%E1%86%AB%E1%84%8B%E1%85%A3%E1%86%A8%E1%84%80%E1%85%AA%E1%86%AB.pdf'),
-      ...(_category == "적금"
-          ? [
+      _ConsentItem(kind: ConsentKind.pdf, title: '${widget.product.name} 상품 설명서', required: true, pdfUrl: '$apiBaseUrl/uploads/manuals/$_manualFileName.pdf'),
+      _ConsentItem(kind: ConsentKind.pdf, title: '${widget.product.name} 이용약관', required: true, pdfUrl: '$apiBaseUrl/uploads/terms/$_termFileName.pdf'),
+      _ConsentItem(kind: ConsentKind.pdf, title: '예금거래기본약관 동의', required: true, pdfUrl: '$apiBaseUrl/uploads/common/예금거래기본약관.pdf'),
+      ...(_category == "적금" ? [
         _ConsentItem(
           kind: ConsentKind.pdf,
           title: '적립식예금약관 동의',
           required: true,
-          pdfUrl:
-          '$apiBaseUrl/uploads/common/%EC%A0%81%EB%A6%BD%EC%8B%9D%20%EC%98%88%EA%B8%88%20%EC%95%BD%EA%B4%80.pdf',
-        )
-      ]
-          : [
+          pdfUrl: '$apiBaseUrl/uploads/common/적립식 예금 약관.pdf',
+        )] : _category == "예금" ? [
         _ConsentItem(
           kind: ConsentKind.pdf,
           title: '거치식예금약관 동의',
           required: true,
-          pdfUrl:
-          '$apiBaseUrl/uploads/common/%E1%84%80%E1%85%A5%E1%84%8E%E1%85%B5%E1%84%89%E1%85%B5%E1%86%A8%20%E1%84%8B%E1%85%A8%E1%84%80%E1%85%B3%E1%86%B7%20%E1%84%8B%E1%85%A3%E1%86%A8%E1%84%80%E1%85%AA%E1%86%AB.pdf',
-        )
-      ]),
+          pdfUrl: '$apiBaseUrl/uploads/common/거치식 예금 약관.pdf'
+        )] : [_ConsentItem(
+          kind: ConsentKind.pdf,
+          title: '입출금이 자유로운 예금 약관 동의',
+          required: true,
+          pdfUrl: '$apiBaseUrl/uploads/common/입출금이 자유로운 예금 약관.pdf',
+        )]
+      ),
+      // _ConsentItem(kind: ConsentKind.pdf, title: '자동이체(송금) 약관 동의', required: true, pdfUrl: '$apiBaseUrl/uploads/common/자동이체(송금) 약관.pdf'),
+      // _ConsentItem(kind: ConsentKind.pdf, title: '비과세종합저축 특약 동의', required: true, pdfUrl: '$apiBaseUrl/ntsa.pdf'),
       _ConsentItem(
           kind: ConsentKind.info,
           title: '예금자 보호법 확인',

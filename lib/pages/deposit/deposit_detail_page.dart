@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
+import 'package:reframe/pages/enroll/enroll_first.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 
@@ -428,7 +429,7 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
                 onPressed: () async {
                   await _logDetailCta('apply');
                   if (!mounted) return;
-                  Navigator.pushNamed(context, "/enroll-first");
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => FirstStepPage(product: product!)));
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _brand,

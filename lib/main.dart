@@ -96,9 +96,6 @@ class MyApp extends StatelessWidget {
           "/chat-debug": (context) => BnkChatPage(),
           "/more-page": (context) => MorePage(),
           '/map': (context) => const MapPage(),
-          "/enroll-first": (context) => FirstStepPage(),
-          "/enroll-second": (context) => SecondStepPage(),
-
           // Savings 테스트 라우트
           '/savings/start': (_) => const StartScreen(),
           '/savings/question': (_) => const QuestionScreen(),

@@ -14,6 +14,12 @@ import 'package:reframe/pages/branch/map_page.dart';
 /// 통화 포맷터: 1,000 단위 콤마
 String formatCurrency(int value) => NumberFormat("#,###").format(value);
 
+void pushNamedRoot(BuildContext context, String routeName,
+    {Object? arguments}) {
+  Navigator.of(context, rootNavigator: true)
+      .pushNamed(routeName, arguments: arguments);
+}
+
 class DepositMainPage extends StatefulWidget {
   @override
   State<DepositMainPage> createState() => _DepositMainPageState();
@@ -867,7 +873,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
                 icon: Icons.recommend,
                 accent: _accent,
                 filled: false, // 꽉 찬 버튼(예전 스타일)
-                onTap: () => Navigator.pushNamed(context, '/savings/start'),
+                onTap: () => pushNamedRoot(context, '/savings/start'),
               ),
             ),
             const SizedBox(width: 12),
@@ -877,7 +883,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
                 icon: Icons.location_on,
                 accent: Colors.green,
                 filled: false, // 테두리 버튼
-                onTap: () => Navigator.pushNamed(context, '/map'),
+                onTap: () => pushNamedRoot(context, '/map'),
               ),
             ),
           ],
@@ -1626,7 +1632,7 @@ Widget shortcutRow(BuildContext context) {
           child: InkWell(
             borderRadius: borderRadius,
             // 🔁 변경: 스낵바 → /savings/start 라우팅
-            onTap: () => Navigator.pushNamed(context, '/savings/start'),
+            onTap: () => pushNamedRoot(context, '/savings/start'),
             child: Container(
               padding: const EdgeInsets.all(20),
               margin: const EdgeInsets.only(right: 8),
@@ -1656,7 +1662,7 @@ Widget shortcutRow(BuildContext context) {
         Expanded(
           child: InkWell(
             borderRadius: borderRadius,
-            onTap: () => Navigator.pushNamed(context, '/map'),
+            onTap: () => pushNamedRoot(context, '/map'),
             child: Container(
               padding: const EdgeInsets.all(20),
               margin: const EdgeInsets.only(left: 8),

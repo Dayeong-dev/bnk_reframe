@@ -86,8 +86,10 @@ class MorePage extends StatelessWidget {
                 // ================ 그라디언트 챗봇 배너 ================
                 _ChatBanner(
                   onTap: onStartChatbot ??
-                      () => Navigator.of(ctx).pushNamed('/chat-debug'),
+                      () => Navigator.of(ctx, rootNavigator: true)
+                          .pushNamed('/chat-debug'),
                 ),
+
                 const SizedBox(height: 14),
 
                 // ======================= 나의 서비스 =======================
@@ -179,18 +181,17 @@ class MorePage extends StatelessWidget {
                   iconData: Icons.mark_unread_chat_alt_outlined,
                   title: '1대1 문의',
                   trailingInfo: '상담원 연결 · 기록',
-                  onTap: onOneToOne ??
-                      () {
-                        final qnaApi = ctx.read<QnaApiService>();
-                        Navigator.of(ctx).push(
-                          MaterialPageRoute(
-                            builder: (_) => QnaListPage(
-                              api: qnaApi,
-                              openComposerOnStart: true, // 진입 즉시 폼으로 "교체" 오픈
-                            ),
-                          ),
-                        );
-                      },
+                  onTap: () {
+                    final qnaApi = ctx.read<QnaApiService>();
+                    Navigator.of(ctx).push(
+                      MaterialPageRoute(
+                        builder: (_) => QnaListPage(
+                          api: qnaApi,
+                          openComposerOnStart: true, // ← 바로 문의쓰기 열기
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 _ServiceTile(
                   section: _SectionKind.customer,

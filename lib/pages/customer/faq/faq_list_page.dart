@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../../store/faq_store.dart';
 import '../../../model/faq.dart';
 import '../../../service/faq_api.dart';
-import 'faq_detail_page.dart';
 
 class FaqListPage extends StatefulWidget {
   const FaqListPage({super.key});
@@ -112,9 +111,7 @@ class _FaqListPageState extends State<FaqListPage> {
                       const Text(
                         '카테고리',
                         style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
+                            fontSize: 14, fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -179,11 +176,30 @@ class _FaqListPageState extends State<FaqListPage> {
               final faq = items[faqIndex];
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: _FaqRow(faq: faq),
+                child: _FaqRow(faq: faq, onOpen: _openFaqDialog),
               );
             },
           ),
         ),
+      ),
+    );
+  }
+
+  // ── 중앙 모달 다이얼로그 열기 (현재 Provider 인스턴스 주입) ────────────────
+  void _openFaqDialog(BuildContext context, Faq faq) {
+    final store = context.read<FaqStore>();
+    final api = store.api; // 또는 context.read<FaqApi>();
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black54,
+      builder: (_) => MultiProvider(
+        providers: [
+          ChangeNotifierProvider<FaqStore>.value(value: store),
+          Provider<FaqApi>.value(value: api),
+        ],
+        child: _FaqQADialog(faqId: faq.faqId, initial: faq),
       ),
     );
   }
@@ -213,10 +229,10 @@ class _Header extends StatelessWidget {
             borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
           ),
           child: Transform.translate(
-            offset: const Offset(0, 20), // ← 세로 내려가는 정도(px). 14~24 사이로 취향껏 조절
+            offset: const Offset(0, 20),
             child: const Column(
-              mainAxisAlignment: MainAxisAlignment.center, // 세로 중앙 기준
-              crossAxisAlignment: CrossAxisAlignment.center, // 가로 중앙
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
                   'FAQ',
@@ -231,10 +247,7 @@ class _Header extends StatelessWidget {
                 Text(
                   '해결되지 않는 문의는 1:1 문의나 챗봇을 이용해 주세요.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
                 ),
               ],
             ),
@@ -279,12 +292,11 @@ class _SearchBar extends StatelessWidget {
                 focusNode: focusNode,
                 textInputAction: TextInputAction.search,
                 decoration: const InputDecoration(
-                  hintText: '키워드를 입력해 보세요.',
+                  hintText: '키워드를 검색해 보세요.',
                   border: InputBorder.none,
                 ),
               ),
             ),
-            // 테두리 제거 → 아이콘만
             IconButton(
               icon: const Icon(Icons.search, color: blue),
               onPressed: () => FocusScope.of(context).unfocus(),
@@ -353,31 +365,17 @@ class _InlineChips extends StatelessWidget {
   }
 }
 
-/* ───────── FAQ 행 ───────── */
+/* ───────── FAQ 행 (onTap → 중앙 모달) ───────── */
 class _FaqRow extends StatelessWidget {
   final Faq faq;
-  const _FaqRow({required this.faq});
+  final void Function(BuildContext, Faq) onOpen;
+  const _FaqRow({required this.faq, required this.onOpen});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return InkWell(
-      onTap: () {
-        final api = context.read<FaqApi>();
-        final store = context.read<FaqStore>();
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => MultiProvider(
-              providers: [
-                Provider<FaqApi>.value(value: api),
-                ChangeNotifierProvider<FaqStore>.value(value: store),
-              ],
-              child: FaqDetailPage(faqId: faq.faqId, initial: faq),
-            ),
-          ),
-        );
-      },
+      onTap: () => onOpen(context, faq),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 14),
         child: Row(
@@ -412,6 +410,196 @@ class _FaqRow extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/* ───────── 중앙 Q/A 다이얼로그 (상단 여백↑, X는 위로, 우측여백 제거) ───────── */
+class _FaqQADialog extends StatefulWidget {
+  final int faqId;
+  final Faq? initial;
+  const _FaqQADialog({required this.faqId, this.initial});
+
+  @override
+  State<_FaqQADialog> createState() => _FaqQADialogState();
+}
+
+class _FaqQADialogState extends State<_FaqQADialog> {
+  Future<Faq>? _future;
+  late FaqApi _api;
+  bool _bound = false;
+
+  // 파스텔 블루 팔레트
+  static const _chipBlue = Color(0xFF81D4FA); // 카테고리 칩
+  static const _labelBlue = Color(0xFF2962FF); // 'A' 라벨
+  static const _bubbleBlue = Color(0xFFEAF4FF); // 답변 말풍선 배경
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_bound) return;
+    _api = context.read<FaqApi>(); // 또는 context.read<FaqStore>().api
+    _future = _api.fetchFaqDetail(widget.faqId);
+    _bound = true;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minWidth: 280,
+          maxWidth: 560,
+          maxHeight: 560, // 길면 내부 스크롤
+        ),
+        child: FutureBuilder<Faq>(
+          future: _future,
+          builder: (context, snap) {
+            final isLoading =
+                snap.connectionState != ConnectionState.done && !snap.hasError;
+            final faq = snap.data ?? widget.initial;
+
+            return Stack(
+              children: [
+                // 상단 여백을 넉넉히 주고(텍스트 위로 공간 확보), 좌우는 동일 패딩
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                      20, 36, 20, 30), // ▲ top 36, right 20 (reserve 제거)
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 1) Q + (질문 + 배지) : 배지는 질문 텍스트 시작선에 정확히 맞춤
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Q',
+                              style: TextStyle(
+                                fontSize: 20, // ← Q 라벨 크기
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    (faq?.question ?? '').trim().isNotEmpty
+                                        ? (faq?.question ?? '')
+                                        : (isLoading ? '불러오는 중…' : '제목 없음'),
+                                    style: const TextStyle(
+                                      fontSize: 18, // ← 질문 폰트 크기
+                                      fontWeight: FontWeight.w700,
+                                      height: 1.35,
+                                    ),
+                                    softWrap: true,
+                                    overflow: TextOverflow.visible, // 잘림 방지
+                                  ),
+                                  const SizedBox(height: 8),
+                                  if ((faq?.category ?? '').isNotEmpty)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: _chipBlue,
+                                        borderRadius: BorderRadius.circular(8),
+                                        boxShadow: const [
+                                          BoxShadow(
+                                              color: Colors.black12,
+                                              blurRadius: 4),
+                                        ],
+                                      ),
+                                      child: Text(
+                                        faq!.category!,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // 2) A 라벨을 Q와 같은 세로선(왼쪽)에 두고, 오른쪽에 답변 말풍선
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'A',
+                              style: TextStyle(
+                                color: _labelBlue,
+                                fontSize: 18, // ← A 라벨 크기
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Container(
+                                padding:
+                                    const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                                decoration: BoxDecoration(
+                                  color: _bubbleBlue,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: isLoading && (faq?.answer ?? '').isEmpty
+                                    ? const Padding(
+                                        padding:
+                                            EdgeInsets.symmetric(vertical: 8),
+                                        child: Center(
+                                          child: SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                                strokeWidth: 2),
+                                          ),
+                                        ),
+                                      )
+                                    : Text(
+                                        (faq?.answer ?? '').trim().isNotEmpty
+                                            ? (faq?.answer ?? '')
+                                            : '등록된 답변이 없습니다.',
+                                        style: const TextStyle(
+                                          fontSize: 15.5, // ← 답변 폰트 크기
+                                          height: 1.55,
+                                          color: Color(0xFF1F2937),
+                                        ),
+                                        softWrap: true,
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // X 버튼을 "본문 위쪽(헤더 영역)"으로 올려 겹침 이슈 제거
+                Positioned(
+                  top: 6, // 텍스트 위쪽
+                  right: 6,
+                  child: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.black87),
+                    tooltip: '닫기',
+                    onPressed: () => Navigator.of(context).maybePop(),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

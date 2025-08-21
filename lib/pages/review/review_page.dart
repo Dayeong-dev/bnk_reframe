@@ -5,8 +5,8 @@ import 'package:reframe/service/review_service.dart';
 import 'package:reframe/model/review.dart';
 
 const _brand = Color(0xFF304FFE);
-const _badgeBg = Color(0xFFE8F5E9);
-const _badgeFg = Color(0xFF2E7D32);
+const _badgeBg = Color(0xFFF5F5F5); // 밝은 회색
+const _badgeFg = Color(0xFF424242); // 짙은 회색
 
 enum SortMode { latest, ratingHigh, ratingLow }
 
@@ -159,12 +159,15 @@ class _ReviewPageState extends State<ReviewPage> {
   }
 
   List<Review> get _visibleSorted {
-    final base =
-    _hideMine ? _reviews.where((r) => !_isMine(r)).toList() : List<Review>.from(_reviews);
+    final base = _hideMine
+        ? _reviews.where((r) => !_isMine(r)).toList()
+        : List<Review>.from(_reviews);
 
     int cmpDate(Review a, Review b) {
-      final da = _toDateTime(a.createdAt) ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final db = _toDateTime(b.createdAt) ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final da =
+          _toDateTime(a.createdAt) ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final db =
+          _toDateTime(b.createdAt) ?? DateTime.fromMillisecondsSinceEpoch(0);
       return db.compareTo(da);
     }
 
@@ -282,7 +285,7 @@ class _ReviewPageState extends State<ReviewPage> {
             mainAxisSize: MainAxisSize.min,
             children: List.generate(
               5,
-                  (_) => Icon(
+              (_) => Icon(
                 Icons.star_border_rounded,
                 size: size,
                 color: Colors.white.withOpacity(.7),
@@ -298,7 +301,8 @@ class _ReviewPageState extends State<ReviewPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: List.generate(
                   5,
-                      (_) => const Icon(Icons.star_rounded, size: 20, color: Colors.amber),
+                  (_) => const Icon(Icons.star_rounded,
+                      size: 20, color: Colors.amber),
                 ),
               ),
             ),
@@ -323,7 +327,8 @@ class _ReviewPageState extends State<ReviewPage> {
               width: 26,
               child: Text(
                 '${star}점',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.w800),
               ),
             ),
             const SizedBox(width: 6),
@@ -354,7 +359,8 @@ class _ReviewPageState extends State<ReviewPage> {
         ),
         borderRadius: BorderRadius.circular(18),
         boxShadow: const [
-          BoxShadow(color: Color(0x22000000), blurRadius: 16, offset: Offset(0, 8)),
+          BoxShadow(
+              color: Color(0x22000000), blurRadius: 16, offset: Offset(0, 8)),
         ],
       ),
       padding: const EdgeInsets.all(16),
@@ -441,7 +447,8 @@ class _ReviewPageState extends State<ReviewPage> {
           // 내 리뷰 숨기기
           TextButton.icon(
             onPressed: () => setState(() => _hideMine = !_hideMine),
-            icon: Icon(_hideMine ? Icons.visibility_off : Icons.visibility, size: 18),
+            icon: Icon(_hideMine ? Icons.visibility_off : Icons.visibility,
+                size: 18),
             label: const Text('내 리뷰 숨기기'),
             style: textBtn,
           ),
@@ -462,14 +469,17 @@ class _ReviewPageState extends State<ReviewPage> {
 
   Future<void> _openSortMenu(BuildContext anchorContext) async {
     final renderBox = anchorContext.findRenderObject() as RenderBox?;
-    final overlay =
-    Navigator.of(anchorContext).overlay!.context.findRenderObject() as RenderBox;
+    final overlay = Navigator.of(anchorContext)
+        .overlay!
+        .context
+        .findRenderObject() as RenderBox;
     if (renderBox == null) return;
 
     final position = RelativeRect.fromRect(
       Rect.fromPoints(
         renderBox.localToGlobal(Offset.zero, ancestor: overlay),
-        renderBox.localToGlobal(renderBox.size.bottomRight(Offset.zero), ancestor: overlay),
+        renderBox.localToGlobal(renderBox.size.bottomRight(Offset.zero),
+            ancestor: overlay),
       ),
       Offset.zero & overlay.size,
     );
@@ -492,7 +502,6 @@ class _ReviewPageState extends State<ReviewPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      useSafeArea: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -500,99 +509,103 @@ class _ReviewPageState extends State<ReviewPage> {
       builder: (ctx) {
         final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
 
-        // 바텀시트 내부에서만 즉시 반영될 로컬 상태
         int localRating = _rating;
 
-        return Padding(
-          padding: EdgeInsets.only(bottom: bottomInset),
-          child: StatefulBuilder(
-            builder: (ctx, setModalState) {
-              return SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(height: 2),
-                      Text('$localRating점', style: const TextStyle(fontWeight: FontWeight.w800)),
-                      const SizedBox(height: 8),
-                      // 별점 선택
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(5, (i) {
-                          final idx = i + 1;
-                          final active = idx <= localRating;
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 3),
-                            child: InkResponse(
-                              onTap: () => setModalState(() => localRating = idx),
-                              splashColor: Colors.transparent,
-                              highlightColor: Colors.transparent,
-                              hoverColor: Colors.transparent,
-                              focusColor: Colors.transparent,
-                              radius: 26,
-                              child: Icon(
-                                active ? Icons.star_rounded : Icons.star_border_rounded,
-                                size: 30,
-                                color: active ? Colors.amber : Colors.grey,
+        return SafeArea(
+          // ✅ 네비게이터 바 위로 올라오게 하는 핵심
+          top: false, // 위쪽은 필요 없으니 false
+          child: Padding(
+            padding: EdgeInsets.only(bottom: bottomInset),
+            child: StatefulBuilder(
+              builder: (ctx, setModalState) {
+                return SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(height: 2),
+                        Text('$localRating점',
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 8),
+                        // ⭐ 별점 선택
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(5, (i) {
+                            final idx = i + 1;
+                            final active = idx <= localRating;
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 3),
+                              child: InkResponse(
+                                onTap: () =>
+                                    setModalState(() => localRating = idx),
+                                splashColor: Colors.transparent,
+                                highlightColor: Colors.transparent,
+                                child: Icon(
+                                  active
+                                      ? Icons.star_rounded
+                                      : Icons.star_border_rounded,
+                                  size: 30,
+                                  color: active ? Colors.amber : Colors.grey,
+                                ),
                               ),
-                            ),
-                          );
-                        }),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _controller,
-                        focusNode: _focus,
-                        minLines: 4,
-                        maxLines: 8,
-                        decoration: InputDecoration(
-                          hintText: '리뷰를 작성하세요',
-                          contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          focusedBorder: const OutlineInputBorder(
-                            borderSide: BorderSide(color: _brand, width: 1.5),
-                          ),
-                          filled: true,
-                          fillColor: Colors.white,
+                            );
+                          }),
                         ),
-                      ),
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 48,
-                        child: ElevatedButton(
-                          onPressed: _submitting
-                              ? null
-                              : () async {
-                            setState(() => _rating = localRating);
-                            await _submit();
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _brand,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _controller,
+                          focusNode: _focus,
+                          minLines: 4,
+                          maxLines: 8,
+                          decoration: InputDecoration(
+                            hintText: '리뷰를 작성하세요',
+                            border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                            focusedBorder: const OutlineInputBorder(
+                              borderSide: BorderSide(color: _brand, width: 1.5),
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
                           ),
-                          child: _submitting
-                              ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                              : const Text('등록'),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: _submitting
+                                ? null
+                                : () async {
+                                    setState(() => _rating = localRating);
+                                    await _submit();
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _brand,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: _submitting
+                                ? const SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  )
+                                : const Text('등록'),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         );
       },
@@ -617,7 +630,8 @@ class _ReviewPageState extends State<ReviewPage> {
               CircleAvatar(
                 radius: 18,
                 backgroundColor: _brand.withOpacity(.12),
-                child: Text(initial, style: const TextStyle(fontWeight: FontWeight.w800)),
+                child: Text(initial,
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -628,7 +642,8 @@ class _ReviewPageState extends State<ReviewPage> {
                       name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w800, fontSize: 14),
                     ),
                     const SizedBox(height: 4),
                     Row(
@@ -638,7 +653,9 @@ class _ReviewPageState extends State<ReviewPage> {
                           children: List.generate(5, (i) {
                             final filled = i < (r.rating ?? 0);
                             return Icon(
-                              filled ? Icons.star_rounded : Icons.star_border_rounded,
+                              filled
+                                  ? Icons.star_rounded
+                                  : Icons.star_border_rounded,
                               size: 14,
                               color: Colors.amber,
                             );
@@ -647,8 +664,8 @@ class _ReviewPageState extends State<ReviewPage> {
                         if (mine) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding:
-                            const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
                               color: _badgeBg,
                               borderRadius: BorderRadius.circular(999),
@@ -694,8 +711,8 @@ class _ReviewPageState extends State<ReviewPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title:
-        Text(widget.productName, style: const TextStyle(fontWeight: FontWeight.w700)),
+        title: Text(widget.productName,
+            style: const TextStyle(fontWeight: FontWeight.w700)),
         centerTitle: true,
         elevation: 0.5,
         backgroundColor: Colors.white,
@@ -714,22 +731,22 @@ class _ReviewPageState extends State<ReviewPage> {
               child: _loading
                   ? const Center(child: SizedBox())
                   : (_visibleSorted.isEmpty
-                  ? ListView(
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: ClampingScrollPhysics(),
-                ),
-                children: const [
-                  SizedBox(height: 160),
-                  Center(child: Text('아직 리뷰가 없습니다')),
-                ],
-              )
-                  : ListView.builder(
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: ClampingScrollPhysics(),
-                ),
-                itemCount: _visibleSorted.length,
-                itemBuilder: (_, i) => _reviewItem(_visibleSorted[i]),
-              )),
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(
+                            parent: ClampingScrollPhysics(),
+                          ),
+                          children: const [
+                            SizedBox(height: 160),
+                            Center(child: Text('아직 리뷰가 없습니다')),
+                          ],
+                        )
+                      : ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(
+                            parent: ClampingScrollPhysics(),
+                          ),
+                          itemCount: _visibleSorted.length,
+                          itemBuilder: (_, i) => _reviewItem(_visibleSorted[i]),
+                        )),
             ),
           ),
         ],

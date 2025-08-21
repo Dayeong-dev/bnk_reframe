@@ -4,23 +4,31 @@ class Review {
   final String content;
   final int? rating;
   final String? authorName;
-  final DateTime createdAt;
+  final String? createdAt;   // 서버가 ISO 문자열이면 String으로 둬도 OK
+  final String? authorId;    // ★ 추가(문자열 비교 안정)
+  final bool? mine;          // ★ 추가
 
   Review({
     required this.id,
     required this.productId,
     required this.content,
-    required this.createdAt,
     this.rating,
     this.authorName,
+    this.createdAt,
+    this.authorId,
+    this.mine,
   });
 
-  factory Review.fromJson(Map<String, dynamic> j) => Review(
-    id: j['id'] as int,
-    productId: (j['productId'] as num).toInt(),
-    content: j['content'] as String,
-    rating: j['rating'] == null ? null : (j['rating'] as num).toInt(),
-    authorName: j['authorName'] as String?,
-    createdAt: DateTime.parse(j['createdAt'] as String),
-  );
+  factory Review.fromJson(Map<String, dynamic> json) {
+    return Review(
+      id: (json['id'] as num).toInt(),
+      productId: (json['productId'] as num).toInt(),
+      content: json['content'] as String,
+      rating: json['rating'] == null ? null : (json['rating'] as num).toInt(),
+      authorName: json['authorName'] as String?,
+      createdAt: json['createdAt']?.toString(),
+      authorId: json['authorId']?.toString(),    // ★
+      mine: json['mine'] as bool?,               // ★
+    );
+  }
 }

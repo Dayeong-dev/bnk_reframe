@@ -28,8 +28,8 @@ class _StartPageState extends State<StartPage> with SingleTickerProviderStateMix
       duration: const Duration(milliseconds: 2500),
     );
 
-    // 텍스트: 0.0~0.6 구간에서 0.3 → 1.0으로 부드럽게
-    _textOpacity = Tween<double>(begin: 0.3, end: 1.0).animate(
+    // 텍스트: 0.0~0.6 구간에서 0.2 → 1.0으로 부드럽게
+    _textOpacity = Tween<double>(begin: 0.2, end: 1.0).animate(
       CurvedAnimation(
         parent: _ctrl,
         curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
@@ -81,14 +81,13 @@ class _StartPageState extends State<StartPage> with SingleTickerProviderStateMix
     // 진행값 t: 0→1, amplitude: 최대 16px, freq: 5회 진동
     double dxFor(double t) {
       const amplitude = 16.0; // 시작 최대 이동량(px)
-      const freq = 2.5;       // 좌우 왕복 횟수
+      const freq = 4;       // 좌우 왕복 횟수
       final damping = (1 - t); // 시간이 지날수록 감쇠
       return math.sin(2 * math.pi * freq * t) * amplitude * damping;
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('오늘의 운세'),
         centerTitle: true,
         elevation: 0.5,
       ),

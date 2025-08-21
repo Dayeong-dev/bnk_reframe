@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../pages/deposit/deposit_detail_page.dart';
+import '../config/share_links.dart';
 import '../models/types.dart';
 import '../service/fortune_auth_service.dart';
-import '../service/fortune_firestore_service.dart';
-import '../config/share_links.dart';
-
-// 추천 상품 상세로 진입
-import 'package:reframe/pages/deposit/deposit_detail_page.dart';
 
 class ResultPage extends StatefulWidget {
   final FortuneFlowArgs args;
@@ -19,55 +16,6 @@ class ResultPage extends StatefulWidget {
 }
 
 class _ResultPageState extends State<ResultPage> {
-  static const bool kBypassDailyLimitForTest = true;
-
-  // 공통 패딩 상수
-  static const kBoxPadding = EdgeInsets.all(16);
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _rewardIfInvited();
-      if (!kBypassDailyLimitForTest) {
-        await _markDailyUsed();
-      }
-    });
-  }
-
-  Future<void> _markDailyUsed() async {
-    try {
-      await FortuneFirestoreService.setLastDrawDateToday();
-    } catch (_) {}
-  }
-
-  String? _resolveInviter() {
-    final fromArgs = widget.args.invitedBy;
-    if (fromArgs != null && fromArgs.isNotEmpty) return fromArgs;
-    final raw = ModalRoute.of(context)?.settings.arguments;
-    if (raw is Map) {
-      final v = (raw['inviter'] ?? raw['code'] ?? raw['inviteCode'])?.toString();
-      if (v != null && v.isNotEmpty) return v;
-    }
-    return null;
-  }
-
-  Future<void> _rewardIfInvited() async {
-    final inviter = _resolveInviter();
-    if (inviter == null || inviter.isEmpty) return;
-    await FortuneAuthService.ensureSignedIn();
-    final me = FortuneAuthService.getCurrentUid();
-    if (me == null) return;
-    try {
-      await FortuneFirestoreService.rewardInviteOnce(
-        inviterUid: inviter,
-        inviteeUid: me,
-        source: 'fortune',
-        debugAllowSelf: false,
-      );
-    } catch (_) {}
-  }
-
   Future<void> _shareFortune() async {
     await FortuneAuthService.ensureSignedIn();
     final myUid = FortuneAuthService.getCurrentUid();
@@ -87,7 +35,8 @@ class _ResultPageState extends State<ResultPage> {
       ..writeln()
       ..writeln(widget.data.fortune)
       ..writeln()
-      ..writeln('키워드: ${widget.data.keyword}')
+    // ✅ 부가설명(있으면)
+      ..writeln((widget.data.content ?? '').isNotEmpty ? widget.data.content : '')
       ..writeln()
       ..writeln('추천 상품')
       ..writeln(widget.data.products.map((p) => '- ${p.name} (${p.category})').join('\n'))
@@ -101,74 +50,121 @@ class _ResultPageState extends State<ResultPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isAgreed = widget.args.isAgreed;
+    final now = DateTime.now();
+    final formattedDate = "${now.month}월 ${now.day}일"; // 오늘 날짜
 
     return Scaffold(
       appBar: AppBar(title: const Text("오늘의 운세 결과")),
-      body: Center(
+      body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Text("✨ 오늘의 운세는...", style: TextStyle(fontSize: 20), textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              Text(widget.data.fortune, style: const TextStyle(fontSize: 16), textAlign: TextAlign.center),
-              const SizedBox(height: 8),
-              Text('키워드: ${widget.data.keyword}', style: const TextStyle(fontSize: 14, color: Colors.grey), textAlign: TextAlign.center),
-              const SizedBox(height: 24),
-
-              // ✅ 추천 상품들: 카드 탭 → DepositDetailPage 로 이동
-              if (widget.data.products.isNotEmpty)
-                Container(
-                  width: double.infinity,
-                  padding: kBoxPadding,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD4F3D8),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: [
-                      const Text('추천 상품', style: TextStyle(fontSize: 18), textAlign: TextAlign.center),
-                      const SizedBox(height: 8),
-                      ...widget.data.products.map((p) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        child: _ProductCard(
-                          name: p.name,
-                          summary: p.summary ?? '',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => DepositDetailPage(productId: p.productId),
-                                settings: const RouteSettings(name: '/deposit/detail'),
-                              ),
-                            );
-                          },
-                        ),
-                      )),
-                    ],
-                  ),
-                ),
-
-              const SizedBox(height: 24),
+              // 운세 메시지 위젯 (날짜 + '오늘은' + 운세 메시지)
               Container(
                 width: double.infinity,
-                padding: kBoxPadding,
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
+                  color: const Color(0xFFD4F3D8),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(isAgreed ? "타겟팅 광고 영역 (동의 O)" : "범용 광고 영역 (동의 X)", textAlign: TextAlign.center),
+                child: Column(
+                  children: [
+                    // 날짜 + 오늘은
+                    Text(
+                      '$formattedDate 오늘은',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF424242),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // 운세 메시지 (연회색, 작은 글씨)
+                    Text(
+                      widget.data.fortune,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 17,
+                        color: Colors.grey, // 연회색
+                        height: 1.4,
+                      ),
+                    ),
+
+                    if ((widget.data.content ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        widget.data.content!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.black87,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
 
+              // 운세 메시지와 이름 멘트 사이 여백
+              const SizedBox(height: 24),
+
+              // 고객 이름 멘트
+              Text(
+                '${widget.args.name} 님에게 추천드려요!',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // 추천 상품 리스트 (각 카드 전체 탭 → 상세 페이지 이동)
+              if (widget.data.products.isNotEmpty)
+                ...widget.data.products.map((p) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => DepositDetailPage(productId: p.productId),
+                            settings: const RouteSettings(name: '/deposit/detail'),
+                          ),
+                        );
+                      },
+                      child: _ProductCard(
+                        name: p.name,
+                        summary: p.summary ?? '',
+                      ),
+                    ),
+                  );
+                }).toList(),
+
               const SizedBox(height: 32),
+
+              // 공유 버튼 (StartPage 스타일 느낌)
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                   onPressed: _shareFortune,
-                  child: const Text("친구에게 공유하기"),
+                  child: const Text(
+                    "친구에게 공유하기",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
                 ),
               ),
             ],
@@ -179,47 +175,40 @@ class _ResultPageState extends State<ResultPage> {
   }
 }
 
-/// 추천 상품 한 개 카드 위젯 (탭 가능)
+// 추천 상품 카드 (전체 탭 가능)
 class _ProductCard extends StatelessWidget {
   final String name;
   final String summary;
-  final VoidCallback onTap;
   const _ProductCard({
     required this.name,
     required this.summary,
-    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: onTap,
-      child: Ink(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF5F5F5),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: Column(
-          children: [
+    return Ink(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        children: [
+          Text(
+            name,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
+          if (summary.isNotEmpty) ...[
+            const SizedBox(height: 6),
             Text(
-              name,
+              summary,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-            if (summary.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(summary, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14)),
-            ],
-            const SizedBox(height: 10),
-            FilledButton.tonal(
-              onPressed: onTap,
-              child: const Text('자세히 보기'),
+              style: const TextStyle(fontSize: 14, color: Colors.black87),
             ),
           ],
-        ),
+        ],
       ),
     );
   }

@@ -7,6 +7,9 @@ import 'package:reframe/service/faq_api.dart';
 import 'package:reframe/store/faq_store.dart';
 import 'package:reframe/pages/customer/faq/faq_list_page.dart';
 
+/* 섹션 타입: 섹션별 팔레트 분리용 */
+enum _SectionKind { myServices, customer }
+
 class MorePage extends StatelessWidget {
   const MorePage({
     super.key,
@@ -69,22 +72,22 @@ class MorePage extends StatelessWidget {
           ),
           body: SafeArea(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 20),
               children: [
-                // ================ 화려한 그라디언트 챗봇 배너 ================
+                // ================ 그라디언트 챗봇 배너 ================
                 _ChatBanner(
                   onTap: onStartChatbot ??
                       () => Navigator.of(ctx).pushNamed('/chat-debug'),
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 14),
 
                 // ======================= 나의 서비스 =======================
                 const _SectionHeader('나의 서비스'),
-                const SizedBox(height: 8),
+                const SizedBox(height: 0),
 
                 _ServiceTile(
+                  section: _SectionKind.myServices,
                   iconData: Icons.show_chart,
-                  iconBg: const Color(0xFFEFF3FF),
                   title: '자산추이',
                   trailingInfo: '계좌 · 포트폴리오 · 분석',
                   onTap: () {
@@ -92,8 +95,8 @@ class MorePage extends StatelessWidget {
                   },
                 ),
                 _ServiceTile(
+                  section: _SectionKind.myServices,
                   iconData: Icons.card_giftcard,
-                  iconBg: const Color(0xFFFDF2E9),
                   title: '내 쿠폰함',
                   trailingInfo: '다운로드 · 사용내역',
                   onTap: () {
@@ -101,8 +104,8 @@ class MorePage extends StatelessWidget {
                   },
                 ),
                 _ServiceTile(
+                  section: _SectionKind.myServices,
                   iconData: Icons.support_agent,
-                  iconBg: const Color(0xFFEAF7FF),
                   title: '내 문의보기',
                   trailingInfo: '1:1 문의 · 답변',
                   onTap: onOneToOne ??
@@ -111,8 +114,8 @@ class MorePage extends StatelessWidget {
                       },
                 ),
                 _ServiceTile(
+                  section: _SectionKind.myServices,
                   iconData: Icons.reviews,
-                  iconBg: const Color(0xFFEFFAF1),
                   title: '내 리뷰보기',
                   trailingInfo: '작성 · 수정 · 삭제',
                   onTap: () {
@@ -120,8 +123,8 @@ class MorePage extends StatelessWidget {
                   },
                 ),
                 _ServiceTile(
+                  section: _SectionKind.myServices,
                   iconData: Icons.assignment_turned_in,
-                  iconBg: const Color(0xFFF1F5F9),
                   title: '내가 가입한 상품 보기',
                   trailingInfo: '계약 · 만기 · 혜택',
                   onTap: () {
@@ -129,15 +132,15 @@ class MorePage extends StatelessWidget {
                   },
                 ),
 
-                const SizedBox(height: 26),
+                const SizedBox(height: 24),
 
                 // ======================= 고객센터 =======================
                 const _SectionHeader('고객센터'),
-                const SizedBox(height: 8),
+                const SizedBox(height: 0),
 
                 _ServiceTile(
+                  section: _SectionKind.customer,
                   iconData: Icons.forum_outlined,
-                  iconBg: const Color(0xFFEDEFF2),
                   title: '자주 묻는 질문',
                   trailingInfo: '계좌 · 카드 · 인증',
                   onTap: () {
@@ -158,8 +161,8 @@ class MorePage extends StatelessWidget {
                   },
                 ),
                 _ServiceTile(
+                  section: _SectionKind.customer,
                   iconData: Icons.mark_unread_chat_alt_outlined,
-                  iconBg: const Color(0xFFF2F4F6),
                   title: '1대1 문의',
                   trailingInfo: '상담원 연결 · 기록',
                   onTap: onOneToOne ??
@@ -168,18 +171,8 @@ class MorePage extends StatelessWidget {
                       },
                 ),
                 _ServiceTile(
-                  iconData: Icons.headset_mic_outlined,
-                  iconBg: const Color(0xFFE8F5FF),
-                  title: '상담원 연결',
-                  trailingInfo: '전화 · 채팅',
-                  onTap: onConnectAgent ??
-                      () {
-                        // TODO: /cs/connect-agent
-                      },
-                ),
-                _ServiceTile(
+                  section: _SectionKind.customer,
                   iconData: Icons.person_outline,
-                  iconBg: const Color(0xFFF1F5F9),
                   title: '프로필 관리',
                   trailingInfo: '개인정보 · 알림',
                   onTap: onMyProfile ??
@@ -208,7 +201,7 @@ class _SectionHeader extends StatelessWidget {
     return Text(
       text,
       style: const TextStyle(
-        fontSize: 20,
+        fontSize: 18, //섹션 제목
         fontWeight: FontWeight.w800,
         color: Colors.black87,
         letterSpacing: -0.1,
@@ -220,46 +213,55 @@ class _SectionHeader extends StatelessWidget {
 /// 서비스 타일(아이콘 + 제목 + 오른쪽 설명)
 class _ServiceTile extends StatelessWidget {
   const _ServiceTile({
+    required this.section,
     required this.iconData,
     required this.title,
     this.trailingInfo,
     this.onTap,
-    this.iconBg,
+    this.iconBg, // 수동 오버라이드 (선택)
+    this.iconColor, // 수동 오버라이드 (선택)
   });
 
+  final _SectionKind section;
   final IconData iconData;
   final String title;
   final String? trailingInfo;
   final VoidCallback? onTap;
   final Color? iconBg;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
+    // 섹션별 톤다운 파스텔 팔레트에서 자동 선택
+    final _IconColorPair pair = _AutoColor.pickPairForSection(section, title);
+    final Color resolvedIconColor = iconColor ?? pair.fg;
+    final Color resolvedIconBg = iconBg ?? pair.bg;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Ink(
-          height: 72,
+          height: 64,
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
-            // 리스트 타일과 동일 톤의 경계/그림자
           ),
           child: Row(
             children: [
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               _RoundedIcon(
                 iconData: iconData,
-                bg: iconBg ?? const Color(0xFFF1F5F9),
+                bg: resolvedIconBg,
+                iconColor: resolvedIconColor,
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 17,
+                    fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: Colors.black,
                     letterSpacing: -0.2,
@@ -268,13 +270,13 @@ class _ServiceTile extends StatelessWidget {
                 ),
               ),
               if (trailingInfo != null) ...[
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Flexible(
                   flex: 0,
                   child: Text(
                     trailingInfo!,
                     style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: 12.5,
                       color: Color(0xFF6B7280),
                       fontWeight: FontWeight.w600,
                       height: 1.1,
@@ -283,7 +285,7 @@ class _ServiceTile extends StatelessWidget {
                   ),
                 ),
               ],
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               const Icon(Icons.chevron_right, color: Color(0xFF9CA3AF)),
               const SizedBox(width: 6),
             ],
@@ -296,26 +298,31 @@ class _ServiceTile extends StatelessWidget {
 
 /// 둥근 사각형 아이콘 컨테이너
 class _RoundedIcon extends StatelessWidget {
-  const _RoundedIcon({required this.iconData, this.bg});
+  const _RoundedIcon({required this.iconData, this.bg, this.iconColor});
   final IconData iconData;
   final Color? bg;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 48,
-      height: 48,
+      width: 30,
+      height: 30,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: bg ?? const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
       ),
-      child: Icon(iconData, size: 26, color: const Color(0xFF111827)),
+      child: Icon(
+        iconData,
+        size: 22,
+        color: iconColor ?? const Color(0xFF111827),
+      ),
     );
   }
 }
 
-/// 화려한 그라디언트 챗봇 배너
+/// 화려한 그라디언트 챗봇 배너 (유지)
 class _ChatBanner extends StatelessWidget {
   const _ChatBanner({this.onTap});
   final VoidCallback? onTap;
@@ -326,34 +333,31 @@ class _ChatBanner extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       onTap: onTap,
       child: Ink(
-        height: 115,
+        height: 100, // 🔹 배너 높이 줄임
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
-          // 리스트 타일과 유사하지만 조금 더 강한 그림자
           boxShadow: const [
             BoxShadow(
-                color: Colors.black12, blurRadius: 12, offset: Offset(0, 6)),
+              color: Colors.black12,
+              blurRadius: 12,
+              offset: Offset(0, 6),
+            ),
           ],
-          // 화려한 배경 (메인 그라디언트)
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF7C4DFF), // deep purple
-              Color(0xFF2962FF), // blue
-            ],
+            colors: [Color(0xFF7C4DFF), Color(0xFF2962FF)],
           ),
         ),
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            // 라디얼 글로우 1
             Positioned(
               left: -30,
               top: -20,
               child: Container(
-                width: 140,
-                height: 140,
+                width: 120,
+                height: 120,
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
@@ -362,13 +366,12 @@ class _ChatBanner extends StatelessWidget {
                 ),
               ),
             ),
-            // 라디얼 글로우 2
             Positioned(
               right: -20,
               bottom: -30,
               child: Container(
-                width: 160,
-                height: 160,
+                width: 140,
+                height: 140,
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
@@ -377,16 +380,13 @@ class _ChatBanner extends StatelessWidget {
                 ),
               ),
             ),
-
-            // 내용
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
               child: Row(
                 children: [
-                  // 마스코트(흰 원판 + 그림자)
                   Container(
-                    width: 68,
-                    height: 68,
+                    width: 60, // 🔹 크기 줄임
+                    height: 60,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
@@ -400,28 +400,27 @@ class _ChatBanner extends StatelessWidget {
                     ),
                     child: ClipOval(
                       child: Image.asset(
-                        'assets/images/mrb_desk.jpeg', // 없으면 임시 이모지로 대체 가능
+                        'assets/images/mrb_desk.jpeg',
                         fit: BoxFit.cover,
                         alignment: const Alignment(0, -0.85),
                         errorBuilder: (_, __, ___) => const Center(
-                          child: Text('🤖', style: TextStyle(fontSize: 28)),
+                          child: Text('🤖', style: TextStyle(fontSize: 26)),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  // 텍스트
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: const [
                         _WhitePill(text: '궁금하면 지금 바로'),
-                        SizedBox(height: 6),
+                        SizedBox(height: 4),
                         Text(
                           '상담챗봇 시작하기',
                           style: TextStyle(
-                            fontSize: 22,
+                            fontSize: 20, // 🔹 글씨 조금 줄임
                             fontWeight: FontWeight.w900,
                             height: 1.05,
                             color: Colors.white,
@@ -432,7 +431,7 @@ class _ChatBanner extends StatelessWidget {
                         Text(
                           '실시간 답변 · 지점안내 · 상품추천',
                           style: TextStyle(
-                            fontSize: 12.5,
+                            fontSize: 12,
                             color: Color(0xFFE6EEFF),
                             fontWeight: FontWeight.w600,
                           ),
@@ -441,7 +440,7 @@ class _ChatBanner extends StatelessWidget {
                     ),
                   ),
                   const Icon(Icons.chevron_right,
-                      color: Colors.white, size: 28),
+                      color: Colors.white, size: 26),
                 ],
               ),
             ),
@@ -474,5 +473,56 @@ class _WhitePill extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/* ====================== SECTIONED PASTEL PALETTE ====================== */
+
+/// 아이콘 색(fg)과 파스텔 배경(bg) 쌍
+class _IconColorPair {
+  final Color fg;
+  final Color bg;
+  const _IconColorPair(this.fg, this.bg);
+}
+
+/// 섹션별 톤다운 파스텔 팔레트 & 선택 로직
+class _AutoColor {
+  static const List<_IconColorPair> _servicesPairs = <_IconColorPair>[
+    _IconColorPair(
+        Color(0xFF47A9E6), Color(0xFFE9F6FC)), // clear blue / ice mist
+    _IconColorPair(
+        Color(0xFF2EBAA0), Color(0xFFE8FAF5)), // teal green / mint wash
+    _IconColorPair(
+        Color(0xFF6D88D9), Color(0xFFEEF2FB)), // periwinkle / fog lavender
+    _IconColorPair(
+        Color(0xFF48A889), Color(0xFFE7F7F1)), // jade green / soft aqua
+    _IconColorPair(
+        Color(0xFF4B92C6), Color(0xFFEAF3FA)), // denim blue / pale sky
+  ];
+
+  static const List<_IconColorPair> _customerPairs = <_IconColorPair>[
+    _IconColorPair(Color(0xFFE97A6F), Color(0xFFFFF0ED)), // salmon / peach mist
+    _IconColorPair(
+        Color(0xFFCE7DB8), Color(0xFFF9EEF6)), // rose pink / pink veil
+    _IconColorPair(
+        Color(0xFF9D7BE5), Color(0xFFF2EEFB)), // lavender purple / lilac haze
+    _IconColorPair(
+        Color(0xFFCC9C4B), Color(0xFFFFF8EC)), // warm gold / sand beige
+    _IconColorPair(
+        Color(0xFF7C8DA3), Color(0xFFF0F4F8)), // steel blue / cloud grey
+  ];
+
+  static _IconColorPair pickPairForSection(_SectionKind s, String key) {
+    final h = (key.hashCode & 0x7fffffff);
+
+    // 🎯 특정 key에 대해 직접 색상 지정
+    if (key.contains('자산추이')) {
+      return _IconColorPair(Color(0xFF8A5CE7), Color(0xFFF3EEFB));
+      // deep violet / soft lavender
+    }
+
+    return s == _SectionKind.myServices
+        ? _servicesPairs[h % _servicesPairs.length]
+        : _customerPairs[h % _customerPairs.length];
   }
 }

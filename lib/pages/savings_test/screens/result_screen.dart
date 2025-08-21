@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import'package:flutter/material.dart';
 import '../services/recommender.dart';
 import '../../../model/deposit_product.dart';
 import '../../../service/deposit_service.dart';

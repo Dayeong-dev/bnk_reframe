@@ -105,10 +105,10 @@ class _QuestionScreenState extends State<QuestionScreen> {
     ];
 
     const images = <String>[
-      'assets/images/q1.jpg',
+      'assets/images/q1.gif',
       'assets/images/q2.gif',
-      'assets/images/q3.jpg',
-      'assets/images/q4.jpg',
+      'assets/images/q3.gif',
+      'assets/images/q4.gif',
     ];
 
     final screenW = MediaQuery.of(context).size.width;

@@ -251,7 +251,7 @@ class _MapPageState extends State<MapPage> {
       'nmap://route/public?dlat=$lat&dlng=$lng&dname=${Uri.encodeComponent(name)}&appname=bnk-nearby',
     );
     final webUri = Uri.parse(
-      'https://map.naver.com/v5/directions/-/-/-/car?destination=$lng,$lat,$name',
+      'https://map.naver.com/v5/direlctions/-/-/-/car?destination=$lng,$lat,$name',
     );
     if (await canLaunchUrl(appUri)) {
       await launchUrl(appUri);

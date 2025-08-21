@@ -174,13 +174,13 @@ class MorePage extends StatelessWidget {
                   iconData: Icons.mark_unread_chat_alt_outlined,
                   title: '1대1 문의',
                   trailingInfo: '상담원 연결 · 기록',
-                  onTap: () {
+                  onTap: onOneToOne ?? () {
                     final qnaApi = ctx.read<QnaApiService>();
                     Navigator.of(ctx).push(
                       MaterialPageRoute(
                         builder: (_) => QnaListPage(
                           api: qnaApi,
-                          openComposerOnStart: true, // ← 바로 문의쓰기 열기
+                          openComposerOnStart: true, // 진입 즉시 폼으로 "교체" 오픈
                         ),
                       ),
                     );

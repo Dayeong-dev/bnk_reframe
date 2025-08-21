@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'qna_api_service.dart';
 import 'qna_model.dart';
@@ -7,7 +6,8 @@ import 'qna_detail_page.dart';
 
 class QnaListPage extends StatefulWidget {
   final QnaApiService api;
-  final bool openComposerOnStart; // ← 추가
+  // true면 진입 즉시 “폼으로 교체(pushReplacement)”하여 리스트를 거치지 않게 함
+  final bool openComposerOnStart;
 
   const QnaListPage({
     super.key,
@@ -21,17 +21,27 @@ class QnaListPage extends StatefulWidget {
 
 class _QnaListPageState extends State<QnaListPage> {
   late Future<List<Qna>> _future;
-  bool _openingComposer = false; // 중복 오픈 방지
+  bool _openingComposer = false; // 중복 열림 방지
 
   @override
   void initState() {
     super.initState();
     _future = widget.api.fetchMyQnaList();
 
-    // 진입 즉시 문의쓰기 오픈(옵션)
     if (widget.openComposerOnStart) {
-      // 첫 프레임 이후에 열어야 안전
-      scheduleMicrotask(_openComposer);
+      // 리스트를 스택에 남기지 않고 곧바로 폼으로 "교체"
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => QnaFormPage(
+              api: widget.api,
+              cameFromList: false, // 폼에서 뒤로가면 바로 이전 페이지(MorePage)로
+            ),
+            fullscreenDialog: true,
+          ),
+        );
+      });
     }
   }
 
@@ -41,7 +51,7 @@ class _QnaListPageState extends State<QnaListPage> {
     });
   }
 
-  Future<void> _openComposer() async {
+  Future<void> _openComposerFromList() async {
     if (_openingComposer) return;
     _openingComposer = true;
     final created = await Navigator.push(
@@ -49,11 +59,13 @@ class _QnaListPageState extends State<QnaListPage> {
       MaterialPageRoute(
         builder: (_) => QnaFormPage(
           api: widget.api,
-          cameFromList: true, // ← 추가: 목록에서 왔다고 표시
+          cameFromList: true, // 저장 후 pop(true)로 돌아와 목록 갱신
         ),
+        fullscreenDialog: true,
       ),
     );
-    if (created == true) _reload();
+    _openingComposer = false;
+    if (created == true && mounted) _reload();
   }
 
   @override
@@ -65,7 +77,7 @@ class _QnaListPageState extends State<QnaListPage> {
           IconButton(
             icon: const Icon(Icons.edit_note),
             tooltip: '문의쓰기',
-            onPressed: _openComposer,
+            onPressed: _openComposerFromList,
           ),
         ],
       ),
@@ -87,7 +99,7 @@ class _QnaListPageState extends State<QnaListPage> {
                   const Text('등록된 문의가 없습니다.'),
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
-                    onPressed: _openComposer,
+                    onPressed: _openComposerFromList,
                     icon: const Icon(Icons.edit),
                     label: const Text('문의쓰기'),
                   ),
@@ -110,7 +122,8 @@ class _QnaListPageState extends State<QnaListPage> {
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => QnaDetailPage(api: widget.api, qnaId: q.qnaId),
+                        builder: (_) =>
+                            QnaDetailPage(api: widget.api, qnaId: q.qnaId),
                       ),
                     );
                     _reload();
@@ -122,7 +135,7 @@ class _QnaListPageState extends State<QnaListPage> {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openComposer,
+        onPressed: _openComposerFromList,
         icon: const Icon(Icons.edit),
         label: const Text('문의하기'),
       ),

@@ -9,9 +9,8 @@ class QnaFormPage extends StatefulWidget {
   final String? initialTitle;
   final String? initialContent;
 
-  /// 목록에서 폼을 연 경우 true로 전달.
-  /// true면 저장 후 pop(true)로 돌아가 _reload() 실행됨.
-  /// false면 저장 후 QnaListPage로 이동.
+  /// 목록에서 폼을 연 경우 true. 저장 후 pop(true)로 돌아가 목록 갱신.
+  /// false면 저장 후 QnaListPage로 "교체" 진입.
   final bool cameFromList;
 
   const QnaFormPage({
@@ -31,7 +30,7 @@ class QnaFormPage extends StatefulWidget {
 class _QnaFormPageState extends State<QnaFormPage> {
   final _formKey = GlobalKey<FormState>();
 
-  // 앱에서는 예적금/기타만 사용
+  // 앱 카테고리: 예적금/기타만
   static const _allowedCategories = ['예적금', '기타'];
 
   late String _category;
@@ -62,14 +61,12 @@ class _QnaFormPageState extends State<QnaFormPage> {
     setState(() => _submitting = true);
     try {
       if (widget.qnaId == null) {
-        // 생성
         await widget.api.create(
           category: _category,
           title: _title.text.trim(),
           content: _content.text.trim(),
         );
       } else {
-        // 수정
         await widget.api.update(
           qnaId: widget.qnaId!,
           category: _category,
@@ -78,16 +75,20 @@ class _QnaFormPageState extends State<QnaFormPage> {
         );
       }
 
-      // 저장 성공한 뒤 이동 정책
       if (!mounted) return;
       if (widget.cameFromList) {
-        // 목록에서 왔으면 pop(true)로 돌아가서 _reload() 호출되게
+        // 리스트에서 열었으면 되돌아가며 true 반환 → 목록 리로드
         Navigator.pop(context, true);
       } else {
-        // 목록 없이 단독으로 폼을 열었다면 목록 화면으로 교체
+        // 단독으로 폼을 열었으면 저장 후 목록으로 "교체"
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => QnaListPage(api: widget.api)),
+          MaterialPageRoute(
+            builder: (_) => QnaListPage(
+              api: widget.api,
+              openComposerOnStart: false, // 다시 자동열림 방지
+            ),
+          ),
         );
       }
     } catch (e) {

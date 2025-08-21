@@ -23,7 +23,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
 
   Future<bool> _checkFileExists(String url) async {
     try {
-      final response = await http.head(Uri.parse(url));
+      final response = await http.head(Uri.parse(url)).timeout(Duration(seconds: 8));   // 8초 제한
       return response.statusCode == 200;
     } catch (e) {
       return false;
@@ -74,13 +74,13 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
                 : SafeArea(
                   top: false,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                     child: SizedBox(
                       width: double.infinity,
                       child: SizedBox(
                         height: 48,
                         child: ElevatedButton(
-                          onPressed: () => Navigator.of(context).pop(true), // Navigator.of(context).pop(canOpen),
+                          onPressed: () => Navigator.of(context).pop(canOpen),
                           style: ElevatedButton.styleFrom(
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -91,6 +91,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
                             canOpen ? '확인' : '닫기',
                             style: const TextStyle(
                               color: Colors.white,
+                              fontWeight: FontWeight.w800
                             ),
                           ),
                         ),

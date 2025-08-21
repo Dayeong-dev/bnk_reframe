@@ -1,0 +1,62 @@
+<!doctype html><html lang="ko"><head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>앱으로 이동</title>
+    <style>
+        body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;padding:28px}
+        .box{max-width:560px;margin:0 auto;text-align:center}
+        .btn{display:inline-block;padding:14px 18px;border-radius:10px;border:0;background:#1463f3;color:#fff;text-decoration:none;font-weight:700}
+        .sub{display:inline-block;margin-top:12px;color:#1463f3;text-decoration:none}
+        p{color:#555}
+    </style>
+    <script>
+        function qp(n){ return new URL(location.href).searchParams.get(n); }
+        const invite = qp('inviteCode') || '';
+        const pkg    = 'com.example.reframe'; // ← 실제 applicationId로!
+        const schemeUrl = `bnk-app-push://bnk_reframe?inviteCode=${encodeURIComponent(invite)}`;
+        const intentUrl = `intent://bnk_reframe?inviteCode=${encodeURIComponent(invite)}#Intent;scheme=bnk-app-push;package=${pkg};end`;
+        const playStore = `https://play.google.com/store/apps/details?id=${pkg}`;
+
+        function openApp() {
+          // 사용자 클릭 이벤트에서 실행되면 인앱도 허용 확률 ↑
+          location.href = intentUrl;
+          // 앱 미설치/실패 시를 대비한 느린 폴백 버튼 유지(자동 폴백은 제거)
+          return false;
+        }
+
+        // 자동 시도는 “일반 브라우저”에서만, 카카오/네이버앱 등에선 버튼만 노출
+        function isInApp() {
+          const ua = navigator.userAgent;
+          return /\bKAKAO|NAVER|FBAN|FBAV|Instagram\b/i.test(ua);
+        }
+
+        window.addEventListener('load', () => {
+          if (!isInApp()) {
+
+            // 일반 브라우저에서는 자동 시도(그래도 실패해도 화면은 남김)
+            setTimeout(() => { try { location.href = intentUrl; } catch(_) {} }, 50);
+          }
+          // iOS 대응이 필요하면 Universal Links로 별도 브랜치 추가 가능
+        });
+
+        // 전역 노출
+        window.__openApp = openApp;
+        window.__playStore = () => location.href = playStore;
+    </script>
+</head><body>
+<div class="box">
+    <h2>앱으로 이동합니다</h2>
+    <p>앱이 열리지 않으면 아래 버튼을 눌러주세요.</p>
+    <p><a href="#" class="btn" onclick="return __openApp()">앱으로 열기</a></p>
+    <p><a href="#" class="sub" onclick="__playStore()">앱 설치하기</a></p>
+
+    <!-- 여차할 때를 위해 실제 intent 링크도 하나 노출 -->
+    <p style="margin-top:24px">
+        <a href="" id="raw" class="sub">직접 열기(대체 링크)</a>
+    </p>
+</div>
+<script>
+    // 대체 링크에도 같은 intent URL 바인딩
+    document.getElementById('raw').href = intentUrl;
+</script>
+</body></html>

@@ -16,190 +16,209 @@ class ResultScreen extends StatelessWidget {
     final productId = productIdForResult(code);
     if (productId == null) {
       return Scaffold(
-        body: SafeArea(child: Center(child: Text('알 수 없는 결과 유형: $code'))),
+        body: SafeArea(
+          child: Center(
+            child: Text('알 수 없는 결과 유형: $code'),
+          ),
+        ),
       );
     }
 
     final title = getRecommendationText(code);
 
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // 결과유형 문구
-              Text(
-                title,
-                style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF2563EB)),
-              ),
-              const SizedBox(height: 16),
-
-              // 추천 상품 카드
-              FutureBuilder<DepositProduct>(
-                future: fetchProduct(productId),
-                builder: (context, snap) {
-                  if (snap.connectionState == ConnectionState.waiting) {
-                    return _cardSkeleton();
-                  }
-                  if (snap.hasError) {
-                    return _errorBox('상품 정보를 불러오지 못했어요.\n${snap.error}');
-                  }
-                  final p = snap.data!;
-                  return Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEDEDED),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (p.imageUrl.isNotEmpty)
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.network(
-                              p.imageUrl,
-                              width: 56,
-                              height: 56,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        if (p.imageUrl.isNotEmpty) const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(p.name,
-                                  style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700)),
-                              const SizedBox(height: 6),
-                              if (p.summary.isNotEmpty)
-                                Text(p.summary,
-                                    style: const TextStyle(fontSize: 14)),
-                              const SizedBox(height: 10),
-                              Wrap(
-                                spacing: 8,
-                                children: [
-                                  _chip('최대 ${p.maxRate.toStringAsFixed(2)}%'),
-                                  _chip('${p.period}개월'),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: FilledButton.tonal(
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            DepositDetailPage(productId: p.productId),
-                                        settings: const RouteSettings(
-                                            name: '/deposit/detail'),
-                                      ),
-                                    );
-                                  },
-                                  child: const Text('자세히 보기'),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-
-              const Spacer(),
-
-              // 하단 위젯 2개
-              Row(
+        child: Stack(
+          children: [
+            /// 메인 콘텐츠
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: _BottomWidgetCard(
-                      title: '더 많은 상품\n둘러보기',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const DepositListPage(),
-                          ),
-                        );
-                      },
-                      imageAsset: 'assets/images/deposit_product.png',
+                  const SizedBox(height: 60),
+
+                  // 결과 문구
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 25,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF2563EB),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _BottomWidgetCard(
-                      title: '오늘의 운세\n확인하고\n커피까지!',
-                      onTap: () => Navigator.pushNamed(context, '/fortune'),
-                      imageAsset: 'assets/images/coffee.png',
-                    ),
+                  const SizedBox(height: 30),
+
+                  // 추천 상품 카드
+                  FutureBuilder<DepositProduct>(
+                    future: fetchProduct(productId),
+                    builder: (context, snap) {
+                      if (snap.connectionState == ConnectionState.waiting) {
+                        return _cardSkeleton();
+                      }
+                      if (snap.hasError) {
+                        return _errorBox('상품 정보를 불러오지 못했어요.\n${snap.error}');
+                      }
+                      final p = snap.data!;
+                      return Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF5F5F5),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            if (p.imageUrl.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    p.imageUrl,
+                                    width: 60,
+                                    height: 60,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                            Text(
+                              p.name,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 6),
+                            if (p.summary.isNotEmpty)
+                              Text(
+                                p.summary,
+                                style: const TextStyle(fontSize: 14),
+                                textAlign: TextAlign.center,
+                              ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 8,
+                              alignment: WrapAlignment.center,
+                              children: [
+                                _chip('최대 ${p.maxRate.toStringAsFixed(2)}%'),
+                                _chip('${p.period}개월'),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            FilledButton.tonal(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => DepositDetailPage(
+                                        productId: p.productId),
+                                    settings: const RouteSettings(
+                                        name: '/deposit/detail'),
+                                  ),
+                                );
+                              },
+                              child: const Text('자세히 보기'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+
+                  const SizedBox(height: 40),
+
+                  // 하단 카드 버튼 2개
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _BottomWidgetCard(
+                          title: '더 많은 상품\n둘러보기',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const DepositListPage(),
+                              ),
+                            );
+                          },
+                          imageAsset: 'assets/images/deposit_product.png',
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _BottomWidgetCard(
+                          title: '오늘의 운세\n확인하고\n커피까지!',
+                          onTap: () =>
+                              Navigator.pushNamed(context, '/event/fortune'),
+                          imageAsset: 'assets/images/coffee.png',
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
+            ),
 
-            ],
-          ),
+            /// "처음으로 돌아가기" 버튼 고정 위치
+            Positioned(
+              bottom: MediaQuery.of(context).size.height * 0.2, // 화면 하단에서 20% 위
+              left: 0,
+              right: 0,
+              child: Center(
+                child: TextButton.icon(
+                  onPressed: () {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/',
+                      (route) => false,
+                    );
+                  },
+                  icon: const Icon(Icons.home_outlined, size: 18),
+                  label: const Text(
+                    '홈으로 돌아가기',
+                    style: TextStyle(fontSize: 16, color: Colors.black54),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
+  // helpers
   static Widget _chip(String text) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(999),
-      border: Border.all(color: Colors.grey.shade300),
-    ),
-    child: Text(text, style: const TextStyle(fontSize: 12)),
-  );
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Text(text, style: const TextStyle(fontSize: 12)),
+      );
 
   static Widget _cardSkeleton() => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: const Color(0xFFEDEDED),
-      borderRadius: BorderRadius.circular(14),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _skel(180, 20),
-        const SizedBox(height: 8),
-        _skel(240, 14),
-        const SizedBox(height: 12),
-        _skel(80, 24),
-      ],
-    ),
-  );
-
-  static Widget _skel(double w, double h) => Container(
-    width: w,
-    height: h,
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(6),
-    ),
-  );
+        height: 100,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF5F5F5),
+          borderRadius: BorderRadius.circular(14),
+        ),
+      );
 
   static Widget _errorBox(String msg) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: const Color(0xFFFFF3F3),
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: const Color(0xFFFFCACA)),
-    ),
-    child: Text(msg, style: const TextStyle(color: Colors.red)),
-  );
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF3F3),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFFFCACA)),
+        ),
+        child: Text(msg, style: const TextStyle(color: Colors.red)),
+      );
 }
 
 class _BottomWidgetCard extends StatelessWidget {
@@ -219,7 +238,7 @@ class _BottomWidgetCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
       child: Ink(
-        height: 120,
+        height: 140,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),

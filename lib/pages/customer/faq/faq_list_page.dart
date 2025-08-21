@@ -56,7 +56,10 @@ class _FaqListPageState extends State<FaqListPage> {
 
     final store = context.read<FaqStore>();
     int safety = 3; // 과도한 호출 방지: 최대 3번만 연속으로 더 받기
-    while (_scroll.position.maxScrollExtent <= 0 && !store.isLast && !store.isLoading && safety-- > 0) {
+    while (_scroll.position.maxScrollExtent <= 0 &&
+        !store.isLast &&
+        !store.isLoading &&
+        safety-- > 0) {
       await store.loadNext();
       await Future.delayed(const Duration(milliseconds: 30));
       if (!_scroll.hasClients) break;
@@ -151,12 +154,17 @@ class _FaqListPageState extends State<FaqListPage> {
             if (index == 3) {
               return Container(
                 margin: const EdgeInsets.only(top: 12),
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
                 color: Theme.of(context).colorScheme.surfaceVariant,
                 child: Row(
                   children: const [
-                    SizedBox(width: 60, child: Text('글번호', textAlign: TextAlign.center)),
-                    SizedBox(width: 100, child: Text('구분', textAlign: TextAlign.center)),
+                    SizedBox(
+                        width: 60,
+                        child: Text('글번호', textAlign: TextAlign.center)),
+                    SizedBox(
+                        width: 100,
+                        child: Text('구분', textAlign: TextAlign.center)),
                     Expanded(child: Text('제목')),
                   ],
                 ),
@@ -171,8 +179,8 @@ class _FaqListPageState extends State<FaqListPage> {
                   child: store.isLoading
                       ? const CircularProgressIndicator()
                       : store.isLast
-                      ? const Text('더 이상 항목이 없습니다')
-                      : const SizedBox.shrink(),
+                          ? const Text('더 이상 항목이 없습니다')
+                          : const SizedBox.shrink(),
                 ),
               );
             }

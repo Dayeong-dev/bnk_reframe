@@ -31,6 +31,8 @@ dependencies:
   flutter:
     sdk: flutter
 
+  flutter_widget_from_html: ^0.14.11
+  fwfh_webview: ^0.14.8
   web_socket_channel: ^2.4.0
   health: ^13.1.1
   permission_handler: ^12.0.1
@@ -48,20 +50,26 @@ dependencies:
   flutter_secure_storage: ^9.2.4    # Secure Storage 접근 패키지(OS별 암호화된 시스템 보안 공간에 저장)
   http: ^1.4.0
 
-
   dio: ^5.4.0
   flutter_markdown: ^0.6.14
-  flutter_widget_from_html: 0.14.10
   intl: ^0.19.0
   visibility_detector: ^0.4.0+2
   shared_preferences: ^2.3.2
   firebase_core: ^4.0.0
   firebase_analytics: ^12.0.0
   firebase_messaging: ^16.0.0
+  firebase_auth: ^6.0.0
+  cloud_firestore: ^6.0.0
+
+  # 공유 기능
+  share_plus: ^7.2.2
+
+  app_links: ^6.4.0
 
   flutter_naver_map: ^1.4.0
   geolocator: ^11.0.0
   url_launcher: ^6.3.0
+  lottie: ^3.3.1
 
 dev_dependencies:
   flutter_test:
@@ -80,6 +88,10 @@ dependency_overrides:
     git:
       url: https://github.com/daohoangson/flutter_widget_from_html.git
       path: packages/core
+  fwfh_webview:
+    git:
+      url: https://github.com/daohoangson/flutter_widget_from_html.git
+      path: packages/fwfh_webview
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

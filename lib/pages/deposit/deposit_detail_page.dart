@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
+import 'package:reframe/pages/enroll/enroll_first.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 
@@ -22,7 +23,7 @@ import 'package:web_socket_channel/io.dart' as ws_io;
 import 'package:reframe/env/app_endpoints.dart';
 
 /// =======================================================
-///  DepositDetailPage (심플 센터 정렬 버전)
+///  DepositDetailPage (심플 센터 정렬 버전) — 공백 개선 적용
 /// =======================================================
 
 const _brand = Color(0xFF304FFE);
@@ -161,7 +162,7 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
 
   void _subscribeReviewTopic(int productId) {
     final wsUrl =
-    Uri.parse('${AppEndpoints.wsBase}?topic=product.$productId.reviews');
+        Uri.parse('${AppEndpoints.wsBase}?topic=product.$productId.reviews');
     debugPrint('🔌 WS connect → $wsUrl');
     try {
       _ws = ws_io.IOWebSocketChannel.connect(wsUrl.toString());
@@ -264,6 +265,19 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
   String toHtmlBreaks(String text) =>
       fixLineBreaks(text).replaceAll('\n', '<br />');
 
+  /// HTML 앞부분의 보이지 않는 빈 블록(<br>, 빈 p/div 등)을 모두 제거
+  String _stripLeadingGaps(String html) {
+    var h = html.replaceAll('\uFEFF', '').replaceAll('&nbsp;', ' ');
+    final leadingEmpty = RegExp(
+      r'^((?:\s|<br\s*/?>)+|<(?:p|div|section|article|span)[^>]*>\s*</(?:p|div|section|article|span)>)+',
+      caseSensitive: false,
+    );
+    while (leadingEmpty.hasMatch(h)) {
+      h = h.replaceFirst(leadingEmpty, '');
+    }
+    return h.trimLeft();
+  }
+
   String normalizeHtml(String html, {String? titleToStrip}) {
     var h = html.replaceAll('\uFEFF', '').trim();
     h = h.replaceAll('&nbsp;', ' ').replaceAll('\u00A0', ' ');
@@ -296,6 +310,7 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
     return h;
   }
 
+  /// 표가 있는 HTML에서 제목/머리글 전에 있는 군더더기를 걷어냄
   String cutHeadBeforeFirstTable(String html, {String? titleToStrip}) {
     if (html.isEmpty) return html;
     var h = html.replaceAll('\uFEFF', '').replaceAll('&nbsp;', ' ').trimLeft();
@@ -325,6 +340,8 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
       );
     }
 
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
@@ -339,7 +356,9 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
       ),
       bottomNavigationBar: _bottomActionBar(),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        // ✅ 고정 80 제거, 기기별 안전영역만큼만 여백
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 12 + safeBottom),
+        physics: const ClampingScrollPhysics(),
         children: [
           FadeSlideInOnVisible(child: _buildHeader(product!)),
           const SizedBox(height: 18),
@@ -350,7 +369,7 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
           _sectionDivider("추가 안내"),
           const SizedBox(height: 10),
           FadeSlideInOnVisible(child: _buildFooterSection(product!)),
-          const SizedBox(height: 80),
+          // ⛔️ SizedBox(height: 80) 삭제
         ],
       ),
     );
@@ -410,7 +429,7 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
                 onPressed: () async {
                   await _logDetailCta('apply');
                   if (!mounted) return;
-                  Navigator.pushNamed(context, "/enroll-first");
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => FirstStepPage(product: product!)));
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _brand,
@@ -597,7 +616,7 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
     try {
       final decodedOnce = jsonDecode(detail);
       final decoded =
-      decodedOnce is String ? jsonDecode(decodedOnce) : decodedOnce;
+          decodedOnce is String ? jsonDecode(decodedOnce) : decodedOnce;
 
       if (decoded is List &&
           decoded.isNotEmpty &&
@@ -660,7 +679,7 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
     final String content = fixLineBreaks(e['content'] ?? '');
     final String rawImageUrl = e['imageURL'] ?? '';
     final String imageUrl =
-    rawImageUrl.startsWith('/') ? 'assets$rawImageUrl' : rawImageUrl;
+        rawImageUrl.startsWith('/') ? 'assets$rawImageUrl' : rawImageUrl;
 
     return Center(
       child: ConstrainedBox(
@@ -705,43 +724,42 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
                     width: double.infinity,
                     child: imageUrl.startsWith("http")
                         ? Image.network(
-                      imageUrl,
-                      fit: BoxFit.contain,
-                      alignment: Alignment.center,
-                      filterQuality: FilterQuality.medium,
-                      loadingBuilder: (c, child, p) =>
-                      p == null
-                          ? child
-                          : const Center(
-                        child: SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                          ),
-                        ),
-                      ),
-                      errorBuilder: (c, e, s) => const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          size: 42,
-                          color: Colors.black26,
-                        ),
-                      ),
-                    )
+                            imageUrl,
+                            fit: BoxFit.contain,
+                            alignment: Alignment.center,
+                            filterQuality: FilterQuality.medium,
+                            loadingBuilder: (c, child, p) => p == null
+                                ? child
+                                : const Center(
+                                    child: SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  ),
+                            errorBuilder: (c, e, s) => const Center(
+                              child: Icon(
+                                Icons.broken_image,
+                                size: 42,
+                                color: Colors.black26,
+                              ),
+                            ),
+                          )
                         : Image.asset(
-                      imageUrl,
-                      fit: BoxFit.contain,
-                      alignment: Alignment.center,
-                      filterQuality: FilterQuality.medium,
-                      errorBuilder: (c, e, s) => const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          size: 42,
-                          color: Colors.black26,
-                        ),
-                      ),
-                    ),
+                            imageUrl,
+                            fit: BoxFit.contain,
+                            alignment: Alignment.center,
+                            filterQuality: FilterQuality.medium,
+                            errorBuilder: (c, e, s) => const Center(
+                              child: Icon(
+                                Icons.broken_image,
+                                size: 42,
+                                color: Colors.black26,
+                              ),
+                            ),
+                          ),
                   ),
                 ),
             ],
@@ -761,6 +779,17 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
   }
 
   Widget _footerCard(String title, String content) {
+    // 공통: 타이틀/빈 블록 정리
+    final normalized = title == '금리/이율 안내'
+        // ✅ 표 영역만 남기고, 선행 빈 블록 제거 (개행→<br> 변환 금지)
+        ? _stripLeadingGaps(
+            cutHeadBeforeFirstTable(content, titleToStrip: title),
+          )
+        // ✅ 일반 안내는 줄바꿈 정규화 후 <br> 변환
+        : toHtmlBreaks(
+            normalizeHtml(content, titleToStrip: title),
+          );
+
     return Card(
       color: Colors.white,
       elevation: 2,
@@ -788,11 +817,7 @@ class _DepositDetailPageState extends State<DepositDetailPage> {
               )
             else
               HtmlWidget(
-                toHtmlBreaks(
-                  title == '금리/이율 안내'
-                      ? cutHeadBeforeFirstTable(content, titleToStrip: title)
-                      : normalizeHtml(content, titleToStrip: title),
-                ),
+                normalized,
                 customStylesBuilder: _htmlStyleFixer,
               ),
           ],

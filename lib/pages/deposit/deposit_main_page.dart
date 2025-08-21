@@ -186,9 +186,6 @@ class _DepositMainPageState extends State<DepositMainPage> {
   }
 
   // ============= 이자 계산기 (경계/구획 강조 개선) =============
-  // 변경 포인트:
-  // - 섹션 제목 + 테두리(Border.all) + 연한 배경으로 블록 구분
-  // - Divider와 섹션 간 여백으로 가독성 강화
   void showInterestCalculator(BuildContext context, DepositProduct product) {
     final amountController = TextEditingController(text: "1,000,000");
     final FocusNode amountFocus = FocusNode();
@@ -196,6 +193,8 @@ class _DepositMainPageState extends State<DepositMainPage> {
     int months = product.period > 0 ? product.period : 1;
     final double rate = product.maxRate;
     int interestResult = 0;
+
+    String formatCurrency(int v) => NumberFormat("#,###").format(v);
 
     void calculate(StateSetter s) {
       final amount =
@@ -207,6 +206,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (_) {
         return StatefulBuilder(
@@ -220,377 +220,337 @@ class _DepositMainPageState extends State<DepositMainPage> {
 
             void dismissKeyboard() => FocusScope.of(context).unfocus();
 
-            // 더 또렷한 섹션 박스
+            // 섹션 공통 데코
             BoxDecoration sectionBox({Color? fill}) => BoxDecoration(
-              color: fill ?? Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.grey.shade400, width: 1.2),
-            );
+                  color: fill ?? Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.grey.shade400, width: 1.2),
+                );
 
             Widget sectionTitle(String t) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Text(
-                t,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF111827),
-                ),
-              ),
-            );
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    t,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF111827),
+                    ),
+                  ),
+                );
 
             return AnimatedPadding(
               duration: const Duration(milliseconds: 180),
               padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
-              ),
+                  bottom: MediaQuery.of(context).viewInsets.bottom),
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: dismissKeyboard,
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF7F8FB),
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(24),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.12),
-                        blurRadius: 30,
-                        spreadRadius: 6,
-                        offset: const Offset(0, -5),
+                child: FractionallySizedBox(
+                  heightFactor: 0.88, // 처음 열었을 때 '닫기' 버튼 노출 확보
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF7F8FB),
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(24),
                       ),
-                    ],
-                    // 바텀시트 상단/하단 경계선
-                    border: Border(
-                      top: BorderSide(color: Colors.grey.shade300, width: 1),
-                      bottom: BorderSide(
-                        color: Colors.grey.shade300,
-                        width: 0.6,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.12),
+                          blurRadius: 30,
+                          spreadRadius: 6,
+                          offset: const Offset(0, -5),
+                        ),
+                      ],
+                      border: Border(
+                        top: BorderSide(color: Colors.grey.shade300, width: 1),
+                        bottom:
+                            BorderSide(color: Colors.grey.shade300, width: 0.6),
                       ),
                     ),
-                  ),
-                  child: SafeArea(
-                    top: false,
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          // 상단 핸들 + 키보드 내리기
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Center(
-                                  child: Container(
-                                    width: 36,
-                                    height: 4,
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade400,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
+                    child: SafeArea(
+                      top: false,
+                      bottom: true,
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 4),
+                            Text(
+                              "${product.name} 이자 계산기",
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF111827),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // 섹션 1: 상품 요약
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: sectionBox(fill: Colors.white),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  sectionTitle("상품 요약"),
+                                  _infoLine(
+                                    "최대 금리",
+                                    "${rate.toStringAsFixed(2)}%",
+                                    highlight: true,
                                   ),
-                                ),
+                                  const SizedBox(height: 6),
+                                  _infoLine("기본 가입기간", "${product.period}개월"),
+                                ],
                               ),
-                              IconButton(
-                                tooltip: '키보드 내리기',
-                                onPressed: dismissKeyboard,
-                                icon: const Icon(Icons.keyboard_hide),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-
-                          Text(
-                            "📊 ${product.name} 이자 계산기",
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF111827),
                             ),
-                          ),
-                          const SizedBox(height: 16),
 
-                          // 섹션 1: 상품 요약 (경계 또렷)
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(14),
-                            decoration: sectionBox(fill: Colors.white),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                sectionTitle("상품 요약"),
-                                _infoLine(
-                                  "최대 금리",
-                                  "${rate.toStringAsFixed(2)}%",
-                                  highlight: true,
-                                ),
-                                const SizedBox(height: 6),
-                                _infoLine("기본 가입기간", "${product.period}개월"),
-                              ],
-                            ),
-                          ),
+                            const SizedBox(height: 10),
 
-                          const SizedBox(height: 12),
-
-                          // 섹션 2: 예치금 입력 (경계 또렷)
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(14),
-                            decoration: sectionBox(fill: Colors.grey.shade50),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                sectionTitle("예치금"),
-                                TextField(
-                                  controller: amountController,
-                                  focusNode: amountFocus,
-                                  enableSuggestions: false,
-                                  autocorrect: false,
-                                  showCursor: true,
-                                  keyboardType: TextInputType.number,
-                                  textInputAction: TextInputAction.done,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                  ],
-                                  decoration: InputDecoration(
-                                    hintText: "금액을 입력하세요 (예: 1,000,000)",
-                                    prefixIcon: const Padding(
-                                      padding: EdgeInsets.only(
-                                        left: 12,
-                                        right: 8,
-                                      ),
-                                      child: Text(
-                                        "₩",
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w900,
-                                        ),
-                                      ),
-                                    ),
-                                    prefixIconConstraints: const BoxConstraints(
-                                      minWidth: 0,
-                                      minHeight: 0,
-                                    ),
-                                    suffixIcon: Padding(
-                                      padding: const EdgeInsets.only(right: 8),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          IconButton(
-                                            tooltip: '지우기',
-                                            onPressed: () {
-                                              amountController.clear();
-                                              s(() {});
-                                              calculate(s);
-                                            },
-                                            icon: const Icon(Icons.clear),
-                                          ),
-                                          TextButton(
-                                            onPressed: () {
-                                              dismissKeyboard();
-                                              calculate(s);
-                                            },
-                                            child: const Text(
-                                              "완료",
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    filled: true,
-                                    fillColor: Colors.white,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 14,
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(
+                            // 섹션 2: 예치금 (단일 입력 박스)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: TextField(
+                                controller: amountController,
+                                focusNode: amountFocus,
+                                enableSuggestions: false,
+                                autocorrect: false,
+                                keyboardType: TextInputType.number,
+                                textInputAction: TextInputAction.done,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly
+                                ],
+                                decoration: InputDecoration(
+                                  labelText: "예치금",
+                                  prefixText: "₩ ",
+                                  prefixStyle: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF111827),
+                                  ),
+                                  isDense: true,
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 12),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
                                         color: Colors.grey.shade400,
-                                        width: 1.2,
-                                      ),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(
-                                        color: const Color(0xFF304FFE),
-                                        width: 2,
-                                      ),
+                                        width: 1.2),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(
+                                        color: Color(0xFF304FFE), width: 2),
+                                  ),
+                                  suffixIcon: Padding(
+                                    padding: const EdgeInsets.only(right: 6),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          tooltip: '지우기',
+                                          visualDensity: VisualDensity.compact,
+                                          constraints: const BoxConstraints(
+                                              minWidth: 36, minHeight: 36),
+                                          onPressed: () {
+                                            amountController.clear();
+                                            s(() {});
+                                            calculate(s);
+                                          },
+                                          icon: const Icon(Icons.clear),
+                                        ),
+                                        TextButton(
+                                          onPressed: () {
+                                            dismissKeyboard();
+                                            calculate(s);
+                                          },
+                                          child: const Text(
+                                            "완료",
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  onSubmitted: (_) {
-                                    dismissKeyboard();
-                                    calculate(s);
-                                  },
-                                  onChanged: (v) {
-                                    final numeric = v.replaceAll(
-                                      RegExp(r'[^0-9]'),
-                                      '',
-                                    );
-                                    final formatted = NumberFormat("#,###")
-                                        .format(
-                                          int.parse(
-                                            numeric.isEmpty ? "0" : numeric,
-                                          ),
-                                        );
-                                    amountController.value = TextEditingValue(
-                                      text: formatted,
-                                      selection: TextSelection.collapsed(
-                                        offset: formatted.length,
-                                      ),
-                                    );
-                                    calculate(s);
-                                  },
                                 ),
-                              ],
+                                onSubmitted: (_) {
+                                  dismissKeyboard();
+                                  calculate(s);
+                                },
+                                onChanged: (v) {
+                                  final numeric =
+                                      v.replaceAll(RegExp(r'[^0-9]'), '');
+                                  final formatted = NumberFormat("#,###")
+                                      .format(int.parse(
+                                          numeric.isEmpty ? "0" : numeric));
+                                  amountController.value = TextEditingValue(
+                                    text: formatted,
+                                    selection: TextSelection.collapsed(
+                                        offset: formatted.length),
+                                  );
+                                  calculate(s);
+                                },
+                              ),
                             ),
-                          ),
 
-                          const SizedBox(height: 12),
+                            const SizedBox(height: 10),
 
-                          // 섹션 3: 기간 설정 (경계 또렷)
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(14),
-                            decoration: sectionBox(fill: Colors.white),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                sectionTitle("가입기간"),
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    const Text(
-                                      "월 선택",
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        color: Color(0xFF111827),
-                                      ),
-                                    ),
-                                    Text(
-                                      "$months 개월",
-                                      style: TextStyle(
-                                        color: const Color(
-                                          0xFF111827,
-                                        ).withOpacity(0.7),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Slider(
-                                  value: months.toDouble(),
-                                  min: 1,
-                                  max: 36,
-                                  divisions: 35,
-                                  label: "$months 개월",
-                                  activeColor: const Color(0xFF304FFE),
-                                  onChanged: (v) {
-                                    months = v.toInt();
-                                    s(() {});
-                                    calculate(s);
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(height: 12),
-
-                          // 섹션 4: 결과 (경계 또렷) + 가운데 정렬
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(14),
-                            decoration: sectionBox(fill: Colors.grey.shade50),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                sectionTitle("예상 결과"),
-                                const SizedBox(height: 4),
-                                // ⬇⬇ 가운데 정렬 추가
-                                Center(
-                                  child: Column(
+                            // 섹션 3: 가입기간 (한 줄 + 슬라이더)
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: sectionBox(fill: Colors.white),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // "가입기간" | "6개월"
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       const Text(
-                                        "예상 이자수익",
+                                        "가입기간",
                                         style: TextStyle(
+                                          fontWeight: FontWeight.w800,
                                           fontSize: 15,
+                                          color: Color(0xFF111827),
+                                        ),
+                                      ),
+                                      Text(
+                                        "$months 개월",
+                                        style: const TextStyle(
                                           fontWeight: FontWeight.w700,
                                           color: Color(0xFF111827),
                                         ),
                                       ),
-                                      TweenAnimationBuilder<int>(
-                                        tween: IntTween(
-                                          begin: 0,
-                                          end: interestResult,
-                                        ),
-                                        duration: const Duration(
-                                          milliseconds: 680,
-                                        ),
-                                        curve: Curves.easeOutCubic,
-                                        builder: (_, value, __) => Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 8,
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  SliderTheme(
+                                    data: SliderTheme.of(context).copyWith(
+                                      trackHeight: 2.5,
+                                      thumbShape: const RoundSliderThumbShape(
+                                          enabledThumbRadius: 10),
+                                      overlayShape:
+                                          const RoundSliderOverlayShape(
+                                              overlayRadius: 18),
+                                      activeTickMarkColor:
+                                          const Color(0xFF304FFE)
+                                              .withOpacity(.4),
+                                      inactiveTickMarkColor:
+                                          Colors.grey.shade300,
+                                    ),
+                                    child: Slider(
+                                      value: months.toDouble(),
+                                      min: 1,
+                                      max: 36,
+                                      divisions: 35,
+                                      label: "$months 개월",
+                                      activeColor: const Color(0xFF304FFE),
+                                      onChanged: (v) {
+                                        months = v.toInt();
+                                        s(() {});
+                                        calculate(s);
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: 10),
+
+                            // 섹션 4: 결과
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: sectionBox(fill: Colors.grey.shade50),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  sectionTitle("예상 결과"),
+                                  const SizedBox(height: 2),
+                                  Center(
+                                    child: Column(
+                                      children: [
+                                        const Text(
+                                          "예상 이자수익",
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFF111827),
                                           ),
-                                          child: Text(
-                                            "${formatCurrency(value)} 원",
-                                            textAlign: TextAlign.center,
-                                            style: const TextStyle(
-                                              fontSize: 28,
-                                              fontWeight: FontWeight.w900,
-                                              color: Color(0xFF304FFE),
+                                        ),
+                                        TweenAnimationBuilder<int>(
+                                          tween: IntTween(
+                                              begin: 0, end: interestResult),
+                                          duration:
+                                              const Duration(milliseconds: 680),
+                                          curve: Curves.easeOutCubic,
+                                          builder: (_, value, __) => Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 6,
+                                            ),
+                                            child: Text(
+                                              "${formatCurrency(value)} 원",
+                                              textAlign: TextAlign.center,
+                                              style: const TextStyle(
+                                                fontSize: 28,
+                                                fontWeight: FontWeight.w900,
+                                                color: Color(0xFF304FFE),
+                                              ),
                                             ),
                                           ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
+                                  ),
+                                  const Divider(height: 16),
+                                  resultRow(
+                                      "예치금", "${formatCurrency(amount)} 원"),
+                                  resultRow("이자수익",
+                                      "${formatCurrency(interestResult)} 원"),
+                                  resultRow(
+                                    "총 수령액",
+                                    "${formatCurrency(total)} 원",
+                                    highlight: true,
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: 14),
+
+                            // 닫기
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton(
+                                onPressed: () => Navigator.pop(context),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(
+                                      color: Color(0xFF304FFE), width: 2),
+                                  foregroundColor: const Color(0xFF304FFE),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
+                                  textStyle: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
                                   ),
                                 ),
-                                const Divider(height: 18),
-                                resultRow("예치금", "${formatCurrency(amount)} 원"),
-                                resultRow(
-                                  "이자수익",
-                                  "${formatCurrency(interestResult)} 원",
-                                ),
-                                resultRow(
-                                  "총 수령액",
-                                  "${formatCurrency(total)} 원",
-                                  highlight: true,
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton(
-                              onPressed: () => Navigator.pop(context),
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(
-                                  color: Color(0xFF304FFE),
-                                  width: 2,
-                                ),
-                                foregroundColor: const Color(0xFF304FFE),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 14,
-                                ),
-                                textStyle: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
+                                child: const Text("닫기"),
                               ),
-                              child: const Text("닫기"),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 12),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -682,7 +642,8 @@ class _DepositMainPageState extends State<DepositMainPage> {
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: Padding(
-                  padding: const EdgeInsets.only(bottom: 80),
+                  padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(context).padding.bottom),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: _simpleMode
@@ -746,9 +707,8 @@ class _DepositMainPageState extends State<DepositMainPage> {
                         height: 8,
                         margin: const EdgeInsets.symmetric(horizontal: 4),
                         decoration: BoxDecoration(
-                          color: active
-                              ? _accent
-                              : Colors.black.withOpacity(0.2),
+                          color:
+                              active ? _accent : Colors.black.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(8),
                           boxShadow: active
                               ? [
@@ -790,7 +750,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
       categorySection(context),
       const SizedBox(height: 18),
 
-      // 추천 & 근처 지점
+      // ✅ 추천 & 근처 지점 (공통 위젯) — 추천은 /savings/start로 이동
       shortcutRow(context),
       const SizedBox(height: 18),
 
@@ -805,14 +765,12 @@ class _DepositMainPageState extends State<DepositMainPage> {
     ];
   }
 
-  // === 심플 모드 === (기본보기와 유사한 톤: 화이트 카드+옅은 그림자/테두리)
+  // === 심플 모드 === (예전 심플 UI로 복원 + 라우팅 유지)
   List<Widget> _buildSimpleModeSection() {
-    final accent = _accent;
-
     return [
       const SizedBox(height: 12),
 
-      // 카테고리 바로가기 — 버튼을 filled:false로 하얀 카드 느낌
+      // 카테고리 바로가기 — 예전처럼 BigPrimaryButton(테두리) 3개
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
@@ -894,33 +852,31 @@ class _DepositMainPageState extends State<DepositMainPage> {
           ],
         ),
       ),
+
       const SizedBox(height: 16),
 
-      // 빠른 기능 — 카드톤 유지
+      // 🔙 예전 심플 UI의 "빠른 기능" 영역 (두 개의 큰 버튼)
+      // ✅ 라우팅 유지: 내 추천 → /savings/start, 근처 지점 → /map
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
             Expanded(
               child: _BigPrimaryButton(
-                label: "내 추천",
+                label: "맞춤 상품 추천",
                 icon: Icons.recommend,
-                accent: accent,
-                filled: false,
-                onTap: () {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text("추천으로 이동")));
-                },
+                accent: _accent,
+                filled: false, // 꽉 찬 버튼(예전 스타일)
+                onTap: () => Navigator.pushNamed(context, '/savings/start'),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: _BigPrimaryButton(
-                label: "근처 지점",
+                label: "근처 지점 위치",
                 icon: Icons.location_on,
                 accent: Colors.green,
-                filled: false,
+                filled: false, // 테두리 버튼
                 onTap: () => Navigator.pushNamed(context, '/map'),
               ),
             ),
@@ -930,7 +886,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
 
       const SizedBox(height: 20),
 
-      // 추천 리스트 (심플 카드)
+      // 추천 리스트 (예전 심플 카드)
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Text(
@@ -944,14 +900,12 @@ class _DepositMainPageState extends State<DepositMainPage> {
       ),
       const SizedBox(height: 8),
 
-      ...topViewed
-          .take(4)
-          .map(
+      ...topViewed.take(4).map(
             (p) => Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: _SimpleProductCard(
                 p: p,
-                accent: accent,
+                accent: _accent,
                 onDetail: () => goToDetail(p),
                 onCalc: () => showInterestCalculator(context, p),
               ),
@@ -1391,7 +1345,6 @@ class _PastelServiceCard extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            // 우상단 큰 아이콘 — 요청에 따라 숨김 가능
             if (showCornerIcon)
               Positioned(
                 right: 14,
@@ -1643,26 +1596,27 @@ class _BigPrimaryButton extends StatelessWidget {
   }
 }
 
+/// ✅ 공통 쇼트컷 카드: 추천 상품(/savings/start), 영업점/ATM(/map)
 Widget shortcutRow(BuildContext context) {
   final baseColor = Colors.white;
   final borderRadius = BorderRadius.circular(20);
 
   BoxDecoration neoBox() => BoxDecoration(
-    color: baseColor,
-    borderRadius: borderRadius,
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black.withOpacity(0.08),
-        blurRadius: 12,
-        offset: const Offset(8, 8),
-      ),
-      BoxShadow(
-        color: Colors.white.withOpacity(0.9),
-        blurRadius: 12,
-        offset: const Offset(-6, -6),
-      ),
-    ],
-  );
+        color: baseColor,
+        borderRadius: borderRadius,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(8, 8),
+          ),
+          BoxShadow(
+            color: Colors.white.withOpacity(0.9),
+            blurRadius: 12,
+            offset: const Offset(-6, -6),
+          ),
+        ],
+      );
 
   return Padding(
     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1671,9 +1625,8 @@ Widget shortcutRow(BuildContext context) {
         Expanded(
           child: InkWell(
             borderRadius: borderRadius,
-            onTap: () => ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text("추천으로 이동"))),
+            // 🔁 변경: 스낵바 → /savings/start 라우팅
+            onTap: () => Navigator.pushNamed(context, '/savings/start'),
             child: Container(
               padding: const EdgeInsets.all(20),
               margin: const EdgeInsets.only(right: 8),
@@ -1683,7 +1636,7 @@ Widget shortcutRow(BuildContext context) {
                   Icon(Icons.recommend, size: 36, color: Colors.indigo),
                   SizedBox(height: 10),
                   Text(
-                    "🧠 추천 상품",
+                    "저축 성향 테스트",
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 17,
@@ -1692,7 +1645,7 @@ Widget shortcutRow(BuildContext context) {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    "개인 맞춤 추천",
+                    "맞춤 상품 추천",
                     style: TextStyle(fontSize: 13, color: Colors.indigo),
                   ),
                 ],
@@ -1713,17 +1666,20 @@ Widget shortcutRow(BuildContext context) {
                   Icon(Icons.location_on, size: 36, color: Colors.green),
                   SizedBox(height: 10),
                   Text(
-                    "📍 근처 지점",
+                    "영업점, ATM",
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 17,
-                      color: Colors.green,
+                      color: Colors.black,
                     ),
                   ),
                   SizedBox(height: 4),
                   Text(
-                    "현재 위치 기반",
-                    style: TextStyle(fontSize: 13, color: Colors.green),
+                    "위치확인",
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Colors.green),
                   ),
                 ],
               ),
@@ -1749,17 +1705,16 @@ class _SimpleProductCard extends StatelessWidget {
   });
 
   BoxDecoration _cardDeco() => BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(18),
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black.withOpacity(0.06),
-        blurRadius: 12,
-        offset: const Offset(0, 6),
-      ),
-    ],
-    // border 제거해서 기본 모드 카드와 동일 톤
-  );
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      );
 
   @override
   Widget build(BuildContext context) {

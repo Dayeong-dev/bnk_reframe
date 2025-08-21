@@ -26,6 +26,8 @@ class ApiInterceptor extends Interceptor {
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     String? accessToken = getAccessToken();
 
+    print(accessToken);
+
     if(accessToken != null && accessToken.isNotEmpty) {
       options.headers['Authorization'] = accessToken;
     }

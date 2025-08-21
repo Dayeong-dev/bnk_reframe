@@ -38,42 +38,42 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showBiometricRegisterDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("생체 인증 등록"),
-        content: const Text("다음 로그인부터 생체 인증을 사용하시겠습니까?"),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: const Text("아니요"),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              final didAuthenticate = await _auth.authenticate(
-                localizedReason: "생체 인증 등록",
-              );
-              if (!mounted) return;
-              if (didAuthenticate) {
-                await _secureStorage.write(
-                  key: 'biometricEnabled',
-                  value: 'true',
-                );
-                if (!mounted) return;
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("생체 인증이 등록되었습니다.")),
-                );
-              }
-            },
-            child: const Text("네"),
-          ),
-        ],
-      ),
-    );
+    // showDialog(
+    //   context: context,
+    //   builder: (context) => AlertDialog(
+    //     title: const Text("생체 인증 등록"),
+    //     content: const Text("다음 로그인부터 생체 인증을 사용하시겠습니까?"),
+    //     actions: [
+    //       TextButton(
+    //         onPressed: () {
+    //           Navigator.pop(context);
+    //         },
+    //         child: const Text("아니요"),
+    //       ),
+    //       TextButton(
+    //         onPressed: () async {
+    //           Navigator.pop(context);
+    //           final didAuthenticate = await _auth.authenticate(
+    //             localizedReason: "생체 인증 등록",
+    //           );
+    //           if (!mounted) return;
+    //           if (didAuthenticate) {
+    //             await _secureStorage.write(
+    //               key: 'biometricEnabled',
+    //               value: 'true',
+    //             );
+    //             if (!mounted) return;
+    //
+    //             ScaffoldMessenger.of(context).showSnackBar(
+    //               const SnackBar(content: Text("생체 인증이 등록되었습니다.")),
+    //             );
+    //           }
+    //         },
+    //         child: const Text("네"),
+    //       ),
+    //     ],
+    //   ),
+    // );
   }
 
   Future<void> _initSecureStorage() async {
@@ -86,48 +86,53 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text("메인 화면"),
-            ElevatedButton(
-              onPressed: _initSecureStorage,
-              child: Text("Secure Storage 초기화"),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => SplashPage()),
-                );
-              },
-              child: Text("Splash 화면으로 이동"),
-            ),
-            // ✅ 여기 예적금 버튼 2개 추가!
-            ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, "/depositList"),
-              child: Text("예적금 전체 목록"),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, "/depositMain"),
-              child: Text("예적금 메인 페이지"),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, "/step-debug"),
-              child: Text("걸음 수 테스트"),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, "/savings/start"),
-              child: Text("저축성향 테스트"),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, "/chat-debug"),
-              child: Text("챗봇 테스트"),
-            ),
-          ],
-        ),
+      body: ListView(
+        children: [
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text("메인 화면"),
+              ElevatedButton(
+                onPressed: _initSecureStorage,
+                child: Text("Secure Storage 초기화"),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => SplashPage()),
+                  );
+                },
+                child: Text("Splash 화면으로 이동"),
+              ),
+              // ✅ 여기 예적금 버튼 2개 추가!
+              ElevatedButton(
+                onPressed: () => Navigator.pushNamed(context, "/depositList"),
+                child: Text("예적금 전체 목록"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pushNamed(context, "/depositMain"),
+                child: Text("예적금 메인 페이지"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pushNamed(context, "/step-debug"),
+                child: Text("걸음 수 테스트"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pushNamed(context, "/savings/start"),
+                child: Text("저축성향 테스트"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pushNamed(context, "/chat-debug"),
+                child: Text("챗봇 테스트"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pushNamed(context, "/event/hub"),
+                child: Text("운세 테스트"),
+              ),
+            ],
+        ),]
       ),
     );
   }

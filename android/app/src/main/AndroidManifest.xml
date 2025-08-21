@@ -1,59 +1,66 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- 걸음 수 센서 접근 -->
+    <!-- 권한 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION"/>
-
     <!-- Health Connect 권한 -->
     <uses-permission android:name="android.permission.health.READ_HEART_RATE"/>
     <uses-permission android:name="android.permission.health.WRITE_HEART_RATE"/>
     <uses-permission android:name="android.permission.health.READ_STEPS"/>
     <uses-permission android:name="android.permission.health.WRITE_STEPS"/>
-    <!-- firebase -->
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <uses-permission android:name="android.permission.INTERNET"/>
-
-    <!-- 지도-->
-     <!-- ✅ 위치 권한 (정확한 위치, 대략적인 위치) -->
+    <!-- 위치 -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
-
-    <!-- ✅ GPS 하드웨어가 없어도 설치 가능하게 설정 -->
+    <!-- GPS 하드웨어가 없어도 설치 가능 -->
     <uses-feature android:name="android.hardware.location.gps" android:required="false"/>
 
-    <!-- ✅ 인터넷 사용 권한 -->
-    <uses-permission android:name="android.permission.INTERNET"/>
-
-
     <application
-        android:label="reframe"
         android:name="${applicationName}"
+        android:label="reframe"
+        android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"
-        android:networkSecurityConfig="@xml/network_security_config"
-        android:icon="@mipmap/ic_launcher">
+        android:networkSecurityConfig="@xml/network_security_config">
+
         <activity
-            android:name="com.example.reframe.MainActivity"
+            android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            android:taskAffinity=""
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            <!-- Specifies an Android theme to apply to this Activity as soon as
-                 the Android process has started. This theme is visible to the user
-                 while the Flutter UI initializes. After that, this theme continues
-                 to determine the Window background behind the Flutter UI. -->
-            <meta-data
-              android:name="io.flutter.embedding.android.NormalTheme"
-              android:resource="@style/NormalTheme"
-              />
+
+            <!-- ✅ 기본 실행(런처) 필터: MAIN + LAUNCHER만!  -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+
+            <!-- ✅ 커스텀 스킴 (bnk-app-push://bnk_reframe?...) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="bnk-app-push" android:host="bnk_reframe"/>
+            </intent-filter>
+
+            <!-- ✅ HTTPS App Links (open-app3.html) -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="https"
+                    android:host="bnk-app-push.web.app"
+                    android:pathPrefix="/open-app3.html" />
+            </intent-filter>
+
+            <!-- Flutter NormalTheme -->
+            <meta-data
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme" />
         </activity>
 
         <!-- Health Connect 권한 근거 화면 -->
@@ -65,7 +72,7 @@
             </intent-filter>
         </activity>
 
-        <!-- Android 14+용 alias -->
+        <!-- Android 14+ alias -->
         <activity-alias
             android:name="ViewPermissionUsageActivity"
             android:exported="true"
@@ -76,25 +83,17 @@
                 <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
             </intent-filter>
         </activity-alias>
-        <!-- Don't delete the meta-data below.
-             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
-        <meta-data
-            android:name="flutterEmbedding"
-            android:value="2" />
-    </application>
-    <!-- Required to query activities that can process text, see:
-         https://developer.android.com/training/package-visibility and
-         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
 
-         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+        <!-- Flutter embedding meta -->
+        <meta-data android:name="flutterEmbedding" android:value="2" />
+    </application>
+
+    <!-- package visibility queries (한 블록에 정리) -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
-    </queries>
-
-    <queries>
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="nmap" />
@@ -102,4 +101,3 @@
     </queries>
 
 </manifest>
-

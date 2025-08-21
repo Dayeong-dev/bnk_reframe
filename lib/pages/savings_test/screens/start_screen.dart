@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'question_screen.dart';
 
 class StartScreen extends StatelessWidget {
-  static const routeName = '/';
+  static const routeName = '/savings/start';
   const StartScreen({super.key});
 
   @override

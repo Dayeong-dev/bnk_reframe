@@ -1,3 +1,5 @@
+import 'package:reframe/model/product_input_format.dart';
+
 import '../model/deposit_product.dart';
 import '../core/interceptors/http.dart';
 
@@ -92,5 +94,15 @@ Future<List<DepositProduct>> searchProducts({
     return list.map((e) => DepositProduct.fromJson(e)).toList();
   } else {
     throw Exception('상품 검색 실패');
+  }
+}
+
+Future<ProductInputFormat> getProductInputFormat(int productId) async {
+  final response = await dio.get('$commonUrl/format/$productId');
+
+  if (response.statusCode == 200) {
+    return ProductInputFormat.fromJson(response.data);
+  } else {
+    throw Exception('서버 오류: ${response.statusCode}');
   }
 }

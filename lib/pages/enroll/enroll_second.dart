@@ -2,21 +2,21 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:reframe/constants/color.dart';
+import 'package:reframe/model/deposit_product.dart';
 import 'package:reframe/model/enroll_form.dart';
 import 'package:reframe/model/product_input_format.dart';
 import 'package:reframe/pages/enroll/appbar.dart';
 import 'package:reframe/pages/enroll/enroll_third.dart';
 import 'package:reframe/model/group_type.dart';
+import 'package:reframe/service/deposit_service.dart';
 
 class SecondStepPage extends StatefulWidget {
   const SecondStepPage({
     super.key,
-    required this.productName,
-    required this.productInput,
+    required this.product,
   });
 
-  final String productName;
-  final ProductInputFormat productInput;
+  final DepositProduct product;
 
   @override
   State<SecondStepPage> createState() => _SecondStepPageState();
@@ -26,17 +26,37 @@ class _SecondStepPageState extends State<SecondStepPage> {
   final _formKey = GlobalKey<FormState>();
   final EnrollForm _data = EnrollForm();
 
+  String? _fromAccountName;
+  String? _maturityAccountName;
+
+  ProductInputFormat? _productInput;
+  late Future<ProductInputFormat> _future;
+
+  int _minMonths = 0;
+  int _maxMonths = 0;
+  int _minAmount = 0;     // 만원
+  int _maxAmount = 0;  // 만원
+
   @override
   void initState() {
-    // input1 (납입 기간)
-    if (widget.productInput.input1 && _data.periodMonths == null) {
-      _data.periodMonths = 12;
-    }
 
-    // input2 (납입 금액)
-    if (widget.productInput.input2 && _data.paymentAmount == null) {
-      _data.paymentAmount = 5;
-    }
+    _future = getProductInputFormat(widget.product.productId).then((result) {
+      _minMonths = widget.product.minPeriodMonths ?? 1;
+      _maxMonths = widget.product.maxPeriodMonths ?? 12;
+
+      // 도착 후 한 번만 기본값 세팅
+      if (result.input1 && _data.periodMonths == null) {
+        _data.periodMonths = _minMonths;
+      }
+      if (result.input2 && _data.paymentAmount == null) {
+        _data.paymentAmount = _minAmount;
+      }
+      setState(() {
+        _productInput = result;
+      });
+
+      return result;
+    });
 
     super.initState();
   }
@@ -47,47 +67,42 @@ class _SecondStepPageState extends State<SecondStepPage> {
     return a >= 1 && a <= 31;
   }
 
-  static const int _minMonths = 1;
-  static const int _maxMonths = 60;
-  static const int _minAmount = 5;     // 만원
-  static const int _maxAmount = 1000;  // 만원
-
-  List<String> _validate() {
+  List<String> _validate(ProductInputFormat productInput) {
     final errs = <String>[];
 
-    if (widget.productInput.input1) {
+    if (productInput.input1) {
       final v = _data.periodMonths;
       if (v == null || v < _minMonths || v > _maxMonths) {
         errs.add('납입 기간을 ${_minMonths}~${_maxMonths}개월로 선택해 주세요.');
       }
     }
 
-    if (widget.productInput.input2) {
+    if (productInput.input2) {
       final v = _data.paymentAmount;
       if (v == null || v < _minAmount || v > _maxAmount) {
         errs.add('납입 금액을 ${_minAmount}~${_maxAmount}만원으로 입력해 주세요.');
       }
     }
 
-    if (widget.productInput.input3) {
+    if (productInput.input3) {
       if (!_isValidAnchor(_data.transferDate)) {
         errs.add('이체일(앵커)을 선택해 주세요.');
       }
     }
 
-    if (widget.productInput.fromAccountReq) {
-      if (_data.fromAccountId == null || _data.fromAccountId!.isEmpty) {
+    if (productInput.fromAccountReq) {
+      if (_data.fromAccountId == null) {
         errs.add('출금 계좌를 선택해 주세요.');
       }
     }
 
-    if (widget.productInput.maturityAccountReq) {
-      if (_data.maturityAccountId == null || _data.maturityAccountId!.isEmpty) {
+    if (productInput.maturityAccountReq) {
+      if (_data.maturityAccountId == null) {
         errs.add('만기 입금 계좌를 선택해 주세요.');
       }
     }
 
-    if (widget.productInput.input7) {
+    if (productInput.input7) {
       final name = _data.groupName?.trim() ?? '';
       if (name.isEmpty) {
         errs.add('모임 이름을 입력해 주세요.');
@@ -96,7 +111,7 @@ class _SecondStepPageState extends State<SecondStepPage> {
       }
     }
 
-    if (widget.productInput.input8) {
+    if (productInput.input8) {
       if (_data.groupType == null || _data.groupType!.isEmpty) {
         errs.add('모임 구분을 선택해 주세요.');
       }
@@ -104,10 +119,10 @@ class _SecondStepPageState extends State<SecondStepPage> {
     return errs;
   }
 
-  bool get _canSubmit => _validate().isEmpty;
+  bool get _canSubmit => _productInput != null && _validate(_productInput!).isEmpty;
 
   void _nextStep() {
-    final errs = _validate();
+    final errs = _validate(_productInput!);
     if (errs.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(errs.first)),
@@ -115,13 +130,13 @@ class _SecondStepPageState extends State<SecondStepPage> {
       return;
     }
 
-    Navigator.push(context, MaterialPageRoute(builder: (context) => ThirdStepPage(productName: '상품명', enrollForm: _data)));
+    Navigator.push(context, MaterialPageRoute(builder: (context) => ThirdStepPage(product: widget.product, enrollForm: _data)));
   }
 
   final  _accounts = const [
-    {'id': 'A-1111', 'account_number': '112-1111-1111-11', 'bank_name': '부산은행', 'balance': 300000},
-    {'id': 'A-2222', 'account_number': '112-2222-1111-11', 'bank_name': '부산은행', 'balance': 500000},
-    {'id': 'A-3333', 'account_number': '112-3333-1111-11', 'bank_name': '부산은행', 'balance': 800000},
+    {'id': 'A-1111', 'accountNumber': '112-1111-1111-11', 'bankName': '부산은행', 'balance': 300000},
+    {'id': 'A-2222', 'accountNumber': '112-2222-1111-11', 'bankName': '부산은행', 'balance': 500000},
+    {'id': 'A-3333', 'accountNumber': '112-3333-1111-11', 'bankName': '부산은행', 'balance': 800000},
   ];
 
   Future<Map<String, Object>?> _pickAccount(String title) async {
@@ -137,10 +152,10 @@ class _SecondStepPageState extends State<SecondStepPage> {
               const SizedBox(height: 8),
               Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
-              ..._accounts.map((a) => ListTile(
-                title: Text('${a['bank_name']!} ${a['account_number']!}'),
+              ..._accounts.map((acc) => ListTile(
+                title: Text('${acc['bankName']!} ${acc['accountNumber']!}'),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.pop(context, a),
+                onTap: () => Navigator.pop(context, acc),
               )),
               const SizedBox(height: 8),
             ],
@@ -156,89 +171,119 @@ class _SecondStepPageState extends State<SecondStepPage> {
       backgroundColor: backgroundColor2,
       appBar: buildAppBar(context),
       bottomNavigationBar: _BottomButton(enabled: _canSubmit, onPressed: _nextStep),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-          children: [
-            // 상품 이름
-            Text(widget.productName,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 12),
+      body: FutureBuilder(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('입력 포맷을 불러오지 못했습니다.'));
+          }
 
-            // 납입 기간
-            if (widget.productInput.input1)
-              PeriodSection(
-                value: _data.periodMonths!,
-                min: 1,
-                max: 60,
-                onChanged: (v) => setState(() => _data.periodMonths = v),
-              ),
-            const SizedBox(height: 12),
+          final p = snapshot.data as ProductInputFormat;
 
-            // 납입 금액
-            if (widget.productInput.input2)
-              AmountSection(
-                value: _data.paymentAmount!,
-                min: 5,
-                max: 1000,
-                onChanged: (v) => setState(() => _data.paymentAmount = v),
-              ),
-            const SizedBox(height: 12),
+          return Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+              children: [
+                // 상품 이름
+                Text(widget.product.name,
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 12),
 
-            // 납입 일정
-            if (widget.productInput.input3)
-              CupertinoMonthlyWheel(onChanged: (firstDebitDate, int anchor) {
-                setState(() {
-                  _data.transferDate = anchor;
-                });
-              }),
-            const SizedBox(height: 12),
+                // 납입 기간
+                if (p.input1) ...[
+                  PeriodSection(
+                    value: _data.periodMonths!,
+                    min: 1,
+                    max: 60,
+                    onChanged: (v) => setState(() => _data.periodMonths = v),
+                  ),
+                  const SizedBox(height: 12),
+                ],
 
-            // 출금 계좌
-            if (widget.productInput.fromAccountReq)
-              AccountPickerSection(
-                title: '출금 계좌',
-                subtitle: '월 납입 출금 계좌',
-                selectedId: _data.fromAccountId,
-                onPick: () async {
-                  final account = await _pickAccount('출금 계좌 선택');
-                  if (account != null) setState(() => _data.fromAccountId = account['id'] as String);
-                },
-              ),
-            const SizedBox(height: 12),
+                // 납입 금액
+                if (p.input2) ...[
+                  AmountSection(
+                    value: _data.paymentAmount!,
+                    min: 5,
+                    max: 1000,
+                    onChanged: (v) => setState(() => _data.paymentAmount = v),
+                  ),
+                  const SizedBox(height: 12),
+                ],
 
-            // 만기 시 입금 계좌
-            if (widget.productInput.maturityAccountReq)
-              AccountPickerSection(
-                title: '만기 계좌',
-                subtitle: '만기 입금 계좌',
-                selectedId: _data.maturityAccountId,
-                onPick: () async {
-                  final account = await _pickAccount('만기 시 입금 계좌 선택');
-                  if (account != null) setState(() => _data.maturityAccountId = account['id'] as String);
-                },
-              ),
-            const SizedBox(height: 12),
+                // 납입 일정
+                if (p.input3) ...[
+                  CupertinoMonthlyWheel(onChanged: (firstDebitDate, int anchor) {
+                    setState(() {
+                      _data.transferDate = anchor;
+                    });
+                  }),
+                  const SizedBox(height: 12),
+                ],
 
-            // 모임 이름
-            if (widget.productInput.input7)
-              GroupNameSection(
-                value: _data.groupName ?? '',
-                onChanged: (v) => setState(() => _data.groupName = v),
-              ),
-            const SizedBox(height: 12),
+                // 출금 계좌
+                if (p.fromAccountReq) ...[
+                  AccountPickerSection(
+                    title: '출금 계좌',
+                    subtitle: '월 납입 출금 계좌',
+                    selectedId: _fromAccountName,
+                    onPick: () async {
+                      final account = await _pickAccount('출금 계좌 선택');
+                      if (account != null) {
+                        _data.fromAccountId = account['id'] as int;
+                        setState(() {
+                          _fromAccountName = account["accountName"] as String;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                ],
 
-            // 모임 구분
-            if (widget.productInput.input8)
-              GroupTypeSection(selectedCode: '', onChanged: (String code, String label) {
-                setState(() {
-                  _data.groupType = code;
-                });;
-              }),
-          ],
-        ),
-      ),
+                // 만기 시 입금 계좌
+                if (p.maturityAccountReq) ...[
+                  AccountPickerSection(
+                    title: '만기 계좌',
+                    subtitle: '만기 입금 계좌',
+                    selectedId: _maturityAccountName,
+                    onPick: () async {
+                      final account = await _pickAccount('만기 시 입금 계좌 선택');
+                      if (account != null) {
+                        _data.maturityAccountId = account['id'] as int;
+                        setState(() {
+                          _maturityAccountName = account["accountName"] as String;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                // 모임 이름
+                if (p.input7) ...[
+                  GroupNameSection(
+                    value: _data.groupName ?? '',
+                    onChanged: (v) => setState(() => _data.groupName = v),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                // 모임 구분
+                if (p.input8) ...[
+                  GroupTypeSection(selectedCode: '', onChanged: (String code, String label) {
+                    setState(() {
+                      _data.groupType = code;
+                    });
+                  }),
+                ]
+              ],
+            ),
+          );
+        })
     );
   }
 }

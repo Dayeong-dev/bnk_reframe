@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:reframe/constants/color.dart';
+import 'package:reframe/model/deposit_product.dart';
 import 'package:reframe/model/enroll_form.dart';
 import 'package:reframe/pages/enroll/appbar.dart';
 import 'package:reframe/model/group_type.dart';
 import 'package:reframe/pages/enroll/success_enroll.dart';
+import 'package:reframe/service/enroll_service.dart';
 
 class ThirdStepPage extends StatefulWidget {
   const ThirdStepPage({
     super.key,
-    required this.productName,
+    required this.product,
     required this.enrollForm
   });
 
-  final String productName;
+  final DepositProduct product;
   final EnrollForm enrollForm;
 
   @override
@@ -22,11 +24,7 @@ class ThirdStepPage extends StatefulWidget {
 class _ThirdStepPageState extends State<ThirdStepPage> {
 
   Future<void> _submit() async {
-    int removed = 0;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const SuccessEnrollPage()),
-          (route) => removed++ >= 3, // ← 3개 지우고 멈춤 (현재 포함)
-    );
+    await addApplication(widget.product.productId, widget.enrollForm, context);
   }
 
   TableRow _buildTableRow({required String title, required String value}) {
@@ -99,7 +97,7 @@ class _ThirdStepPageState extends State<ThirdStepPage> {
                     children: [
                       _buildTableRow(
                           title: '상품명',
-                          value: widget.productName,
+                          value: widget.product.name,
                       ),
                       if(widget.enrollForm.paymentAmount != null)
                         _buildTableRow(
@@ -119,12 +117,12 @@ class _ThirdStepPageState extends State<ThirdStepPage> {
                       if(widget.enrollForm.fromAccountId != null)
                         _buildTableRow(
                             title: '출금 계좌',
-                            value: widget.enrollForm.fromAccountId!
+                            value: widget.enrollForm.fromAccountId.toString()
                         ),
                       if(widget.enrollForm.maturityAccountId != null)
                         _buildTableRow(
                             title: '만기 시 입금 계좌',
-                            value: widget.enrollForm.maturityAccountId!
+                            value: widget.enrollForm.maturityAccountId.toString()
                         ),
                       if(widget.enrollForm.groupType != null)
                         _buildTableRow(

@@ -1,3 +1,5 @@
+import 'package:reframe/model/document.dart';
+
 class DepositProduct {
   final int productId;
   final String name;
@@ -13,6 +15,14 @@ class DepositProduct {
   final int viewCount;
   final String imageUrl;
 
+  final Document? term;
+  final Document? manual;
+  final String? paymentCycle;
+  final int? minPeriodMonths;
+  final int? maxPeriodMonths;
+  final String? termList;
+  final String? termMode;
+
   DepositProduct({
     required this.productId,
     required this.name,
@@ -27,6 +37,14 @@ class DepositProduct {
     required this.period,
     required this.viewCount,
     required this.imageUrl,
+
+    this.term,
+    this.manual,
+    this.paymentCycle,
+    this.minPeriodMonths,
+    this.maxPeriodMonths,
+    this.termList,
+    this.termMode,
   });
 
   factory DepositProduct.fromJson(Map<String, dynamic> json) {
@@ -44,6 +62,14 @@ class DepositProduct {
       period: json['period'] ?? 0,
       viewCount: json['viewCount'] ?? 0,
       imageUrl: json['imageUrl'] ?? '',
+
+      term: json['term'] == null ? null : Document.fromJson(json['term']),
+      manual: json['manual'] == null ? null : Document.fromJson(json['manual']),
+      paymentCycle: json['paymentCycle'] ?? '',
+      minPeriodMonths: json['minPeriodMonths'] ?? 0,
+      maxPeriodMonths: json['maxPeriodMonths'] ?? 0,
+      termList: json['termList'] ?? '',
+      termMode: json['termMode'] ?? '',
     );
   }
 }

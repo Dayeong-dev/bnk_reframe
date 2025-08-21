@@ -1,3 +1,5 @@
+import 'package:reframe/model/account.dart';
+
 class EnrollForm {
   int? periodMonths;
   int? paymentAmount;
@@ -6,8 +8,8 @@ class EnrollForm {
   String? groupName;
   String? groupType;
 
-  String? fromAccountId;
-  String? maturityAccountId;
+  int? fromAccountId;
+  int? maturityAccountId;
 
   @override
   String toString() => 'EnrollForm('
@@ -19,4 +21,14 @@ class EnrollForm {
       'fromAccountId: $fromAccountId, '
       'maturityAccountId: $maturityAccountId'
       ')';
+
+  Map<String, dynamic> toJson() => {
+    'periodMonths': periodMonths,
+    'paymentAmount': paymentAmount,
+    'transferDate': transferDate,
+    'groupName': groupName,
+    'groupType': groupType,
+    'fromAccountId': fromAccountId,
+    'maturityAccountId': maturityAccountId
+  };
 }

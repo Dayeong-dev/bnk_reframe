@@ -3,9 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:reframe/constants/api_constants.dart';
 
+// FAQ
 import 'package:reframe/service/faq_api.dart';
 import 'package:reframe/store/faq_store.dart';
 import 'package:reframe/pages/customer/faq/faq_list_page.dart';
+
+// QNA
+import 'package:reframe/pages/customer/qna/qna_api_service.dart';
+import 'package:reframe/pages/customer/qna/qna_list_page.dart';
 
 /* 섹션 타입: 섹션별 팔레트 분리용 */
 enum _SectionKind { myServices, customer }
@@ -30,10 +35,13 @@ class MorePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // FAQ DI
         Provider<FaqApi>(create: (_) => FaqApi(baseUrl: apiBaseUrl)),
         ChangeNotifierProvider<FaqStore>(
           create: (ctx) => FaqStore(api: ctx.read<FaqApi>()),
         ),
+        // QNA DI
+        Provider<QnaApiService>(create: (_) => QnaApiService(baseUrl: apiBaseUrl)),
       ],
       builder: (ctx, _) {
         return Scaffold(
@@ -62,10 +70,9 @@ class MorePage extends StatelessWidget {
               ),
               IconButton(
                 icon: const Icon(Icons.settings, color: Colors.black87),
-                onPressed: onMySettings ??
-                    () {
-                      // TODO: 설정 화면 라우트 연결
-                    },
+                onPressed: onMySettings ?? () {
+                  // TODO: 설정 화면 라우트 연결
+                },
               ),
               const SizedBox(width: 8),
             ],
@@ -76,8 +83,7 @@ class MorePage extends StatelessWidget {
               children: [
                 // ================ 그라디언트 챗봇 배너 ================
                 _ChatBanner(
-                  onTap: onStartChatbot ??
-                      () => Navigator.of(ctx).pushNamed('/chat-debug'),
+                  onTap: onStartChatbot ?? () => Navigator.of(ctx).pushNamed('/chat-debug'),
                 ),
                 const SizedBox(height: 14),
 
@@ -108,10 +114,14 @@ class MorePage extends StatelessWidget {
                   iconData: Icons.support_agent,
                   title: '내 문의보기',
                   trailingInfo: '1:1 문의 · 답변',
-                  onTap: onOneToOne ??
-                      () {
-                        // TODO: /cs/my-inquiries
-                      },
+                  onTap: onOneToOne ?? () {
+                    final qnaApi = ctx.read<QnaApiService>();
+                    Navigator.of(ctx).push(
+                      MaterialPageRoute(
+                        builder: (_) => QnaListPage(api: qnaApi),
+                      ),
+                    );
+                  },
                 ),
                 _ServiceTile(
                   section: _SectionKind.myServices,
@@ -151,8 +161,7 @@ class MorePage extends StatelessWidget {
                         builder: (_) => MultiProvider(
                           providers: [
                             Provider<FaqApi>.value(value: api),
-                            ChangeNotifierProvider<FaqStore>.value(
-                                value: store),
+                            ChangeNotifierProvider<FaqStore>.value(value: store),
                           ],
                           child: const FaqListPage(),
                         ),
@@ -165,20 +174,26 @@ class MorePage extends StatelessWidget {
                   iconData: Icons.mark_unread_chat_alt_outlined,
                   title: '1대1 문의',
                   trailingInfo: '상담원 연결 · 기록',
-                  onTap: onOneToOne ??
-                      () {
-                        // TODO: /cs/one-to-one
-                      },
+                  onTap: () {
+                    final qnaApi = ctx.read<QnaApiService>();
+                    Navigator.of(ctx).push(
+                      MaterialPageRoute(
+                        builder: (_) => QnaListPage(
+                          api: qnaApi,
+                          openComposerOnStart: true, // ← 바로 문의쓰기 열기
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 _ServiceTile(
                   section: _SectionKind.customer,
                   iconData: Icons.person_outline,
                   title: '프로필 관리',
                   trailingInfo: '개인정보 · 알림',
-                  onTap: onMyProfile ??
-                      () {
-                        // TODO: /profile
-                      },
+                  onTap: onMyProfile ?? () {
+                    // TODO: /profile
+                  },
                 ),
               ],
             ),
@@ -232,7 +247,6 @@ class _ServiceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 섹션별 톤다운 파스텔 팔레트에서 자동 선택
     final _IconColorPair pair = _AutoColor.pickPairForSection(section, title);
     final Color resolvedIconColor = iconColor ?? pair.fg;
     final Color resolvedIconBg = iconBg ?? pair.bg;
@@ -333,7 +347,7 @@ class _ChatBanner extends StatelessWidget {
       borderRadius: BorderRadius.circular(18),
       onTap: onTap,
       child: Ink(
-        height: 100, // 🔹 배너 높이 줄임
+        height: 100,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
           boxShadow: const [
@@ -385,7 +399,7 @@ class _ChatBanner extends StatelessWidget {
               child: Row(
                 children: [
                   Container(
-                    width: 60, // 🔹 크기 줄임
+                    width: 60,
                     height: 60,
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -403,24 +417,23 @@ class _ChatBanner extends StatelessWidget {
                         'assets/images/mrb_desk.jpeg',
                         fit: BoxFit.cover,
                         alignment: const Alignment(0, -0.85),
-                        errorBuilder: (_, __, ___) => const Center(
-                          child: Text('🤖', style: TextStyle(fontSize: 26)),
-                        ),
+                        errorBuilder: (_, __, ___) =>
+                        const Center(child: Text('🤖', style: TextStyle(fontSize: 26))),
                       ),
                     ),
                   ),
                   const SizedBox(width: 14),
-                  Expanded(
+                  const Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
+                      children: [
                         _WhitePill(text: '궁금하면 지금 바로'),
                         SizedBox(height: 4),
                         Text(
                           '상담챗봇 시작하기',
                           style: TextStyle(
-                            fontSize: 20, // 🔹 글씨 조금 줄임
+                            fontSize: 20,
                             fontWeight: FontWeight.w900,
                             height: 1.05,
                             color: Colors.white,
@@ -439,8 +452,7 @@ class _ChatBanner extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right,
-                      color: Colors.white, size: 26),
+                  const Icon(Icons.chevron_right, color: Colors.white, size: 26),
                 ],
               ),
             ),
@@ -488,37 +500,27 @@ class _IconColorPair {
 /// 섹션별 톤다운 파스텔 팔레트 & 선택 로직
 class _AutoColor {
   static const List<_IconColorPair> _servicesPairs = <_IconColorPair>[
-    _IconColorPair(
-        Color(0xFF47A9E6), Color(0xFFE9F6FC)), // clear blue / ice mist
-    _IconColorPair(
-        Color(0xFF2EBAA0), Color(0xFFE8FAF5)), // teal green / mint wash
-    _IconColorPair(
-        Color(0xFF6D88D9), Color(0xFFEEF2FB)), // periwinkle / fog lavender
-    _IconColorPair(
-        Color(0xFF48A889), Color(0xFFE7F7F1)), // jade green / soft aqua
-    _IconColorPair(
-        Color(0xFF4B92C6), Color(0xFFEAF3FA)), // denim blue / pale sky
+    _IconColorPair(Color(0xFF47A9E6), Color(0xFFE9F6FC)),
+    _IconColorPair(Color(0xFF2EBAA0), Color(0xFFE8FAF5)),
+    _IconColorPair(Color(0xFF6D88D9), Color(0xFFEEF2FB)),
+    _IconColorPair(Color(0xFF48A889), Color(0xFFE7F7F1)),
+    _IconColorPair(Color(0xFF4B92C6), Color(0xFFEAF3FA)),
   ];
 
   static const List<_IconColorPair> _customerPairs = <_IconColorPair>[
-    _IconColorPair(Color(0xFFE97A6F), Color(0xFFFFF0ED)), // salmon / peach mist
-    _IconColorPair(
-        Color(0xFFCE7DB8), Color(0xFFF9EEF6)), // rose pink / pink veil
-    _IconColorPair(
-        Color(0xFF9D7BE5), Color(0xFFF2EEFB)), // lavender purple / lilac haze
-    _IconColorPair(
-        Color(0xFFCC9C4B), Color(0xFFFFF8EC)), // warm gold / sand beige
-    _IconColorPair(
-        Color(0xFF7C8DA3), Color(0xFFF0F4F8)), // steel blue / cloud grey
+    _IconColorPair(Color(0xFFE97A6F), Color(0xFFFFF0ED)),
+    _IconColorPair(Color(0xFFCE7DB8), Color(0xFFF9EEF6)),
+    _IconColorPair(Color(0xFF9D7BE5), Color(0xFFF2EEFB)),
+    _IconColorPair(Color(0xFFCC9C4B), Color(0xFFFFF8EC)),
+    _IconColorPair(Color(0xFF7C8DA3), Color(0xFFF0F4F8)),
   ];
 
   static _IconColorPair pickPairForSection(_SectionKind s, String key) {
     final h = (key.hashCode & 0x7fffffff);
 
-    // 🎯 특정 key에 대해 직접 색상 지정
+    // 특정 key에 대해 직접 색상 지정
     if (key.contains('자산추이')) {
-      return _IconColorPair(Color(0xFF8A5CE7), Color(0xFFF3EEFB));
-      // deep violet / soft lavender
+      return const _IconColorPair(Color(0xFF8A5CE7), Color(0xFFF3EEFB));
     }
 
     return s == _SectionKind.myServices

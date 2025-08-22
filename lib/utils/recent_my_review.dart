@@ -1,3 +1,4 @@
+// lib/utils/recent_my_review.dart
 import 'dart:collection';
 
 class _Key {
@@ -47,11 +48,10 @@ class RecentMyReviewBuffer {
     required int rating,
   }) {
     _gc();
-    // 서버 스니펫과 동일 문자열이 최선. 혹시 공백 처리 차이 나도 매칭되도록 보조 로직 포함.
     final key = _Key(productId, rating, snippetFromServer);
     if (_store.containsKey(key)) return true;
 
-    // 보조: 서버가 …(ellipsis) 붙인 경우를 대비해, 내 스니펫이 서버 스니펫의 prefix인지 체크
+    // 보조: ellipsis 차이 등 허용
     for (final k in _store.keys) {
       if (k.productId == productId &&
           k.rating == rating &&

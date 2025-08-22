@@ -1,18 +1,20 @@
 enum AccountType {
-  demand,		// 입출금
-  product		// 예적금
+  demand, // 입출금
+  product // 예적금
 }
 
 enum AccountStatus {
-  active,		// 활성화
-  closed,		// 비 활성화
+  active, // 활성화
+  closed, // 비 활성화
   suspended // 정지
 }
 
 DateTime? _parseDate(dynamic v) {
   if (v == null) return null;
-  if (v is String && v.isNotEmpty) return DateTime.tryParse(v); // "2025-08-18T05:02:43.840448"
-  if (v is int) return DateTime.fromMillisecondsSinceEpoch(v);  // epoch millis 대비
+  if (v is String && v.isNotEmpty)
+    return DateTime.tryParse(v); // "2025-08-18T05:02:43.840448"
+  if (v is int)
+    return DateTime.fromMillisecondsSinceEpoch(v); // epoch millis 대비
   return null;
 }
 
@@ -27,39 +29,40 @@ class Account {
   final AccountStatus status;
   final DateTime? createAt;
 
-  Account({
-    required this.id,
-    required this.accountNumber,
-    required this.bankName,
-    required this.accountType,
-    required this.balance,
-    this.accountName,
-    required this.isDefault,
-    required this.status,
-    this.createAt
-  });
+  Account(
+      {required this.id,
+      required this.accountNumber,
+      required this.bankName,
+      required this.accountType,
+      required this.balance,
+      this.accountName,
+      required this.isDefault,
+      required this.status,
+      this.createAt});
 
   factory Account.fromJson(Map<String, dynamic> json) => Account(
-    id: json['id'] as int,
-    accountNumber: json['accountNumber'],
-    bankName: json['bankName'],
-    accountType: AccountType.values.byName(json['accountType'].toString().toLowerCase()),
-    balance: json['balance'],
-    accountName: json['accountName'],
-    isDefault: json['isDefault'],
-    status: AccountStatus.values.byName(json['status'].toString().toLowerCase()),
-    createAt: _parseDate(json['createAt']),
-  );
+        id: json['id'] as int,
+        accountNumber: json['accountNumber'],
+        bankName: json['bankName'],
+        accountType: AccountType.values
+            .byName(json['accountType'].toString().toLowerCase()),
+        balance: json['balance'],
+        accountName: json['accountName'],
+        isDefault: json['isDefault'],
+        status: AccountStatus.values
+            .byName(json['status'].toString().toLowerCase()),
+        createAt: _parseDate(json['createAt']),
+      );
 
   Map<String, dynamic> toJson() => {
-    "id": id,
-    "accountNumber": accountNumber,
-    "bankName": bankName,
-    "accountType": accountType,
-    "balance": balance,
-    "accountName": accountName,
-    "isDefault": isDefault,
-    "status": status,
-    "createAt": createAt
-  };
+        "id": id,
+        "accountNumber": accountNumber,
+        "bankName": bankName,
+        "accountType": accountType,
+        "balance": balance,
+        "accountName": accountName,
+        "isDefault": isDefault,
+        "status": status,
+        "createAt": createAt
+      };
 }

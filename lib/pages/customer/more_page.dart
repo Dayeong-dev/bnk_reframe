@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:reframe/constants/api_constants.dart';
+import 'package:reframe/pages/my_service_test_page.dart';
 
 // FAQ
 import 'package:reframe/service/faq_api.dart';
@@ -99,10 +100,15 @@ class MorePage extends StatelessWidget {
                 _ServiceTile(
                   section: _SectionKind.myServices,
                   iconData: Icons.show_chart,
-                  title: '자산추이',
+                  title: '대시보드 테스트',
                   trailingInfo: '계좌 · 포트폴리오 · 분석',
                   onTap: () {
-                    // TODO: /assets/trend
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const MyServiceTestPage(),
+                      ),
+                    );
                   },
                 ),
                 _ServiceTile(

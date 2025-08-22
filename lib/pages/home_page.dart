@@ -8,6 +8,7 @@ import 'package:reframe/constants/number_format.dart';
 // 필요 페이지들 직접 import (위젯 push용)
 import 'package:reframe/event/pages/fortune_hub_page.dart';
 import 'package:reframe/model/account.dart';
+import 'package:reframe/pages/account/account_detail_page.dart';
 import 'package:reframe/pages/chat/bnk_chat_page.dart';
 import 'package:reframe/pages/deposit/deposit_list_page.dart';
 import 'package:reframe/pages/deposit/deposit_main_page.dart';
@@ -196,7 +197,9 @@ class _HomePageState extends State<HomePage> {
                   balanceText: account.balance != null ? '${money.format(account.balance)} 원' : '- 원',
                   isDefault: (account.isDefault == 1 ?? false),
                   onTap: () {
-                    // 필요 시 상세 페이지로 이동
+                    if(account.accountType == AccountType.product) {
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => AccountDetailPage(accountId: account.id)));
+                    }
                   },
                 );
               },

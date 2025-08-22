@@ -161,10 +161,9 @@ class _DepositMainPageState extends State<DepositMainPage> {
     );
   }
 
-  // ============= 상세/계산기 이동 =============
+  // ============= 상세 이동(하단 탭 네비 숨김) =============
   void goToDetail(DepositProduct product) {
-    Navigator.push(
-      context,
+    Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(
         builder: (_) => DepositDetailPage(productId: product.productId),
         settings: const RouteSettings(name: '/deposit/detail'),
@@ -174,10 +173,11 @@ class _DepositMainPageState extends State<DepositMainPage> {
 
   /// 배너에서 직접 ID로 이동 (요청: 69, 70, 73)
   void goToDetailById(int productId) {
-    Navigator.push(
-      context,
+    Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(
-          builder: (_) => DepositDetailPage(productId: productId)),
+        builder: (_) => DepositDetailPage(productId: productId),
+        settings: const RouteSettings(name: '/deposit/detail'),
+      ),
     );
   }
 
@@ -1023,7 +1023,6 @@ class _DepositMainPageState extends State<DepositMainPage> {
       }).toList(),
     );
   }
-// ... (상단 import 및 기존 코드 동일, 생략 없음)
 
   Widget categorySection(BuildContext context) {
     final items = [
@@ -1219,9 +1218,10 @@ class _TapScaleState extends State<_TapScale> {
         duration: const Duration(milliseconds: 90),
         curve: Curves.easeOut,
         child: InkWell(
-            onTap: widget.onTap,
-            child: widget.child,
-            borderRadius: BorderRadius.circular(18)),
+          onTap: widget.onTap,
+          child: widget.child,
+          borderRadius: BorderRadius.circular(18),
+        ),
       ),
     );
   }

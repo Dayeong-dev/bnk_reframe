@@ -99,6 +99,7 @@ class _FadeSlideInOnVisibleState extends State<FadeSlideInOnVisible>
 class _DepositDetailPageState extends State<DepositDetailPage>
     with TickerProviderStateMixin {
   DepositProduct? product;
+  int _presenceCount = 0;
 
   // Analytics
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
@@ -175,8 +176,11 @@ class _DepositDetailPageState extends State<DepositDetailPage>
   }
 
   void _subscribeReviewTopic(int productId) {
-    final wsUrl =
-        Uri.parse('${AppEndpoints.wsBase}?topic=product.$productId.reviews');
+    final reviewTopic = 'product.$productId.reviews';
+    final presenceTopic = '$reviewTopic.presence';
+
+
+    final wsUrl = Uri.parse('${AppEndpoints.wsBase}?topic=$reviewTopic');
     debugPrint('🔌 WS connect → $wsUrl');
     try {
       _ws = ws_io.IOWebSocketChannel.connect(wsUrl.toString());
@@ -184,7 +188,7 @@ class _DepositDetailPageState extends State<DepositDetailPage>
       // 연결되자마자 안전빵 수동 구독 프레임 전송
       _ws!.sink.add(jsonEncode({
         "op": "subscribe",
-        "topics": ["product.$productId.reviews"]
+        "topics": [reviewTopic, presenceTopic],
       }));
 
       _wsSub = _ws!.stream.listen((raw) {
@@ -193,34 +197,33 @@ class _DepositDetailPageState extends State<DepositDetailPage>
           debugPrint('📩 WS recv: $text');
           final Map<String, dynamic> msg = jsonDecode(text);
 
-          if (msg['type'] == 'review_created' && mounted) {
-            final snippet =
-                _normalizeSnippet((msg['contentSnippet'] as String?) ?? '');
+          final type = msg['type'] as String?;
+          if (type == 'review_created' && mounted) {
+            final snippet = _normalizeSnippet((msg['contentSnippet'] as String?) ?? '');
             final rating = (msg['rating'] as num?)?.toInt() ?? 0;
 
-            // ✅ 내가 방금 쓴 리뷰 억제 (서버 수정 없이)
             final suppress = RecentMyReviewBuffer.I.shouldSuppress(
               productId: product!.productId,
               snippetFromServer: snippet,
               rating: rating,
             );
-            if (suppress) {
-              debugPrint('🔕 Suppress my own review banner');
-              return;
-            }
+            if (!suppress) _showReviewToast();
+            return;
+          }
 
-            // ✅ 상단 플로팅 알림 호출 (고정 문구)
-            _showReviewToast();
+          // ✅ presence 반영
+          if (type == 'presence') {
+            final n = (msg['count'] as num?)?.toInt() ?? 0;
+            if (mounted) setState(() => _presenceCount = n);
+            return;
           }
         } catch (e) {
-          // ping 등 문자열이면 무시
           debugPrint('WS parse error: $e');
         }
       }, onError: (e) {
         debugPrint('WS error: $e');
       }, onDone: () {
         debugPrint('WS closed.');
-        // 필요 시 재연결 로직 추가 가능
       });
     } catch (e) {
       debugPrint('WebSocket connect fail: $e');
@@ -463,10 +466,7 @@ class _DepositDetailPageState extends State<DepositDetailPage>
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
-        title: Text(
-          product!.name,
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
+        title: Text(product!.name, style: const TextStyle(fontWeight: FontWeight.w700)),
         centerTitle: true,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
@@ -474,10 +474,38 @@ class _DepositDetailPageState extends State<DepositDetailPage>
       ),
       bottomNavigationBar: _bottomActionBar(),
       body: ListView(
-        // 기기별 안전영역만큼만 여백
         padding: EdgeInsets.fromLTRB(16, 16, 16, 12 + safeBottom),
         physics: const ClampingScrollPhysics(),
         children: [
+          // ✅ presence 칩
+          if (_presenceCount > 0)
+            Align(
+              alignment: Alignment.centerRight,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE3F2FD),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: const Color(0xFF90CAF9)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.visibility, size: 16, color: Color(0xFF1565C0)),
+                    const SizedBox(width: 6),
+                    Text(
+                      '현재 $_presenceCount명 열람 중',
+                      style: const TextStyle(
+                        color: Color(0xFF0D47A1),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
           FadeSlideInOnVisible(child: _buildHeader(product!)),
           const SizedBox(height: 18),
           _sectionDivider("상품 상세"),
@@ -491,6 +519,7 @@ class _DepositDetailPageState extends State<DepositDetailPage>
       ),
     );
   }
+
 
   Widget _bottomActionBar() {
     return SafeArea(
@@ -515,6 +544,7 @@ class _DepositDetailPageState extends State<DepositDetailPage>
                         builder: (_) => ReviewPage(
                           productId: p.productId,
                           productName: p.name,
+                          presenceOthers: (_presenceCount > 0) ? (_presenceCount - 1) : 0,
                         ),
                       ),
                     );

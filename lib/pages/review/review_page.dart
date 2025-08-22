@@ -1,8 +1,22 @@
 // lib/pages/review/review_page.dart
 import 'dart:async';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:reframe/service/review_service.dart';
 import 'package:reframe/model/review.dart';
+
+// 실시간(WS)
+import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:web_socket_channel/io.dart' as ws_io;
+import 'package:web_socket_channel/status.dart' as ws_status;
+import 'dart:convert';
+
+// 엔드포인트
+import 'package:reframe/env/app_endpoints.dart';
+
+// 내가 방금 쓴 리뷰 억제용(간단 버퍼)
+import 'package:reframe/utils/recent_my_review.dart';
 
 const _brand = Color(0xFF304FFE);
 const _badgeBg = Color(0xFFF5F5F5); // 밝은 회색
@@ -54,16 +68,26 @@ class _ReviewPageState extends State<ReviewPage> {
   // 정렬 드롭다운 앵커
   final GlobalKey _sortBtnKey = GlobalKey();
 
+  // === 실시간(WS) ===
+  WebSocketChannel? _ws;
+  StreamSubscription? _wsSub;
+  int _presenceOthers = 0; // 나를 제외한 다른 사용자 수 (presence count - 1)
+
   @override
   void initState() {
     super.initState();
+    _presenceOthers = max(widget.presenceOthers, 0);
     _load();
+    _connectWs();
   }
 
   @override
   void dispose() {
     _controller.dispose();
     _focus.dispose();
+    // WS 정리
+    _wsSub?.cancel();
+    _ws?.sink.close(ws_status.goingAway);
     super.dispose();
   }
 
@@ -218,6 +242,68 @@ class _ReviewPageState extends State<ReviewPage> {
     return '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')}';
   }
 
+  // ---------------- 실시간(WS) ----------------
+  void _connectWs() {
+    final reviewTopic = 'product.${widget.productId}.reviews';
+    final presenceTopic = '$reviewTopic.presence';
+    final wsUrl = Uri.parse('${AppEndpoints.wsBase}?topic=$reviewTopic');
+
+    try {
+      _ws = ws_io.IOWebSocketChannel.connect(wsUrl.toString());
+
+      // 연결 직후 두 토픽 모두 구독
+      _ws!.sink.add(jsonEncode({
+        "op": "subscribe",
+        "topics": [reviewTopic, presenceTopic],
+      }));
+
+      _wsSub = _ws!.stream.listen((raw) {
+        try {
+          final text = raw is String ? raw : raw.toString();
+          final Map<String, dynamic> msg = jsonDecode(text);
+          final type = msg['type'] as String?;
+
+          if (type == 'presence') {
+            final n = (msg['count'] as num?)?.toInt() ?? 0;
+            // ReviewPage에서는 "다른 사용자 수"를 보여주므로 -1 (나)
+            if (mounted) setState(() => _presenceOthers = max(n - 1, 0));
+            return;
+          }
+
+          if (type == 'review_created') {
+            final snippet = _normalizeSnippet((msg['contentSnippet'] as String?) ?? '');
+            final rating = (msg['rating'] as num?)?.toInt() ?? 0;
+
+            // 내가 방금 쓴 리뷰면 목록 갱신 스킵(토스트도 이 화면에선 안 띄움)
+            final suppress = RecentMyReviewBuffer.I.shouldSuppress(
+              productId: widget.productId,
+              snippetFromServer: snippet,
+              rating: rating,
+            );
+            if (suppress) return;
+
+            // 새 리뷰 → 최신 목록으로 동기화
+            _load();
+            return;
+          }
+        } catch (_) {
+          // ping 등 무시
+        }
+      }, onDone: () {
+        // 재연결이 필요하면 여기서 재시도 로직 추가 가능
+      }, onError: (e) {
+        // 네트워크 오류 시 조용히 무시(필요시 재연결)
+      });
+    } catch (_) {
+      // 연결 실패 무시(페이지 기능은 계속 동작)
+    }
+  }
+
+  String _normalizeSnippet(String s) {
+    final t = s.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return t.replaceAll('...', '…');
+  }
+
   // ---------------- 상단 배너 ----------------
   Widget _presenceBanner(int others) {
     if (others <= 0) return const SizedBox.shrink();
@@ -301,7 +387,8 @@ class _ReviewPageState extends State<ReviewPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: List.generate(
                   5,
-                      (_) => const Icon(Icons.star_rounded, size: 20, color: Colors.amber),
+                      (_) =>
+                  const Icon(Icons.star_rounded, size: 20, color: Colors.amber),
                 ),
               ),
             ),
@@ -326,7 +413,8 @@ class _ReviewPageState extends State<ReviewPage> {
               width: 26,
               child: Text(
                 '${star}점',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.w800),
               ),
             ),
             const SizedBox(width: 6),
@@ -357,7 +445,8 @@ class _ReviewPageState extends State<ReviewPage> {
         ),
         borderRadius: BorderRadius.circular(18),
         boxShadow: const [
-          BoxShadow(color: Color(0x22000000), blurRadius: 16, offset: Offset(0, 8)),
+          BoxShadow(
+              color: Color(0x22000000), blurRadius: 16, offset: Offset(0, 8)),
         ],
       ),
       padding: const EdgeInsets.all(16),
@@ -444,7 +533,8 @@ class _ReviewPageState extends State<ReviewPage> {
           // 내 리뷰 숨기기
           TextButton.icon(
             onPressed: () => setState(() => _hideMine = !_hideMine),
-            icon: Icon(_hideMine ? Icons.visibility_off : Icons.visibility, size: 18),
+            icon: Icon(_hideMine ? Icons.visibility_off : Icons.visibility,
+                size: 18),
             label: const Text('내 리뷰 숨기기'),
             style: textBtn,
           ),
@@ -465,14 +555,17 @@ class _ReviewPageState extends State<ReviewPage> {
 
   Future<void> _openSortMenu(BuildContext anchorContext) async {
     final renderBox = anchorContext.findRenderObject() as RenderBox?;
-    final overlay =
-    Navigator.of(anchorContext).overlay!.context.findRenderObject() as RenderBox;
+    final overlay = Navigator.of(anchorContext)
+        .overlay!
+        .context
+        .findRenderObject() as RenderBox;
     if (renderBox == null) return;
 
     final position = RelativeRect.fromRect(
       Rect.fromPoints(
         renderBox.localToGlobal(Offset.zero, ancestor: overlay),
-        renderBox.localToGlobal(renderBox.size.bottomRight(Offset.zero), ancestor: overlay),
+        renderBox.localToGlobal(renderBox.size.bottomRight(Offset.zero),
+            ancestor: overlay),
       ),
       Offset.zero & overlay.size,
     );
@@ -505,7 +598,8 @@ class _ReviewPageState extends State<ReviewPage> {
         int localRating = _rating;
 
         return SafeArea(
-          top: false,
+          // ✅ 네비게이터 바 위로 올라오게 하는 핵심
+          top: false, // 위쪽은 필요 없으니 false
           child: Padding(
             padding: EdgeInsets.only(bottom: bottomInset),
             child: StatefulBuilder(
@@ -517,22 +611,28 @@ class _ReviewPageState extends State<ReviewPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const SizedBox(height: 2),
-                        Text('$localRating점', style: const TextStyle(fontWeight: FontWeight.w800)),
+                        Text('$localRating점',
+                            style:
+                            const TextStyle(fontWeight: FontWeight.w800)),
                         const SizedBox(height: 8),
-                        // 별점 선택
+                        // ⭐ 별점 선택
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: List.generate(5, (i) {
                             final idx = i + 1;
                             final active = idx <= localRating;
                             return Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 3),
+                              padding:
+                              const EdgeInsets.symmetric(horizontal: 3),
                               child: InkResponse(
-                                onTap: () => setModalState(() => localRating = idx),
+                                onTap: () =>
+                                    setModalState(() => localRating = idx),
                                 splashColor: Colors.transparent,
                                 highlightColor: Colors.transparent,
                                 child: Icon(
-                                  active ? Icons.star_rounded : Icons.star_border_rounded,
+                                  active
+                                      ? Icons.star_rounded
+                                      : Icons.star_border_rounded,
                                   size: 30,
                                   color: active ? Colors.amber : Colors.grey,
                                 ),
@@ -548,7 +648,9 @@ class _ReviewPageState extends State<ReviewPage> {
                           maxLines: 8,
                           decoration: InputDecoration(
                             hintText: '리뷰를 작성하세요',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                             focusedBorder: const OutlineInputBorder(
                               borderSide: BorderSide(color: _brand, width: 1.5),
                             ),
@@ -570,13 +672,16 @@ class _ReviewPageState extends State<ReviewPage> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _brand,
                               foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                             child: _submitting
                                 ? const SizedBox(
                               width: 22,
                               height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2),
                             )
                                 : const Text('등록'),
                           ),
@@ -661,7 +766,9 @@ class _ReviewPageState extends State<ReviewPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const SizedBox(height: 2),
-                        Text('$localRating점', style: const TextStyle(fontWeight: FontWeight.w800)),
+                        Text('$localRating점',
+                            style:
+                            const TextStyle(fontWeight: FontWeight.w800)),
                         const SizedBox(height: 8),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -669,13 +776,17 @@ class _ReviewPageState extends State<ReviewPage> {
                             final idx = i + 1;
                             final active = idx <= localRating;
                             return Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 3),
+                              padding:
+                              const EdgeInsets.symmetric(horizontal: 3),
                               child: InkResponse(
-                                onTap: () => setModalState(() => localRating = idx),
+                                onTap: () =>
+                                    setModalState(() => localRating = idx),
                                 splashColor: Colors.transparent,
                                 highlightColor: Colors.transparent,
                                 child: Icon(
-                                  active ? Icons.star_rounded : Icons.star_border_rounded,
+                                  active
+                                      ? Icons.star_rounded
+                                      : Icons.star_border_rounded,
                                   size: 30,
                                   color: active ? Colors.amber : Colors.grey,
                                 ),
@@ -691,7 +802,9 @@ class _ReviewPageState extends State<ReviewPage> {
                           maxLines: 8,
                           decoration: InputDecoration(
                             hintText: '리뷰를 수정하세요',
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                             focusedBorder: const OutlineInputBorder(
                               borderSide: BorderSide(color: _brand, width: 1.5),
                             ),
@@ -708,13 +821,16 @@ class _ReviewPageState extends State<ReviewPage> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _brand,
                               foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                             child: submitting
                                 ? const SizedBox(
                               width: 22,
                               height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2),
                             )
                                 : const Text('수정 완료'),
                           ),
@@ -739,8 +855,12 @@ class _ReviewPageState extends State<ReviewPage> {
         title: const Text('리뷰 삭제'),
         content: const Text('정말 삭제하시겠어요?'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('취소')),
-          TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('삭제')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('취소')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('삭제')),
         ],
       ),
     );
@@ -784,7 +904,8 @@ class _ReviewPageState extends State<ReviewPage> {
               CircleAvatar(
                 radius: 18,
                 backgroundColor: _brand.withOpacity(.12),
-                child: Text(initial, style: const TextStyle(fontWeight: FontWeight.w800)),
+                child: Text(initial,
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -799,7 +920,8 @@ class _ReviewPageState extends State<ReviewPage> {
                             name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w800, fontSize: 14),
                           ),
                         ),
                         if (mine) ...[
@@ -824,7 +946,9 @@ class _ReviewPageState extends State<ReviewPage> {
                           children: List.generate(5, (i) {
                             final filled = i < (r.rating ?? 0);
                             return Icon(
-                              filled ? Icons.star_rounded : Icons.star_border_rounded,
+                              filled
+                                  ? Icons.star_rounded
+                                  : Icons.star_border_rounded,
                               size: 14,
                               color: Colors.amber,
                             );
@@ -833,7 +957,8 @@ class _ReviewPageState extends State<ReviewPage> {
                         if (mine) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
                               color: _badgeBg,
                               borderRadius: BorderRadius.circular(999),
@@ -851,7 +976,10 @@ class _ReviewPageState extends State<ReviewPage> {
                         const Spacer(),
                         Text(
                           created,
-                          style: TextStyle(color: Colors.black54.withOpacity(.9), fontSize: 12),
+                          style: TextStyle(
+                            color: Colors.black54.withOpacity(.9),
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -876,7 +1004,8 @@ class _ReviewPageState extends State<ReviewPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(widget.productName, style: const TextStyle(fontWeight: FontWeight.w700)),
+        title: Text(widget.productName,
+            style: const TextStyle(fontWeight: FontWeight.w700)),
         centerTitle: true,
         elevation: 0.5,
         backgroundColor: Colors.white,
@@ -884,7 +1013,8 @@ class _ReviewPageState extends State<ReviewPage> {
       ),
       body: Column(
         children: [
-          _presenceBanner(widget.presenceOthers),
+          // 실시간 presence 반영 배너 (다른 사용자 수)
+          _presenceBanner(_presenceOthers),
           _header(),
           _controlRow(),
           Expanded(
@@ -896,14 +1026,18 @@ class _ReviewPageState extends State<ReviewPage> {
                   ? const Center(child: SizedBox())
                   : (_visibleSorted.isEmpty
                   ? ListView(
-                physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: ClampingScrollPhysics(),
+                ),
                 children: const [
                   SizedBox(height: 160),
                   Center(child: Text('아직 리뷰가 없습니다')),
                 ],
               )
                   : ListView.builder(
-                physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: ClampingScrollPhysics(),
+                ),
                 itemCount: _visibleSorted.length,
                 itemBuilder: (_, i) => _reviewItem(_visibleSorted[i]),
               )),

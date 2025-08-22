@@ -159,7 +159,7 @@ class _HomePageState extends State<HomePage> {
                 child: const Text("저축성향 테스트"),
               ),
               ElevatedButton(
-                onPressed: () => _push(const BnkChatPage()),
+                onPressed: () => _push(const BnkChatScreen()),
                 child: const Text("챗봇 테스트"),
               ),
 

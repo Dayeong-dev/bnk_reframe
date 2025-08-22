@@ -19,10 +19,10 @@ class StartScreen extends StatelessWidget {
             // 상단 텍스트
             Padding(
               padding: const EdgeInsets.only(top: 100),
-              child: Text(
+              child: const Text(
                 '저축하고 싶은데\n예적금 선택이 어렵다면?',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 30,
                   fontWeight: FontWeight.w700,
                   color: Colors.black87,
@@ -51,19 +51,28 @@ class StartScreen extends StatelessWidget {
               child: SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                  style: ButtonStyle(
+                    backgroundColor: MaterialStateProperty.all(Colors.grey[600]),
+                    padding: MaterialStateProperty.all(
+                      const EdgeInsets.symmetric(vertical: 18),
+                    ),
+                    shape: MaterialStateProperty.all(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
-                  onPressed: () =>
-                      Navigator.pushNamed(context, '/savings/question'),
+                  onPressed: () => Navigator.pushNamed(context, '/savings/question'),
                   child: const Text(
                     '시작하기',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
-                ),
+                )
+
               ),
             ),
           ],

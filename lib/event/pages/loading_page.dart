@@ -120,7 +120,7 @@ class _LoadingPageState extends State<LoadingPage> with TickerProviderStateMixin
                   child: FittedBox(
                     fit: BoxFit.cover, // 화면을 꽉 채우도록 설정
                     child: Image.asset(
-                      'assets/images/fortune2.gif',
+                      'assets/images/fortune_gacha.gif',
                       gaplessPlayback: true,
                     ),
                   ),

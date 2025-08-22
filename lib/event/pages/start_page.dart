@@ -128,7 +128,7 @@ class _StartPageState extends State<StartPage> with SingleTickerProviderStateMix
                       child: Transform.translate(
                         offset: Offset(dx, 0),
                         child: Image.asset(
-                          'assets/images/f1.jpg',
+                          'assets/images/f1.png',
                           width: 500,
                           fit: BoxFit.contain,
                         ),

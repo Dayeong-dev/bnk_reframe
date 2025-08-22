@@ -2,7 +2,7 @@
 import 'package:dio/dio.dart';
 import 'package:reframe/core/interceptors/http.dart';
 import 'package:reframe/model/review.dart';
-import 'package:reframe/utils/recent_my_review.dart'; // ✅ 추가
+import 'package:reframe/utils/recent_my_review.dart';
 
 class ReviewService {
   static Future<List<Review>> fetchReviews(int productId) async {
@@ -19,21 +19,34 @@ class ReviewService {
     required String content,
     required int rating,
   }) async {
-    // ✅ 전송 직전에 "내가 방금 쓴 리뷰" 버퍼에 기록
     RecentMyReviewBuffer.I.markSubmitted(
       productId: productId,
       contentRaw: content,
       rating: rating,
-      // ttl: Duration(seconds: 10), // 필요시 조정
     );
 
     await dio.post(
       '/mobile/reviews',
-      data: {
-        'productId': productId,
-        'content': content,
-        'rating': rating,
-      },
+      data: {'productId': productId, 'content': content, 'rating': rating},
+      options: Options(contentType: Headers.jsonContentType),
     );
+  }
+
+  // ★ 내 리뷰 수정
+  static Future<void> updateReview({
+    required int reviewId,
+    String? content,
+    int? rating,
+  }) async {
+    await dio.put(
+      '/mobile/reviews/$reviewId',
+      data: {'content': content, 'rating': rating},
+      options: Options(contentType: Headers.jsonContentType),
+    );
+  }
+
+  // ★ 내 리뷰 삭제
+  static Future<void> deleteReview(int reviewId) async {
+    await dio.delete('/mobile/reviews/$reviewId');
   }
 }

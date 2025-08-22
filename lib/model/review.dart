@@ -1,3 +1,4 @@
+// lib/model/review.dart
 class Review {
   final int id;
   final int productId;
@@ -5,8 +6,8 @@ class Review {
   final int? rating;
   final String? authorName;
   final String? createdAt;   // 서버가 ISO 문자열이면 String으로 둬도 OK
-  final String? authorId;    // ★ 추가(문자열 비교 안정)
-  final bool? mine;          // ★ 추가
+  final String? authorId;    // ★ 문자열 비교 안정
+  final bool? mine;          // ★ 서버 판정
 
   Review({
     required this.id,
@@ -27,8 +28,8 @@ class Review {
       rating: json['rating'] == null ? null : (json['rating'] as num).toInt(),
       authorName: json['authorName'] as String?,
       createdAt: json['createdAt']?.toString(),
-      authorId: json['authorId']?.toString(),    // ★
-      mine: json['mine'] as bool?,               // ★
+      authorId: json['authorId']?.toString(),
+      mine: json['mine'] as bool?,
     );
   }
 }

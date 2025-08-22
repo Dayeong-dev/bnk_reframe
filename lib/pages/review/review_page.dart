@@ -1,4 +1,4 @@
-// review_page.dart
+// lib/pages/review/review_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:reframe/service/review_service.dart';
@@ -285,7 +285,7 @@ class _ReviewPageState extends State<ReviewPage> {
             mainAxisSize: MainAxisSize.min,
             children: List.generate(
               5,
-              (_) => Icon(
+                  (_) => Icon(
                 Icons.star_border_rounded,
                 size: size,
                 color: Colors.white.withOpacity(.7),
@@ -301,7 +301,7 @@ class _ReviewPageState extends State<ReviewPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: List.generate(
                   5,
-                  (_) => const Icon(Icons.star_rounded,
+                      (_) => const Icon(Icons.star_rounded,
                       size: 20, color: Colors.amber),
                 ),
               ),
@@ -527,7 +527,7 @@ class _ReviewPageState extends State<ReviewPage> {
                         const SizedBox(height: 2),
                         Text('$localRating점',
                             style:
-                                const TextStyle(fontWeight: FontWeight.w800)),
+                            const TextStyle(fontWeight: FontWeight.w800)),
                         const SizedBox(height: 8),
                         // ⭐ 별점 선택
                         Row(
@@ -537,7 +537,7 @@ class _ReviewPageState extends State<ReviewPage> {
                             final active = idx <= localRating;
                             return Padding(
                               padding:
-                                  const EdgeInsets.symmetric(horizontal: 3),
+                              const EdgeInsets.symmetric(horizontal: 3),
                               child: InkResponse(
                                 onTap: () =>
                                     setModalState(() => localRating = idx),
@@ -580,9 +580,9 @@ class _ReviewPageState extends State<ReviewPage> {
                             onPressed: _submitting
                                 ? null
                                 : () async {
-                                    setState(() => _rating = localRating);
-                                    await _submit();
-                                  },
+                              setState(() => _rating = localRating);
+                              await _submit();
+                            },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _brand,
                               foregroundColor: Colors.white,
@@ -592,11 +592,11 @@ class _ReviewPageState extends State<ReviewPage> {
                             ),
                             child: _submitting
                                 ? const SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2),
-                                  )
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2),
+                            )
                                 : const Text('등록'),
                           ),
                         ),
@@ -610,6 +610,184 @@ class _ReviewPageState extends State<ReviewPage> {
         );
       },
     );
+  }
+
+  // ---------------- 수정 바텀시트 ----------------
+  void _openEditSheet(Review r) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
+
+        int localRating = r.rating ?? 5;
+        final editController = TextEditingController(text: r.content);
+        final editFocus = FocusNode();
+
+        bool submitting = false;
+
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.only(bottom: bottomInset),
+            child: StatefulBuilder(
+              builder: (ctx, setModalState) {
+                Future<void> doUpdate() async {
+                  final newContent = editController.text.trim();
+                  if (newContent.isEmpty) {
+                    _toast('리뷰 내용을 입력해 주세요');
+                    return;
+                  }
+                  setModalState(() => submitting = true);
+                  try {
+                    await ReviewService.updateReview(
+                      reviewId: r.id,
+                      content: newContent,
+                      rating: localRating,
+                    );
+                    // 낙관적 업데이트
+                    final idx = _reviews.indexWhere((x) => x.id == r.id);
+                    if (idx != -1) {
+                      _reviews[idx] = Review(
+                        id: r.id,
+                        productId: r.productId,
+                        content: newContent,
+                        rating: localRating,
+                        authorName: r.authorName,
+                        createdAt: r.createdAt,
+                        authorId: r.authorId,
+                        mine: r.mine,
+                      );
+                    }
+                    if (mounted) setState(() {});
+                    if (mounted) Navigator.of(context).maybePop();
+                    _toast('수정되었습니다');
+                  } catch (e) {
+                    _toast('수정 실패: $e');
+                  } finally {
+                    setModalState(() => submitting = false);
+                  }
+                }
+
+                return SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(height: 2),
+                        Text('$localRating점',
+                            style:
+                            const TextStyle(fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(5, (i) {
+                            final idx = i + 1;
+                            final active = idx <= localRating;
+                            return Padding(
+                              padding:
+                              const EdgeInsets.symmetric(horizontal: 3),
+                              child: InkResponse(
+                                onTap: () =>
+                                    setModalState(() => localRating = idx),
+                                splashColor: Colors.transparent,
+                                highlightColor: Colors.transparent,
+                                child: Icon(
+                                  active
+                                      ? Icons.star_rounded
+                                      : Icons.star_border_rounded,
+                                  size: 30,
+                                  color: active ? Colors.amber : Colors.grey,
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: editController,
+                          focusNode: editFocus,
+                          minLines: 4,
+                          maxLines: 8,
+                          decoration: InputDecoration(
+                            hintText: '리뷰를 수정하세요',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            focusedBorder: const OutlineInputBorder(
+                              borderSide: BorderSide(color: _brand, width: 1.5),
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: submitting ? null : doUpdate,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _brand,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: submitting
+                                ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2),
+                            )
+                                : const Text('수정 완료'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ---------------- 삭제 확인 다이얼로그 ----------------
+  Future<void> _confirmDelete(Review r) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('리뷰 삭제'),
+        content: const Text('정말 삭제하시겠어요?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('취소')),
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('삭제')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    try {
+      await ReviewService.deleteReview(r.id);
+      _reviews.removeWhere((x) => x.id == r.id);
+      if (mounted) setState(() {});
+      _toast('삭제되었습니다');
+    } catch (e) {
+      _toast('삭제 실패: $e');
+    }
   }
 
   // ---------------- 리뷰 아이템 ----------------
@@ -688,6 +866,10 @@ class _ReviewPageState extends State<ReviewPage> {
                             fontSize: 12,
                           ),
                         ),
+                        if (mine) ...[
+                          const SizedBox(width: 4),
+                          _reviewMoreButton(r),
+                        ],
                       ],
                     ),
                   ],
@@ -702,6 +884,23 @@ class _ReviewPageState extends State<ReviewPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _reviewMoreButton(Review r) {
+    return PopupMenuButton<String>(
+      onSelected: (v) {
+        if (v == 'edit') {
+          _openEditSheet(r);
+        } else if (v == 'delete') {
+          _confirmDelete(r);
+        }
+      },
+      itemBuilder: (ctx) => const [
+        PopupMenuItem(value: 'edit', child: Text('수정')),
+        PopupMenuItem(value: 'delete', child: Text('삭제')),
+      ],
+      icon: const Icon(Icons.more_vert, size: 18),
     );
   }
 
@@ -731,22 +930,22 @@ class _ReviewPageState extends State<ReviewPage> {
               child: _loading
                   ? const Center(child: SizedBox())
                   : (_visibleSorted.isEmpty
-                      ? ListView(
-                          physics: const AlwaysScrollableScrollPhysics(
-                            parent: ClampingScrollPhysics(),
-                          ),
-                          children: const [
-                            SizedBox(height: 160),
-                            Center(child: Text('아직 리뷰가 없습니다')),
-                          ],
-                        )
-                      : ListView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(
-                            parent: ClampingScrollPhysics(),
-                          ),
-                          itemCount: _visibleSorted.length,
-                          itemBuilder: (_, i) => _reviewItem(_visibleSorted[i]),
-                        )),
+                  ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: ClampingScrollPhysics(),
+                ),
+                children: const [
+                  SizedBox(height: 160),
+                  Center(child: Text('아직 리뷰가 없습니다')),
+                ],
+              )
+                  : ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: ClampingScrollPhysics(),
+                ),
+                itemCount: _visibleSorted.length,
+                itemBuilder: (_, i) => _reviewItem(_visibleSorted[i]),
+              )),
             ),
           ),
         ],

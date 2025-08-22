@@ -12,7 +12,7 @@ import 'package:url_launcher/url_launcher.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await FlutterNaverMap().init(
-    clientId: '1vyye633d9', // TODO: 네이버 지도 SDK Client ID
+    clientId: '1vyye633d9',
     onAuthFailed: (e) => debugPrint('❌ 지도 인증 실패: $e'),
   );
   runApp(const MyApp());
@@ -22,7 +22,7 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key});
   @override
   Widget build(BuildContext context) {
-    const seed = Color(0xFF2962FF); // 🔵 은행 블루
+    const seed = Color(0xFF2962FF);
     return MaterialApp(
       title: '부산은행 근처 지점',
       debugShowCheckedModeBanner: false,
@@ -47,12 +47,23 @@ extension DatasetInfo on DatasetType {
         DatasetType.atm365 => '365ATM',
         DatasetType.stm => 'STM',
       };
-
   String get assetPath => switch (this) {
         DatasetType.branches => 'assets/branches_geocoded.json',
         DatasetType.atm => 'assets/atm_geocoded.json',
         DatasetType.atm365 => 'assets/atm_365_geocoded.json',
         DatasetType.stm => 'assets/stm_geocoded.json',
+      };
+  IconData get icon => switch (this) {
+        DatasetType.branches => Icons.store_mall_directory,
+        DatasetType.atm => Icons.atm,
+        DatasetType.atm365 => Icons.access_time,
+        DatasetType.stm => Icons.smart_toy_outlined,
+      };
+  Color get tint => switch (this) {
+        DatasetType.branches => const Color(0xFF2962FF),
+        DatasetType.atm => const Color(0xFF0B8043),
+        DatasetType.atm365 => const Color(0xFFEA4335),
+        DatasetType.stm => const Color(0xFF2962FF),
       };
 }
 
@@ -191,7 +202,7 @@ class _MapPageState extends State<MapPage> {
           await _map!.updateCamera(
             NCameraUpdate.withParams(
               target: NLatLng(p.latitude, p.longitude),
-              zoom: 13, // 내 위치는 13
+              zoom: 13,
             ),
           );
           _searchNearby(fromCamera: true);
@@ -366,7 +377,7 @@ class _MapPageState extends State<MapPage> {
 
       _results
         ..clear()
-        ..addAll(inRadius.take(150));
+        ..addAll(inRadius.take(20)); // 가까운 20개
 
       await _renderMarkers();
       if (mounted) setState(() {});
@@ -430,23 +441,24 @@ class _MapPageState extends State<MapPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      endDrawer: _buildFavoritesDrawer(), // ⭐ 사이드탭
+      endDrawer: _buildFavoritesDrawer(),
       appBar: AppBar(
         title: const Text('근처 지점 검색'),
         actions: [
           IconButton(
             tooltip: '즐겨찾기',
-            icon: const Icon(Icons.star),
+            icon: Icon(Icons.star,
+                color: _favorites.isEmpty ? null : Colors.amber),
             onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
           ),
           IconButton(
             tooltip: '필터',
             icon: const Icon(Icons.tune),
-            onPressed: _openFilters,
+            onPressed: () => _openFilters(),
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(52),
+          preferredSize: const Size.fromHeight(60),
           child: _buildCategoryRow(),
         ),
       ),
@@ -456,7 +468,7 @@ class _MapPageState extends State<MapPage> {
             child: NaverMap(
               options: const NaverMapViewOptions(
                 mapType: NMapType.basic,
-                locationButtonEnable: true, // 네이버 기본 내 위치 버튼
+                locationButtonEnable: true,
               ),
               onMapReady: (controller) async {
                 _map = controller;
@@ -471,7 +483,6 @@ class _MapPageState extends State<MapPage> {
                       _map!.setLocationTrackingMode(NLocationTrackingMode.face),
                 );
 
-                // 초기 카메라: 부산(줌 16)
                 await _map!.updateCamera(
                   NCameraUpdate.withParams(target: _busanDefault, zoom: 16),
                 );
@@ -485,39 +496,39 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
-  // 상단 카테고리
+  // ===== 카테고리(Pill) =====
   Widget _buildCategoryRow() {
+    const selectedBg = Color(0xFF2962FF);
+    const selectedFg = Colors.white;
+    const unselectedBg = Color(0xFFEAF1FF);
+    const unselectedFg = Color(0xFF1B3B8A);
+
     return Container(
-      height: 52,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
       color: Colors.white,
-      child: ListView(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        children: [
-          const SizedBox(width: 4),
-          for (final t in DatasetType.values)
-            Padding(
-              padding: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
-              child: ChoiceChip(
-                label: Text(t.label),
-                avatar: Icon(
-                    switch (t) {
-                      DatasetType.branches => Icons.store_mall_directory,
-                      DatasetType.atm => Icons.atm,
-                      DatasetType.atm365 => Icons.access_time,
-                      DatasetType.stm => Icons.smart_toy_outlined,
-                    },
-                    size: 18),
+        child: Row(
+          children: [
+            for (final t in DatasetType.values) ...[
+              _CategoryPill(
+                icon: t.icon,
+                label: t.label,
                 selected: _dataset == t,
-                onSelected: (v) async {
-                  if (!v || _dataset == t) return;
+                selectedBg: selectedBg,
+                selectedFg: selectedFg,
+                unselectedBg: unselectedBg,
+                unselectedFg: unselectedFg,
+                onTap: () async {
+                  if (_dataset == t) return;
                   setState(() => _dataset = t);
                   await _loadDataset(t);
                 },
               ),
-            ),
-          const SizedBox(width: 4),
-        ],
+              const SizedBox(width: 8),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -565,15 +576,17 @@ class _MapPageState extends State<MapPage> {
                 ],
               ),
             ),
-            const Divider(height: 1),
             Expanded(
               child: _results.isEmpty
                   ? const Center(child: Text('검색 결과가 여기에 표시됩니다.'))
-                  : ListView.separated(
+                  : ListView.builder(
                       padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
                       itemCount: _results.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (_, i) => _placeCard(_results[i]),
+                      itemBuilder: (_, i) => Padding(
+                        padding: EdgeInsets.only(
+                            bottom: i == _results.length - 1 ? 0 : 10),
+                        child: _placeCard(_results[i]),
+                      ),
                     ),
             ),
           ],
@@ -610,26 +623,11 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
-  // ---------- 카드: 테두리/구분선 제거 + 플롯(Flat) 카드 ----------
+  // ---------- 카드 ----------
   Widget _placeCard(Place p) {
     final isFav = _favorites.contains(p.id);
     final hasTel = (p.tel != null && p.tel!.trim().isNotEmpty);
     final distanceText = '${p.distanceM.toStringAsFixed(0)}m';
-
-    final leadingIcon = Icon(
-      switch (_dataset) {
-        DatasetType.branches => Icons.store_mall_directory,
-        DatasetType.atm => Icons.atm,
-        DatasetType.atm365 => Icons.access_time,
-        DatasetType.stm => Icons.smart_toy_outlined,
-      },
-      color: switch (_dataset) {
-        DatasetType.branches => const Color(0xFF2962FF),
-        DatasetType.atm => const Color(0xFF0B8043),
-        DatasetType.atm365 => const Color(0xFFEA4335),
-        DatasetType.stm => const Color(0xFF2962FF),
-      },
-    );
 
     return Material(
       color: Colors.transparent,
@@ -647,11 +645,10 @@ class _MapPageState extends State<MapPage> {
         },
         borderRadius: BorderRadius.circular(16),
         child: Card(
-          // ✅ 선(테두리/Divider) 제거: 테두리는 0, 대신 은은한 그림자 + 바깥 여백으로 구분
           elevation: 3,
           margin: EdgeInsets.zero,
           color: Colors.white,
-          surfaceTintColor: Colors.white, // M3 틴트 방지
+          surfaceTintColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -660,20 +657,10 @@ class _MapPageState extends State<MapPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1) 상단: 아이콘 + 제목 + 거리칩 + ★
+                // 1) 상단: 배경 없는 아이콘 + 제목 + 거리 + ★
                 Row(
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        // 배경도 테두리도 없이 Flat
-                        color: const Color(0xFFF1F4FB),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: leadingIcon,
-                    ),
+                    Icon(_dataset.icon, color: _dataset.tint, size: 26),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -693,22 +680,17 @@ class _MapPageState extends State<MapPage> {
                       tooltip: isFav ? '즐겨찾기 제거' : '즐겨찾기 추가',
                       onPressed: () async => _toggleFavorite(p),
                       icon: Icon(isFav ? Icons.star : Icons.star_border),
+                      color: isFav ? Colors.amber : Colors.black38,
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints.tightFor(
-                        width: 36,
-                        height: 36,
-                      ),
+                      constraints:
+                          const BoxConstraints.tightFor(width: 36, height: 36),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
 
-                // 2) 주소/전화/운영시간 (모두 줄바꿈 없이 Flat하게)
-                _infoRow(
-                  icon: Icons.place_outlined,
-                  text: p.address,
-                  maxLines: 1,
-                ),
+                // 2) 주소/전화/운영시간
+                _infoRow(icon: Icons.place_outlined, text: p.address),
                 if (hasTel) ...[
                   const SizedBox(height: 4),
                   Text(
@@ -724,16 +706,12 @@ class _MapPageState extends State<MapPage> {
                 ],
                 if (p.hours != null && p.hours!.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  _infoRow(
-                    icon: Icons.access_time,
-                    text: p.hours!,
-                    maxLines: 1,
-                  ),
+                  _infoRow(icon: Icons.access_time, text: p.hours!),
                 ],
 
                 const SizedBox(height: 10),
 
-                // 3) 액션: TextButton(외곽선/Divider 없음)
+                // 3) 액션
                 Row(
                   children: [
                     TextButton.icon(
@@ -741,8 +719,8 @@ class _MapPageState extends State<MapPage> {
                       icon: const Icon(Icons.call, size: 18),
                       label: const Text('전화'),
                     ),
-                    const SizedBox(width: 8),
-                    FilledButton.icon(
+                    const SizedBox(width: 6),
+                    TextButton.icon(
                       onPressed: () => _navigateTo(p.lat, p.lng, p.title),
                       icon: const Icon(Icons.directions, size: 18),
                       label: const Text('길찾기'),
@@ -757,31 +735,54 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
-  Widget _distancePill(String text) {
+  // ----- pill helpers -----
+  Widget _pillOutlined(String text, {IconData? icon}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF5FF),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(999),
-        // 테두리 제거(선 느낌 배제), 대신 아주 옅은 배경만
+        border: Border.all(color: const Color(0x22000000)),
       ),
-      child: Text(
-        text,
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 14, color: Colors.black54),
+            const SizedBox(width: 6),
+          ],
+          Text(text, style: const TextStyle(fontSize: 12.5)),
+        ],
       ),
     );
   }
 
-  // ===== 모달(바텀시트): Flat + 섹션형 + 큰 버튼 =====
+  Widget _pillPlain(String text, {IconData? icon}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (icon != null) ...[
+          Icon(icon, size: 14, color: Colors.black54),
+          const SizedBox(width: 4),
+        ],
+        Text(text,
+            style: const TextStyle(fontSize: 12.5, color: Colors.black87)),
+      ],
+    );
+  }
+
+  Widget _distancePill(String text) => _pillOutlined(text);
+
+  // ===== 모달(바텀시트)
   void _showPlaceSheet(Place p) {
     final hasTel = (p.tel != null && p.tel!.trim().isNotEmpty);
     final km = (p.distanceM / 1000).toStringAsFixed(2);
 
     showModalBottomSheet(
       context: context,
-      showDragHandle: true,
+      // showDragHandle: false,
       isScrollControlled: true,
-      backgroundColor: Colors.white, // ✅ Flat 배경
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -793,38 +794,16 @@ class _MapPageState extends State<MapPage> {
               left: 16,
               right: 16,
               bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-              top: 8,
+              top: 12,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 헤더
+                // 헤더: 지점명 + (아래) 거리/운영시간 pill
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F4FB),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        switch (_dataset) {
-                          DatasetType.branches => Icons.store_mall_directory,
-                          DatasetType.atm => Icons.atm,
-                          DatasetType.atm365 => Icons.access_time,
-                          DatasetType.stm => Icons.smart_toy_outlined,
-                        },
-                        color: switch (_dataset) {
-                          DatasetType.branches => const Color(0xFF2962FF),
-                          DatasetType.atm => const Color(0xFF0B8043),
-                          DatasetType.atm365 => const Color(0xFFEA4335),
-                          DatasetType.stm => const Color(0xFF2962FF),
-                        },
-                      ),
-                    ),
+                    Icon(_dataset.icon, color: _dataset.tint, size: 28),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -832,23 +811,22 @@ class _MapPageState extends State<MapPage> {
                         children: [
                           Text(
                             p.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w800,
                               height: 1.1,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 8),
                           Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
+                            spacing: 10, // 배경이 없으니 간격을 조금 더 넉넉히
+                            runSpacing: 6,
                             children: [
-                              _chip(
-                                icon: Icons.place_outlined,
-                                label: '거리 $km km',
-                              ),
+                              _pillPlain('$km km', icon: Icons.place_outlined),
                               if (p.hours != null && p.hours!.isNotEmpty)
-                                _chip(icon: Icons.access_time, label: p.hours!),
+                                _pillPlain(p.hours!, icon: Icons.access_time),
                             ],
                           ),
                         ],
@@ -862,13 +840,14 @@ class _MapPageState extends State<MapPage> {
                         setModalState(() {});
                       },
                       icon: Icon(isFav ? Icons.star : Icons.star_border),
+                      color: isFav ? Colors.amber : Colors.black38,
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
 
-                // 주소 섹션
-                _section(
+                // 주소 (화이트 카드) — 주소 옆 아이콘 제거
+                _sectionWhite(
                   title: '주소',
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -881,34 +860,22 @@ class _MapPageState extends State<MapPage> {
                           style: const TextStyle(fontSize: 14),
                         ),
                       ),
-                      IconButton(
-                        tooltip: '네이버 지도에서 보기',
-                        onPressed: () async {
-                          final uri = Uri.parse(
-                            'https://map.naver.com/v5/search/${Uri.encodeComponent(p.title)}',
-                          );
-                          await launchUrl(
-                            uri,
-                            mode: LaunchMode.externalApplication,
-                          );
-                        },
-                        icon: const Icon(Icons.open_in_new),
-                      ),
                     ],
                   ),
                 ),
 
-                // 연락처 섹션
-                if (hasTel)
-                  _section(
+                if (hasTel) ...[
+                  const SizedBox(height: 10),
+                  _sectionWhite(
                     title: '연락처',
                     child: InkWell(
                       onTap: () => _call(p.tel!),
                       child: Row(
                         children: [
+                          const Icon(Icons.call, size: 18),
                           const SizedBox(width: 8),
                           Text(
-                            '☎ ${p.tel}',
+                            p.tel!,
                             style: const TextStyle(
                               decoration: TextDecoration.underline,
                               fontWeight: FontWeight.w600,
@@ -918,18 +885,18 @@ class _MapPageState extends State<MapPage> {
                       ),
                     ),
                   ),
+                ],
 
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
 
-                // 큰 액션 버튼
                 Row(
                   children: [
                     Expanded(
-                      child: FilledButton.icon(
+                      child: TextButton.icon(
                         onPressed: () => _navigateTo(p.lat, p.lng, p.title),
                         icon: const Icon(Icons.directions),
                         label: const Text('길찾기'),
-                        style: FilledButton.styleFrom(
+                        style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           textStyle: const TextStyle(fontSize: 16),
                         ),
@@ -937,11 +904,11 @@ class _MapPageState extends State<MapPage> {
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: OutlinedButton.icon(
+                      child: TextButton.icon(
                         onPressed: () => Navigator.pop(context),
                         icon: const Icon(Icons.close),
                         label: const Text('닫기'),
-                        style: OutlinedButton.styleFrom(
+                        style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           textStyle: const TextStyle(fontSize: 16),
                         ),
@@ -957,43 +924,22 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
-  Widget _chip({required IconData icon, required String label}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F6FD),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: Colors.black54),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 12.5, color: Colors.black87),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _section({required String title, required Widget child}) {
+  // 화이트 카드 섹션(얇은 테두리)
+  Widget _sectionWhite({required String title, required Widget child}) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F8FA), // ✅ 섹션 배경만 살짝 회색, 선 없음
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0x14000000)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-          ),
+          Text(title,
+              style:
+                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 8),
           child,
         ],
@@ -1006,18 +952,29 @@ class _MapPageState extends State<MapPage> {
     setState(() => _radiusKm = _radiusKm.clamp(1, 20));
     showModalBottomSheet(
       context: context,
-      showDragHandle: true,
+      // showDragHandle: false,
       builder: (_) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '필터/설정',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    '필터/설정',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                // ✅ 완료 버튼(우측 정렬)
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _searchNearby(fromCamera: true);
+                  },
+                  child: const Text('완료'),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             Row(
@@ -1036,26 +993,14 @@ class _MapPageState extends State<MapPage> {
                           setSheetState(() {});
                           setState(() => _radiusKm = v.clamp(1, 20));
                         },
-                        onChangeEnd: (_) => _searchNearby(fromCamera: true),
+                        onChangeEnd: (_) {
+                          // 슬라이더 놓았을 때 미리 반영하고 싶다면 유지
+                        },
                       );
                     },
                   ),
                 ),
                 Text('${_radiusKm.toStringAsFixed(0)}km'),
-              ],
-            ),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _searchNearby(fromCamera: false);
-                    },
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('현 위치에서 재검색'),
-                  ),
-                ),
               ],
             ),
           ],
@@ -1085,87 +1030,115 @@ class _MapPageState extends State<MapPage> {
         child: Column(
           children: [
             const ListTile(
-              leading: Icon(Icons.star),
+              leading: Icon(Icons.star, color: Colors.amber),
               title: Text(
                 '즐겨찾기',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
-            const Divider(height: 1),
             if (favList.isEmpty)
-              Expanded(
+              const Expanded(
                 child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(
-                        Icons.star_border,
-                        size: 56,
-                        color: Color(0xFF9EA6B3),
-                      ),
-                      SizedBox(height: 10),
-                      Text(
-                        '즐겨찾기가 비어 있어요',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      SizedBox(height: 6),
-                      Text(
-                        '목록 카드의 ★ 버튼을 눌러 추가하세요.',
-                        style: TextStyle(color: Colors.black54),
-                      ),
-                    ],
-                  ),
+                  child: Text('즐겨찾기가 비어 있어요'),
                 ),
               )
             else
               Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
-                  ),
+                child: ListView.builder(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  itemCount: favList.length,
                   itemBuilder: (_, i) {
                     final p = favList[i];
-                    return ListTile(
-                      leading: const Icon(Icons.place_outlined),
-                      title: Text(
-                        p.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        p.address,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: IconButton(
-                        tooltip: '즐겨찾기 해제',
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () async {
-                          await _toggleFavorite(p, silent: true);
-                          setState(() {});
+                    return Padding(
+                      padding: EdgeInsets.only(
+                          bottom: i == favList.length - 1 ? 0 : 8),
+                      child: ListTile(
+                        leading: const Icon(Icons.place_outlined),
+                        title: Text(
+                          p.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          p.address,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: IconButton(
+                          tooltip: '즐겨찾기 해제',
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () async {
+                            await _toggleFavorite(p, silent: true);
+                            setState(() {});
+                          },
+                        ),
+                        onTap: () async {
+                          _scaffoldKey.currentState?.closeEndDrawer();
+                          await _map?.updateCamera(
+                            NCameraUpdate.withParams(
+                              target: NLatLng(p.lat, p.lng),
+                              zoom: 16,
+                            ),
+                          );
+                          _showPlaceSheet(p);
                         },
                       ),
-                      onTap: () async {
-                        _scaffoldKey.currentState?.closeEndDrawer();
-                        await _map?.updateCamera(
-                          NCameraUpdate.withParams(
-                            target: NLatLng(p.lat, p.lng),
-                            zoom: 16,
-                          ),
-                        );
-                        _showPlaceSheet(p);
-                      },
                     );
                   },
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemCount: favList.length,
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// ===== 파랑 계열 Pill 버튼 (테두리 없음)
+class _CategoryPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final Color selectedBg, selectedFg, unselectedBg, unselectedFg;
+
+  const _CategoryPill({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    required this.selectedBg,
+    required this.selectedFg,
+    required this.unselectedBg,
+    required this.unselectedFg,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = selected ? selectedBg : unselectedBg;
+    final fg = selected ? selectedFg : unselectedFg;
+
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: fg),
+              const SizedBox(width: 6),
+              Text(label,
+                  style: TextStyle(
+                    color: fg,
+                    fontWeight: FontWeight.w600,
+                  )),
+            ],
+          ),
         ),
       ),
     );

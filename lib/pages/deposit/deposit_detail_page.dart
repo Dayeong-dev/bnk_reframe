@@ -176,7 +176,7 @@ class _DepositDetailPageState extends State<DepositDetailPage>
 
   void _subscribeReviewTopic(int productId) {
     final wsUrl =
-    Uri.parse('${AppEndpoints.wsBase}?topic=product.$productId.reviews');
+        Uri.parse('${AppEndpoints.wsBase}?topic=product.$productId.reviews');
     debugPrint('🔌 WS connect → $wsUrl');
     try {
       _ws = ws_io.IOWebSocketChannel.connect(wsUrl.toString());
@@ -195,7 +195,7 @@ class _DepositDetailPageState extends State<DepositDetailPage>
 
           if (msg['type'] == 'review_created' && mounted) {
             final snippet =
-            _normalizeSnippet((msg['contentSnippet'] as String?) ?? '');
+                _normalizeSnippet((msg['contentSnippet'] as String?) ?? '');
             final rating = (msg['rating'] as num?)?.toInt() ?? 0;
 
             // ✅ 내가 방금 쓴 리뷰 억제 (서버 수정 없이)
@@ -234,19 +234,20 @@ class _DepositDetailPageState extends State<DepositDetailPage>
 
   /// ======= 상단 플로팅 알림(UI) — 흰 배경 + 노란 종 + 그림자 최소 =======
   void _showTopToast(
-      String text, {
-        Duration duration = const Duration(seconds: 3),
-      }) {
+    String text, {
+    Duration duration = const Duration(seconds: 3),
+  }) {
     // 이전 토스트 정리
     _toastTimer?.cancel();
     _toastAC?.dispose();
     _toastEntry?.remove();
 
-    _toastAC =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 250));
+    _toastAC = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 250));
     final fade = CurvedAnimation(parent: _toastAC!, curve: Curves.easeOutCubic);
     final slide = Tween<Offset>(begin: const Offset(0, -0.2), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _toastAC!, curve: Curves.easeOutCubic));
+        .animate(
+            CurvedAnimation(parent: _toastAC!, curve: Curves.easeOutCubic));
 
     _toastEntry = OverlayEntry(
       builder: (context) {
@@ -498,13 +499,6 @@ class _DepositDetailPageState extends State<DepositDetailPage>
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         decoration: const BoxDecoration(
           color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 8,
-              offset: Offset(0, -2),
-            ),
-          ],
         ),
         child: Row(
           children: [
@@ -737,7 +731,7 @@ class _DepositDetailPageState extends State<DepositDetailPage>
     try {
       final decodedOnce = jsonDecode(detail);
       final decoded =
-      decodedOnce is String ? jsonDecode(decodedOnce) : decodedOnce;
+          decodedOnce is String ? jsonDecode(decodedOnce) : decodedOnce;
 
       if (decoded is List &&
           decoded.isNotEmpty &&
@@ -800,7 +794,7 @@ class _DepositDetailPageState extends State<DepositDetailPage>
     final String content = fixLineBreaks(e['content'] ?? '');
     final String rawImageUrl = e['imageURL'] ?? '';
     final String imageUrl =
-    rawImageUrl.startsWith('/') ? 'assets$rawImageUrl' : rawImageUrl;
+        rawImageUrl.startsWith('/') ? 'assets$rawImageUrl' : rawImageUrl;
 
     return Center(
       child: ConstrainedBox(
@@ -845,42 +839,42 @@ class _DepositDetailPageState extends State<DepositDetailPage>
                     width: double.infinity,
                     child: imageUrl.startsWith("http")
                         ? Image.network(
-                      imageUrl,
-                      fit: BoxFit.contain,
-                      alignment: Alignment.center,
-                      filterQuality: FilterQuality.medium,
-                      loadingBuilder: (c, child, p) => p == null
-                          ? child
-                          : const Center(
-                        child: SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                          ),
-                        ),
-                      ),
-                      errorBuilder: (c, e, s) => const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          size: 42,
-                          color: Colors.black26,
-                        ),
-                      ),
-                    )
+                            imageUrl,
+                            fit: BoxFit.contain,
+                            alignment: Alignment.center,
+                            filterQuality: FilterQuality.medium,
+                            loadingBuilder: (c, child, p) => p == null
+                                ? child
+                                : const Center(
+                                    child: SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  ),
+                            errorBuilder: (c, e, s) => const Center(
+                              child: Icon(
+                                Icons.broken_image,
+                                size: 42,
+                                color: Colors.black26,
+                              ),
+                            ),
+                          )
                         : Image.asset(
-                      imageUrl,
-                      fit: BoxFit.contain,
-                      alignment: Alignment.center,
-                      filterQuality: FilterQuality.medium,
-                      errorBuilder: (c, e, s) => const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          size: 42,
-                          color: Colors.black26,
-                        ),
-                      ),
-                    ),
+                            imageUrl,
+                            fit: BoxFit.contain,
+                            alignment: Alignment.center,
+                            filterQuality: FilterQuality.medium,
+                            errorBuilder: (c, e, s) => const Center(
+                              child: Icon(
+                                Icons.broken_image,
+                                size: 42,
+                                color: Colors.black26,
+                              ),
+                            ),
+                          ),
                   ),
                 ),
             ],
@@ -902,14 +896,14 @@ class _DepositDetailPageState extends State<DepositDetailPage>
   Widget _footerCard(String title, String content) {
     // 공통: 타이틀/빈 블록 정리
     final normalized = title == '금리/이율 안내'
-    // 표 영역만 남기고, 선행 빈 블록 제거 (개행→<br> 변환 금지)
+        // 표 영역만 남기고, 선행 빈 블록 제거 (개행→<br> 변환 금지)
         ? _stripLeadingGaps(
-      cutHeadBeforeFirstTable(content, titleToStrip: title),
-    )
-    // 일반 안내는 줄바꿈 정규화 후 <br> 변환
+            cutHeadBeforeFirstTable(content, titleToStrip: title),
+          )
+        // 일반 안내는 줄바꿈 정규화 후 <br> 변환
         : toHtmlBreaks(
-      normalizeHtml(content, titleToStrip: title),
-    );
+            normalizeHtml(content, titleToStrip: title),
+          );
 
     return Card(
       color: Colors.white,

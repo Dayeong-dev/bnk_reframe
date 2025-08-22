@@ -1,36 +1,39 @@
-import 'package:reframe/constants/api_constants.dart'; // apiBaseUrl 사용
+// lib/service/review_service.dart
+import 'package:dio/dio.dart';
+import 'package:reframe/core/interceptors/http.dart';
 import 'package:reframe/model/review.dart';
-import 'package:reframe/core/interceptors/http.dart'; // dio 공용 인스턴스 (JWT 포함)
+import 'package:reframe/utils/recent_my_review.dart'; // ✅ 추가
 
 class ReviewService {
-  // ★ 리뷰 API는 /mobile 접두어 사용 (env/app_endpoints.dart 수정 없이 해결)
-  static String get _mobileBase => '$apiBaseUrl/mobile';
-
   static Future<List<Review>> fetchReviews(int productId) async {
-    final res = await dio.get('$_mobileBase/products/$productId/reviews');
-    // 200 OK만 정상 처리
-    if (res.statusCode != 200) {
-      throw 'HTTP ${res.statusCode}: ${res.data}';
+    final res = await dio.get('/mobile/products/$productId/reviews');
+    final data = res.data;
+    if (data is List) {
+      return data.map((e) => Review.fromJson(e)).toList();
     }
-    final List data = res.data as List;
-    return data.map((e) => Review.fromJson(e as Map<String, dynamic>)).toList();
+    return <Review>[];
   }
 
   static Future<void> createReview({
     required int productId,
     required String content,
-    int? rating,
+    required int rating,
   }) async {
-    final res = await dio.post(
-      '$_mobileBase/reviews',
+    // ✅ 전송 직전에 "내가 방금 쓴 리뷰" 버퍼에 기록
+    RecentMyReviewBuffer.I.markSubmitted(
+      productId: productId,
+      contentRaw: content,
+      rating: rating,
+      // ttl: Duration(seconds: 10), // 필요시 조정
+    );
+
+    await dio.post(
+      '/mobile/reviews',
       data: {
         'productId': productId,
         'content': content,
-        if (rating != null) 'rating': rating,
+        'rating': rating,
       },
     );
-    if (res.statusCode != 201) {
-      throw 'HTTP ${res.statusCode}: ${res.data}';
-    }
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:reframe/app/app_shell.dart';
 import 'package:reframe/constants/color.dart';
+import 'package:reframe/pages/home_page.dart';
 
 class SuccessEnrollPage extends StatelessWidget {
   const SuccessEnrollPage({super.key});
@@ -43,7 +44,7 @@ class SuccessEnrollPage extends StatelessWidget {
                 height: 48,
                 child: ElevatedButton(
                     onPressed: () {
-                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AppShell()));
+                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => HomePage()));
                     },
                     style: ElevatedButton.styleFrom(
                       shape: RoundedRectangleBorder(

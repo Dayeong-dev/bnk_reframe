@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:reframe/constants/color.dart';
+import 'package:reframe/constants/number_format.dart';
 import 'package:reframe/model/deposit_product.dart';
 import 'package:reframe/model/enroll_form.dart';
 import 'package:reframe/pages/enroll/appbar.dart';
@@ -55,14 +56,16 @@ class _ThirdStepPageState extends State<ThirdStepPage> {
 
   @override
   void initState() {
-    // ★ 추가: 화면 진입(view)
     _logStep(stage: 'view');
     super.initState();
   }
 
   Future<void> _submit() async {
-    // ★ 추가: 최종 확인 버튼 클릭(submit) — result는 서버에서 전송!
     await _logStep(stage: 'submit');
+
+    if(widget.enrollForm.paymentAmount != null) {
+      widget.enrollForm.paymentAmount = widget.enrollForm.paymentAmount! * 10000;
+    }
     await addApplication(widget.product.productId, widget.enrollForm, context);
   }
 
@@ -141,7 +144,7 @@ class _ThirdStepPageState extends State<ThirdStepPage> {
                       if(widget.enrollForm.paymentAmount != null)
                         _buildTableRow(
                             title: '납입 금액',
-                            value: '${widget.enrollForm.paymentAmount! * 10000}원'
+                            value: '${money.format(widget.enrollForm.paymentAmount! * 10000)}원'
                         ),
                       if(widget.enrollForm.periodMonths != null)
                         _buildTableRow(
@@ -156,12 +159,12 @@ class _ThirdStepPageState extends State<ThirdStepPage> {
                       if(widget.enrollForm.fromAccountId != null)
                         _buildTableRow(
                             title: '출금 계좌',
-                            value: widget.enrollForm.fromAccountId.toString()
+                            value: widget.enrollForm.fromAccountNumber.toString()
                         ),
                       if(widget.enrollForm.maturityAccountId != null)
                         _buildTableRow(
                             title: '만기 시 입금 계좌',
-                            value: widget.enrollForm.maturityAccountId.toString()
+                            value: widget.enrollForm.maturityAccountNumber.toString()
                         ),
                       if(widget.enrollForm.groupType != null)
                         _buildTableRow(

@@ -11,6 +11,9 @@ class EnrollForm {
   int? fromAccountId;
   int? maturityAccountId;
 
+  String? fromAccountNumber;
+  String? maturityAccountNumber;
+
   @override
   String toString() => 'EnrollForm('
       'periodMonths: $periodMonths, '

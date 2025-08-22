@@ -145,7 +145,7 @@ class _FirstStepPageState extends State<FirstStepPage> {
                     );
                   }
 
-                  final item = _items[index - 1]; // ✅ -1 해서 실제 데이터 접근
+                  final item = _items[index - 1];
 
                   if (item.kind == ConsentKind.pdf) {
                     return _ConsentTile(

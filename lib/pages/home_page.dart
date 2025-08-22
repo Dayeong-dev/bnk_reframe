@@ -1,15 +1,19 @@
 // lib/pages/home_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:intl/intl.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:reframe/constants/number_format.dart';
 
 // 필요 페이지들 직접 import (위젯 push용)
 import 'package:reframe/event/pages/fortune_hub_page.dart';
+import 'package:reframe/model/account.dart';
 import 'package:reframe/pages/chat/bnk_chat_page.dart';
 import 'package:reframe/pages/deposit/deposit_list_page.dart';
 import 'package:reframe/pages/deposit/deposit_main_page.dart';
 import 'package:reframe/pages/savings_test/screens/start_screen.dart';
 import 'package:reframe/pages/walk/step_debug_page.dart';
+import 'package:reframe/service/account_service.dart';
 // TODO: 저축성향/챗봇 페이지가 있다면 여기 import 해주세요.
 // import 'package:reframe/pages/savings/savings_start_page.dart';
 // import 'package:reframe/pages/chat/bnk_chat_page.dart';
@@ -105,71 +109,202 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+      body: SafeArea(
+        child: FutureBuilder<List<Account>>(
+          future: fetchAccounts(null),
+          builder: (context, snapshot) {
+            // 로딩
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            // 에러
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.error_outline, size: 40),
+                      const SizedBox(height: 12),
+                      const Text('계좌 정보를 불러오지 못했습니다.'),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${snapshot.error}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      FilledButton(
+                        onPressed: () => setState(() {}),
+                        child: const Text('다시 시도'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+            final data = snapshot.data ?? [];
+            // 빈 상태
+            if (data.isEmpty) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.account_balance_wallet_outlined, size: 40),
+                      const SizedBox(height: 12),
+                      const Text('등록된 계좌가 없습니다.'),
+                      const SizedBox(height: 8),
+                      Text(
+                        '상품을 가입하거나 계좌를 추가해 보세요.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 16),
+                      OutlinedButton(
+                        onPressed: () => _push(DepositMainPage()),
+                        child: const Text('예·적금 보러가기'),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            String _showTypeText(AccountType? type) {
+              switch (type) {
+                case AccountType.demand:
+                  return '입출금';
+                case AccountType.product:
+                  return '상품계좌';
+                default:
+                  return '기타';
+              }
+            }
+
+            // 리스트 렌더링
+            return ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+              itemCount: data.length,
+              separatorBuilder: (context, items) => const SizedBox(height: 12),
+              itemBuilder: (context, idx) {
+                final account = data[idx];
+                return _AccountCard(
+                  title: account.accountName ?? 'BNK 부산은행 계좌',
+                  subtitle: '${_showTypeText(account.accountType)} · ${account.accountNumber}',
+                  balanceText: account.balance != null ? '${money.format(account.balance)} 원' : '- 원',
+                  isDefault: (account.isDefault == 1 ?? false),
+                  onTap: () {
+                    // 필요 시 상세 페이지로 이동
+                  },
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String balanceText;
+  final bool isDefault;
+  final VoidCallback? onTap;
+  final Widget? trailing;
+
+  const _AccountCard({
+    required this.title,
+    required this.subtitle,
+    required this.balanceText,
+    this.isDefault = false,
+    this.onTap,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final badge = isDefault
+        ? Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withOpacity(.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        '기본계좌',
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: Theme.of(context).colorScheme.primary,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    )
+        : null;
+
+    return Card(
+      elevation: 0.8,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+          child: Row(
             children: [
-              const Text("메인 화면"),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: _initSecureStorage,
-                child: const Text("Secure Storage 초기화"),
+              // 텍스트
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            title,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (badge != null) ...[
+                          const SizedBox(width: 8),
+                          badge,
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(.7),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: () {
-                  // Splash는 대체 이동 유지
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const SplashPage()),
-                  );
-                },
-                child: const Text("Splash 화면으로 이동"),
+              const SizedBox(width: 8),
+              // 잔액 + 트레일링
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    balanceText,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (trailing != null) ...[
+                    const SizedBox(height: 4),
+                    trailing!,
+                  ],
+                ],
               ),
-              const Divider(height: 28),
-
-              // ✅ 예적금: 위젯 직접 push (Named route 사용 X)
-              ElevatedButton(
-                onPressed: () => _push(const DepositListPage()),
-                child: const Text("예적금 전체 목록"),
-              ),
-              const SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: () => _push(DepositMainPage()),
-                child: const Text("예적금 메인 페이지"),
-              ),
-
-              const SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: () => _push(const StepDebugPage()),
-                child: const Text("걸음 수 테스트"),
-              ),
-
-              const SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: () => _push(const FortuneHubPage()),
-                child: const Text("운세 테스트"),
-              ),
-
-              // 👉 아래 두 개는 실제 페이지 위젯 이름으로 바꿔서 _push(...) 하세요.
-              ElevatedButton(
-                onPressed: () => _push(const StartScreen()),
-                child: const Text("저축성향 테스트"),
-              ),
-              ElevatedButton(
-                onPressed: () => _push(const BnkChatScreen()),
-                child: const Text("챗봇 테스트"),
-              ),
-
-              const SizedBox(height: 8),
-              // (임시로 네임드 라우트를 꼭 써야 한다면 루트 네비 사용 — 하단바는 안 보일 수 있음)
-              // ElevatedButton(
-              //   onPressed: () => Navigator.of(context, rootNavigator: true)
-              //       .pushNamed("/chat-debug"),
-              //   child: const Text("챗봇 테스트(루트 네비로)"),
-              // ),
             ],
           ),
         ),

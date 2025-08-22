@@ -2,12 +2,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:reframe/constants/color.dart';
+import 'package:reframe/model/account.dart';
 import 'package:reframe/model/deposit_product.dart';
 import 'package:reframe/model/enroll_form.dart';
 import 'package:reframe/model/product_input_format.dart';
 import 'package:reframe/pages/enroll/appbar.dart';
 import 'package:reframe/pages/enroll/enroll_third.dart';
 import 'package:reframe/model/group_type.dart';
+import 'package:reframe/service/account_service.dart';
 import 'package:reframe/service/deposit_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart'; // ★ 추가: Analytics
 
@@ -27,6 +29,7 @@ class _SecondStepPageState extends State<SecondStepPage> {
   // ★ 그대로: 폼키, 입력데이터, Future 핸들러
   final _formKey = GlobalKey<FormState>();
   final EnrollForm _data = EnrollForm();
+
   ProductInputFormat? _productInput;
   late Future<ProductInputFormat> _future;
 
@@ -61,32 +64,47 @@ class _SecondStepPageState extends State<SecondStepPage> {
     );
   }
 
+  // state 필드
+  late final bool _isTermList =
+  (widget.product.termMode?.toUpperCase() == 'TERMLIST');
+
+  List<int> _termOptions = []; // [3,6,12] 같은 선택지
+
+  List<int> _parseTermLists(String? s) {
+    if (s == null || s.trim().isEmpty) return [];
+    return s.split(RegExp(r'[/,\s]+'))
+        .map((e) => int.tryParse(e.trim()))
+        .whereType<int>()
+        .toList()
+      ..sort();
+  }
+
+  late Future<List<Account>> _accountsFuture;
+
+
+
   @override
   void initState() {
     super.initState();
+    _accountsFuture = fetchAccounts(AccountType.demand);     // 계좌 가져오기 시작
 
-    // 서버에서 입력 포맷을 받아오고 기본값/로깅 처리
+    _termOptions = _parseTermLists(widget.product.termList);
+    // 기존 min/max 기본 세팅은 그대로
     _future = getProductInputFormat(widget.product.productId).then((result) {
-      // 서버에서 온 실제 min/max가 있다면 여기서 덮어써도 됨
       _minMonths = widget.product.minPeriodMonths ?? _minMonths;
       _maxMonths = widget.product.maxPeriodMonths ?? _maxMonths;
 
-      // 기본값(초기 진입 시 Null 방지)
+      // TERMLIST면 기본값을 첫 옵션으로, 아니면 min값으로
       if (result.input1 && _data.periodMonths == null) {
-        _data.periodMonths = _minMonths;
+        _data.periodMonths =
+        _isTermList ? (_termOptions.isNotEmpty ? _termOptions.first : 6)
+            : _minMonths;
       }
       if (result.input2 && _data.paymentAmount == null) {
         _data.paymentAmount = _minAmount;
       }
-
       setState(() => _productInput = result);
-
-      // 화면 진입(view) 로깅(딱 1회)
-      if (!_viewLogged) {
-        _viewLogged = true;
-        _logStep(stage: 'view');
-      }
-
+      if (!_viewLogged) { _viewLogged = true; _logStep(stage: 'view'); }
       return result;
     });
   }
@@ -120,6 +138,13 @@ class _SecondStepPageState extends State<SecondStepPage> {
       final v = _data.periodMonths;
       if (v == null || v < _minMonths || v > _maxMonths) {
         errs.add('납입 기간을 ${_minMonths}~${_maxMonths}개월로 선택해 주세요.');
+      }
+    }
+
+    if (_isTermList && productInput.input1) {
+      final v = _data.periodMonths;
+      if (v == null || !_termOptions.contains(v)) {
+        errs.add('납입 기간을 목록에서 선택해 주세요.');
       }
     }
 
@@ -195,33 +220,31 @@ class _SecondStepPageState extends State<SecondStepPage> {
     );
   }
 
-  // === 더미 계좌 목록(실서비스에 맞춰 교체) ===
-  final _accounts = const [
-    {'id': 'A-1111', 'accountNumber': '112-1111-1111-11', 'bankName': '부산은행', 'balance': 300000},
-    {'id': 'A-2222', 'accountNumber': '112-2222-1111-11', 'bankName': '부산은행', 'balance': 500000},
-    {'id': 'A-3333', 'accountNumber': '112-3333-1111-11', 'bankName': '부산은행', 'balance': 800000},
-  ];
-
-  Future<Map<String, Object>?> _pickAccount(String title) async {
-    return await showModalBottomSheet<Map<String, Object>>(
+  Future<Account?> _pickAccount(String title) async {
+    final accounts = await _accountsFuture; // 이미 완료되어 있으면 바로 반환됨
+    return await showModalBottomSheet<Account?>(
       context: context,
       showDragHandle: true,
       backgroundColor: Colors.white,
       builder: (context) {
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 8),
-              ..._accounts.map((acc) => ListTile(
-                    title: Text('${acc['bankName']!} ${acc['accountNumber']!}'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.pop(context, acc),
-                  )),
-              const SizedBox(height: 8),
-            ],
+          child: SizedBox(
+            width: double.infinity,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 8),
+                Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 8),
+                ...accounts.map((acc) => ListTile(
+                  title: Text('${acc.bankName ?? ''} ${acc.accountNumber ?? ''}'),
+                  subtitle: Text('잔액: ${acc.balance}원'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.pop(context, acc),
+                )),
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
         );
       },
@@ -258,8 +281,14 @@ class _SecondStepPageState extends State<SecondStepPage> {
 
                 // 납입 기간
                 if (p.input1) ...[
-                  PeriodSection(
-                    value: _data.periodMonths!,  // initState에서 기본값 주입됨
+                  _isTermList
+                      ? TermListSection(
+                    options: _termOptions,
+                    value: _data.periodMonths!,
+                    onChanged: (v) => setState(() => _data.periodMonths = v),
+                  )
+                      : PeriodSection(
+                    value: _data.periodMonths!,
                     min: _minMonths,
                     max: _maxMonths,
                     onChanged: (v) => setState(() => _data.periodMonths = v),
@@ -298,10 +327,11 @@ class _SecondStepPageState extends State<SecondStepPage> {
                       final account = await _pickAccount('출금 계좌 선택');
                       if (account != null) {
                         // NOTE: EnrollForm.fromAccountId 타입에 맞게 변경 필요(여기선 String 예시)
-                        _data.fromAccountId = _toIntId(account['id']);
+                        _data.fromAccountId = _toIntId(account.id);
+                        _data.fromAccountNumber = account.accountNumber;
                         setState(() {
                           _fromAccountName =
-                              '${account["bankName"]} ${account["accountNumber"]}';
+                              '${account.bankName} ${account.accountNumber}';
                         });
                       }
                     },
@@ -316,12 +346,13 @@ class _SecondStepPageState extends State<SecondStepPage> {
                     subtitle: '만기 입금 계좌',
                     selectedId: _maturityAccountName,
                     onPick: () async {
-                      final account = await _pickAccount('만기 시 입금 계좌 선택');
+                      Account? account = await _pickAccount('만기 시 입금 계좌 선택');
                       if (account != null) {
-                        _data.maturityAccountId = _toIntId(account['id']);
+                        _data.maturityAccountId = _toIntId(account.id);
+                        _data.maturityAccountNumber = account.accountNumber;
                         setState(() {
                           _maturityAccountName =
-                              '${account["bankName"]} ${account["accountNumber"]}';
+                              '${account.bankName} ${account.accountNumber}';
                         });
                       }
                     },
@@ -370,7 +401,7 @@ class _BottomButton extends StatelessWidget {
       child: Container(
         color: Colors.white,
         padding:
-            EdgeInsets.fromLTRB(16, 8, 16, 8 + MediaQuery.of(context).padding.bottom),
+            EdgeInsets.fromLTRB(16, 8, 16, 8),
         child: SizedBox(
           width: double.infinity,
           height: 48,
@@ -428,7 +459,7 @@ class SectionCard extends StatelessWidget {
 }
 
 // 납입 기간 섹션
-class PeriodSection extends StatelessWidget {
+class PeriodSection extends StatefulWidget {
   const PeriodSection({
     super.key,
     required this.min,
@@ -438,35 +469,60 @@ class PeriodSection extends StatelessWidget {
     this.divisions,
   });
 
-  final int value;  // months
+  final int value;
   final int min;
   final int max;
   final int? divisions;
-
   final ValueChanged<int> onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    final controller = TextEditingController(text: value.toString());
+  State<PeriodSection> createState() => _PeriodSectionState();
+}
 
+class _PeriodSectionState extends State<PeriodSection> {
+  late final TextEditingController _controller;
+  late final FocusNode _focus;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value.toString());
+    _focus = FocusNode();
+  }
+
+  @override
+  void didUpdateWidget(covariant PeriodSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 외부 value가 변경되었고, 필드가 포커스 중이 아닐 때만 동기화
+    if (oldWidget.value != widget.value && !_focus.hasFocus) {
+      _controller.text = widget.value.toString();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return SectionCard(
       title: '납입 기간',
       subtitle: '원하는 기간을 선택하세요',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ❗ Slider에는 padding 파라미터가 없음 → Padding 위젯으로 감싸기
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
-            child: Slider(
-              value: value.toDouble(),
-              min: min.toDouble(),
-              max: max.toDouble(),
-              divisions: divisions ?? (max - min),
-              label: '$value개월',
-              inactiveColor: Colors.black12,
-              onChanged: (v) => onChanged(v.round()),
-            ),
+          Slider(
+            padding: EdgeInsets.symmetric(vertical: 20, horizontal: 8),
+            value: widget.value.toDouble(),
+            min: widget.min.toDouble(),
+            max: widget.max.toDouble(),
+            divisions: widget.divisions ?? (widget.max - widget.min),
+            label: '${widget.value}개월',
+            inactiveColor: Colors.black12,
+            onChanged: (v) => widget.onChanged(v.round()),
           ),
           const SizedBox(height: 20),
           Row(
@@ -475,7 +531,8 @@ class PeriodSection extends StatelessWidget {
                 child: SizedBox(
                   height: 48,
                   child: TextFormField(
-                    controller: controller,
+                    focusNode: _focus,
+                    controller: _controller,
                     decoration: InputDecoration(
                       labelText: '개월 수 직접입력',
                       labelStyle: TextStyle(color: Colors.grey[500]),
@@ -501,7 +558,10 @@ class PeriodSection extends StatelessWidget {
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     onChanged: (v) {
                       final n = int.tryParse(v);
-                      if (n != null && n >= min && n <= max) onChanged(n);
+                      if (n != null && n >= widget.min && n <= widget.max) {
+                        // 부모로만 알리고, 컨트롤러 text는 부모 값 반영 시(didUpdateWidget) 동기화
+                        widget.onChanged(n);
+                      }
                     },
                   ),
                 ),
@@ -516,8 +576,9 @@ class PeriodSection extends StatelessWidget {
   }
 }
 
+
 // 납입 금액 섹션
-class AmountSection extends StatelessWidget {
+class AmountSection extends StatefulWidget {
   const AmountSection({
     super.key,
     required this.min,
@@ -531,65 +592,91 @@ class AmountSection extends StatelessWidget {
   final int min;
   final int max;
   final int? divisions;
-
   final ValueChanged<int> onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    final controller = TextEditingController(text: value.toString());
+  State<AmountSection> createState() => _AmountSectionState();
+}
 
+class _AmountSectionState extends State<AmountSection> {
+  late final TextEditingController _controller;
+  late final FocusNode _focus;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value.toString());
+    _focus = FocusNode();
+  }
+
+  @override
+  void didUpdateWidget(covariant AmountSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value && !_focus.hasFocus) {
+      _controller.text = widget.value.toString();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return SectionCard(
       title: '납입 금액',
       subtitle: '납입 금액을 입력하세요',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 48,
-                  child: TextFormField(
-                    controller: controller,
-                    decoration: InputDecoration(
-                      hintText: '월 납입 금액(만원)',
-                      hintStyle: TextStyle(color: Colors.grey[500]),
-                      isDense: true,
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Colors.black12),
-                      ),
-                      errorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Colors.black12),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Colors.black),
-                      ),
-                      focusedErrorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Colors.black),
-                      ),
-                    ),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    onChanged: (v) {
-                      final n = int.tryParse(v);
-                      if (n != null && n >= min && n <= max) onChanged(n);
-                    },
+          Expanded(
+            child: SizedBox(
+              height: 48,
+              child: TextFormField(
+                focusNode: _focus,
+                controller: _controller,
+                decoration: InputDecoration(
+                  hintText: '월 납입 금액(만원)',
+                  hintStyle: TextStyle(color: Colors.grey[500]),
+                  isDense: true,
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Colors.black12),
+                  ),
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Colors.black12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Colors.black),
+                  ),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Colors.black),
                   ),
                 ),
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: (v) {
+                  final n = int.tryParse(v);
+                  if (n != null && n >= widget.min && n <= widget.max) {
+                    widget.onChanged(n);
+                  }
+                },
               ),
-              const SizedBox(width: 8),
-              const Text('만원'),
-            ],
+            ),
           ),
+          const SizedBox(width: 8),
+          const Text('만원'),
         ],
       ),
     );
   }
 }
+
 
 // 납입 일정 섹션
 const int kLastDay = 99; // '말일' 표시용
@@ -933,6 +1020,50 @@ class AccountPickerSection extends StatelessWidget {
         ),
         trailing: const Icon(Icons.chevron_right),
         onTap: onPick,
+      ),
+    );
+  }
+}
+
+class TermListSection extends StatelessWidget {
+  const TermListSection({
+    super.key,
+    required this.options,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final List<int> options;
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionCard(
+      title: '납입 기간',
+      subtitle: '아래 기간 중 하나를 선택하세요',
+      child: Column(
+        children: options.map((m) {
+          return InkWell(
+            onTap: () => onChanged(m),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Radio<int>(
+                  value: m,
+                  groupValue: value,         // 현재 선택된 값
+                  onChanged: (v) {
+                    if (v != null) onChanged(v);
+                  },
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
+                const SizedBox(width: 6),
+                Text("$m개월"),
+              ],
+            ),
+          );
+        }).toList(),
       ),
     );
   }

@@ -9,6 +9,13 @@ enum AccountStatus {
   suspended // 정지
 }
 
+DateTime? _parseDate(dynamic v) {
+  if (v == null) return null;
+  if (v is String && v.isNotEmpty) return DateTime.tryParse(v); // "2025-08-18T05:02:43.840448"
+  if (v is int) return DateTime.fromMillisecondsSinceEpoch(v);  // epoch millis 대비
+  return null;
+}
+
 class Account {
   final int id;
   final String accountNumber;
@@ -18,7 +25,7 @@ class Account {
   final String? accountName;
   final int isDefault;
   final AccountStatus status;
-  final DateTime createAt;
+  final DateTime? createAt;
 
   Account({
     required this.id,
@@ -29,19 +36,19 @@ class Account {
     this.accountName,
     required this.isDefault,
     required this.status,
-    required this.createAt
+    this.createAt
   });
 
   factory Account.fromJson(Map<String, dynamic> json) => Account(
     id: json['id'] as int,
     accountNumber: json['accountNumber'],
     bankName: json['bankName'],
-    accountType: json['accountType'] as AccountType,
+    accountType: AccountType.values.byName(json['accountType'].toString().toLowerCase()),
     balance: json['balance'],
     accountName: json['accountName'],
     isDefault: json['isDefault'],
-    status: json['status'] as AccountStatus,
-    createAt: json['createAt'] as DateTime,
+    status: AccountStatus.values.byName(json['status'].toString().toLowerCase()),
+    createAt: _parseDate(json['createAt']),
   );
 
   Map<String, dynamic> toJson() => {

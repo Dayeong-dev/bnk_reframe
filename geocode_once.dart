@@ -1,11 +1,11 @@
-// geocode_atm.dart
+// geocode_once.dart
 //
-// 목적: assets/atm.json에서 lat/lng이 null(또는 없음)인 항목만 지오코딩으로 채워
-//       assets/atm_geocoded.json로 저장 (한 번 변환 후 앱은 geocoded만 사용)
+// 목적: assets/branches.json에서 lat/lng이 null인 항목만 지오코딩으로 채워
+//       assets/branches_geocoded.json로 저장 (한 번 변환 후 앱은 geocoded만 사용)
 //
 // 실행:
-//   dart run geocode_atm.dart
-//   (기본 입력: assets/atm.json, 출력: assets/atm_geocoded.json)
+//   dart run geocode_once.dart
+//   (기본 입력: assets/branches.json, 출력: assets/branches_geocoded.json)
 //
 // 주의:
 // - 지도 Geocoding은 "Maps API Gateway"용 키가 필요합니다.
@@ -20,17 +20,16 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 
-// ✅ 하드코딩 키 (공개 저장소 업로드 금지)
-//  └ branches용과 동일 포맷을 유지합니다.
+// ✅ 테스트용 하드코딩 키 (공개 저장소 업로드 금지)
 const String kNaverClientId =
     "1vyye633d9"; // Maps API Gateway의 Application Key ID
 const String kNaverClientSecret =
     "0OZ7AiQ29O69UNPrfXXbIZqCKQfdbOVIDecn4NIE"; // Application Key
 
 // 기본 경로
-const String kDefaultInput = 'assets/atm.json';
-const String kDefaultOutput = 'assets/atm_geocoded.json';
-const String kCachePath = '.geocode_cache_atm.json';
+const String kDefaultInput = 'assets/branches.json';
+const String kDefaultOutput = 'assets/branches_geocoded.json';
+const String kCachePath = '.geocode_cache.json';
 
 // ✅ 올바른 엔드포인트 (문서 기준)
 const String kGeocodeUrl =
@@ -90,22 +89,13 @@ Future<void> main(List<String> args) async {
     final item = list[i];
     if (item is! Map<String, dynamic>) continue;
 
-    // ATM 원본 스키마가 제각각일 수 있어 name/address 키 유연 처리
-    final name = _asStr(item['name'] ?? item['title']);
-    final addressRaw = _asStr(
-      item['address'] ?? item['addr'] ?? item['roadAddress'],
-    );
-
+    final name = _asStr(item['name']);
+    final addressRaw = _asStr(item['address']);
     final lat = item['lat'];
     final lng = item['lng'];
 
     if (lat != null && lng != null) {
       skip++;
-      continue;
-    }
-    if (addressRaw.isEmpty) {
-      fail++;
-      stderr.writeln('⚠️  [주소 없음] $name');
       continue;
     }
     need++;

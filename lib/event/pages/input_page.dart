@@ -43,7 +43,7 @@ class _InputPageState extends State<InputPage> {
   }
 
   void _startTyping() {
-    // 타이핑 속도: 글자당 90ms (원하면 변경)
+    // 타이핑 속도: 글자당 90ms
     _typeTimer = Timer.periodic(const Duration(milliseconds: 90), (t) {
       if (!mounted) {
         t.cancel();
@@ -224,17 +224,41 @@ class _InputPageState extends State<InputPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('이름 / 생년월일 입력'),
+        // 제목은 타이핑 텍스트로 대체하므로 AppBar 타이틀 없음
         centerTitle: true,
         elevation: 0.5,
       ),
+
+      // ✅ 하단 고정 버튼 (StartPage와 동일한 위치/느낌)
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 20, left: 24, right: 24),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: _onStart,
+              child: const Text(
+                '운세 보러가기',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ),
+      ),
+
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           children: [
             // 상단 타이틀(지연 시작 + 타이핑, 커서 없음)
             Padding(
-              padding: const EdgeInsets.only(top: 16, bottom: 8),
+              padding: const EdgeInsets.only(bottom: 8),
               child: Text(
                 _typedTitle.isEmpty ? ' ' : _typedTitle,
                 textAlign: TextAlign.left,
@@ -256,42 +280,60 @@ class _InputPageState extends State<InputPage> {
             ),
             const SizedBox(height: 20),
 
-            // 성별
+// 성별
             const Text(
               "성별",
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
+
             Row(
               children: [
-                ChoiceChip(
-                  label: const Text("남"),
-                  selected: gender == "남",
-                  onSelected: (_) => setState(() => gender = "남"),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  backgroundColor: Colors.white,          // 기본 흰색
-                  selectedColor: Colors.grey.shade300,    // 선택 시 연회색
-                  labelStyle: TextStyle(
-                    color: gender == "남" ? Colors.black87 : Colors.black54,
-                    fontWeight: gender == "남" ? FontWeight.w600 : FontWeight.w400,
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => gender = "남"),
+                    child: Container(
+                      height: 52, // ✅ 생년월일 입력칸과 동일한 높이
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: gender == "남" ? const Color(0xFFD8E3FF) : Colors.white,
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        "남",
+                        style: TextStyle(
+                          color: gender == "남" ? Colors.black87 : Colors.black54,
+                          fontWeight: gender == "남" ? FontWeight.w600 : FontWeight.w400,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
-                ChoiceChip(
-                  label: const Text("여"),
-                  selected: gender == "여",
-                  onSelected: (_) => setState(() => gender = "여"),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  backgroundColor: Colors.white,
-                  selectedColor: Colors.grey.shade300,
-                  labelStyle: TextStyle(
-                    color: gender == "여" ? Colors.black87 : Colors.black54,
-                    fontWeight: gender == "여" ? FontWeight.w600 : FontWeight.w400,
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => gender = "여"),
+                    child: Container(
+                      height: 52, // 동일 높이
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: gender == "여" ? const Color(0xFFD8E3FF) : Colors.white,
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        "여",
+                        style: TextStyle(
+                          color: gender == "여" ? Colors.black87 : Colors.black54,
+                          fontWeight: gender == "여" ? FontWeight.w600 : FontWeight.w400,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
-
             const SizedBox(height: 20),
 
             // 생년월일
@@ -353,27 +395,6 @@ class _InputPageState extends State<InputPage> {
             ),
 
             const SizedBox(height: 30),
-
-            // 하단 버튼 (StartPage와 동일 스타일)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 40),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: _onStart,
-                  child: const Text(
-                    '운세 보러가기',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
-            ),
           ],
         ),
       ),

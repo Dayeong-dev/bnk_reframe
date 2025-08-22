@@ -90,7 +90,7 @@ class MyApp extends StatelessWidget {
           "/depositList": (context) => const DepositListPage(),
           "/depositMain": (context) => DepositMainPage(),
           "/step-debug": (context) => StepDebugPage(),
-          "/chat-debug": (context) => BnkChatPage(),
+          "/chat-debug": (context) => BnkChatScreen(),
           "/more-page": (context) => MorePage(),
           '/map': (context) => const MapPage(),
           // Savings 테스트 라우트

@@ -42,18 +42,18 @@ enum DatasetType { branches, atm, atm365, stm }
 
 extension DatasetInfo on DatasetType {
   String get label => switch (this) {
-    DatasetType.branches => '영업점',
-    DatasetType.atm => 'ATM',
-    DatasetType.atm365 => '365ATM',
-    DatasetType.stm => 'STM',
-  };
+        DatasetType.branches => '영업점',
+        DatasetType.atm => 'ATM',
+        DatasetType.atm365 => '365ATM',
+        DatasetType.stm => 'STM',
+      };
 
   String get assetPath => switch (this) {
-    DatasetType.branches => 'assets/branches_geocoded.json',
-    DatasetType.atm => 'assets/atm_geocoded.json',
-    DatasetType.atm365 => 'assets/atm_365_geocoded.json',
-    DatasetType.stm => 'assets/stm_geocoded.json',
-  };
+        DatasetType.branches => 'assets/branches_geocoded.json',
+        DatasetType.atm => 'assets/atm_geocoded.json',
+        DatasetType.atm365 => 'assets/atm_365_geocoded.json',
+        DatasetType.stm => 'assets/stm_geocoded.json',
+      };
 }
 
 class Place {
@@ -175,29 +175,28 @@ class _MapPageState extends State<MapPage> {
       }
       _currentPosition = pos;
 
-      _posSub =
-          Geolocator.getPositionStream(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.high,
-              distanceFilter: 8,
+      _posSub = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 8,
+        ),
+      ).listen((p) async {
+        if (p.isMocked) {
+          await _blockIfMock(p);
+          return;
+        }
+        _currentPosition = p;
+        if (!_jumpedOnceToGps && _isFresh(p) && _map != null) {
+          _jumpedOnceToGps = true;
+          await _map!.updateCamera(
+            NCameraUpdate.withParams(
+              target: NLatLng(p.latitude, p.longitude),
+              zoom: 13, // 내 위치는 13
             ),
-          ).listen((p) async {
-            if (p.isMocked) {
-              await _blockIfMock(p);
-              return;
-            }
-            _currentPosition = p;
-            if (!_jumpedOnceToGps && _isFresh(p) && _map != null) {
-              _jumpedOnceToGps = true;
-              await _map!.updateCamera(
-                NCameraUpdate.withParams(
-                  target: NLatLng(p.latitude, p.longitude),
-                  zoom: 13, // 내 위치는 13
-                ),
-              );
-              _searchNearby(fromCamera: true);
-            }
-          });
+          );
+          _searchNearby(fromCamera: true);
+        }
+      });
     } catch (e) {
       debugPrint('위치 초기화 실패: $e');
       _snack('위치 정보를 가져오지 못했어요.');
@@ -433,7 +432,7 @@ class _MapPageState extends State<MapPage> {
       key: _scaffoldKey,
       endDrawer: _buildFavoritesDrawer(), // ⭐ 사이드탭
       appBar: AppBar(
-        title: const Text('부산은행 근처 지점'),
+        title: const Text('근처 지점 검색'),
         actions: [
           IconButton(
             tooltip: '즐겨찾기',
@@ -501,12 +500,14 @@ class _MapPageState extends State<MapPage> {
               padding: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
               child: ChoiceChip(
                 label: Text(t.label),
-                avatar: Icon(switch (t) {
-                  DatasetType.branches => Icons.store_mall_directory,
-                  DatasetType.atm => Icons.atm,
-                  DatasetType.atm365 => Icons.access_time,
-                  DatasetType.stm => Icons.smart_toy_outlined,
-                }, size: 18),
+                avatar: Icon(
+                    switch (t) {
+                      DatasetType.branches => Icons.store_mall_directory,
+                      DatasetType.atm => Icons.atm,
+                      DatasetType.atm365 => Icons.access_time,
+                      DatasetType.stm => Icons.smart_toy_outlined,
+                    },
+                    size: 18),
                 selected: _dataset == t,
                 onSelected: (v) async {
                   if (!v || _dataset == t) return;

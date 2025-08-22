@@ -19,7 +19,11 @@ class _LoadingPageState extends State<LoadingPage> with TickerProviderStateMixin
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 3))..forward();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..forward();
+
     _controller.addStatusListener((s) {
       if (s == AnimationStatus.completed) _goResultIfReady();
     });
@@ -50,14 +54,14 @@ class _LoadingPageState extends State<LoadingPage> with TickerProviderStateMixin
       _goResultWithData(FortuneResponse(
         fortune: '계획을 점검하기 좋은 하루예요.',
         keyword: '안정',
+        content: '큰 변화보다 작은 정리에 집중하면 좋아요. 오늘 할 일을 짧게 쪼개면 부담이 줄어요. 루틴을 정비하며 재충전해 보세요.', // ✅ 추가
         products: const [],
       ));
     }
   }
 
   void _goResultIfReady() {
-    // 애니메이션이 끝났을 때만 동작하도록 유지 (실제 네비는 _fetchFortune에서 처리)
-    // 별도 로직 불필요, 안전빵용
+    // 애니메이션 완료 시 필요한 추가 동작이 있으면 여기에
   }
 
   void _goResultWithData(FortuneResponse res) {
@@ -75,20 +79,57 @@ class _LoadingPageState extends State<LoadingPage> with TickerProviderStateMixin
   }
 
   @override
-  void dispose() { _controller.dispose(); super.dispose(); }
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            SizedBox(width: 200, height: 200, child: Image.asset('assets/images/fortune_gacha.gif', gaplessPlayback: true)),
-            const SizedBox(height: 20),
-            const Text("운세 뽑는 중...", style: TextStyle(fontSize: 18, color: Colors.grey,)),
-          ]),
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // 상단 여백을 넉넉히 줘서 문구를 살짝 아래로
+            const SizedBox(height: 80),
+
+            // 상단 타이틀 (진회색)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                '당신의 운세를\n확인하는 중입니다.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF424242), // 진회색
+                  height: 1.25,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 30),
+
+            // ✅ 남는 공간을 기준으로 GIF가 자동으로 크게
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: FittedBox(
+                    fit: BoxFit.cover, // 화면을 꽉 채우도록 설정
+                    child: Image.asset(
+                      'assets/images/fortune2.gif',
+                      gaplessPlayback: true,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+          ],
         ),
       ),
     );

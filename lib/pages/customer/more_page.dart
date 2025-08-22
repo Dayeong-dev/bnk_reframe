@@ -41,7 +41,8 @@ class MorePage extends StatelessWidget {
           create: (ctx) => FaqStore(api: ctx.read<FaqApi>()),
         ),
         // QNA DI
-        Provider<QnaApiService>(create: (_) => QnaApiService(baseUrl: apiBaseUrl)),
+        Provider<QnaApiService>(
+            create: (_) => QnaApiService(baseUrl: apiBaseUrl)),
       ],
       builder: (ctx, _) {
         return Scaffold(
@@ -70,9 +71,10 @@ class MorePage extends StatelessWidget {
               ),
               IconButton(
                 icon: const Icon(Icons.settings, color: Colors.black87),
-                onPressed: onMySettings ?? () {
-                  // TODO: 설정 화면 라우트 연결
-                },
+                onPressed: onMySettings ??
+                    () {
+                      // TODO: 설정 화면 라우트 연결
+                    },
               ),
               const SizedBox(width: 8),
             ],
@@ -83,8 +85,11 @@ class MorePage extends StatelessWidget {
               children: [
                 // ================ 그라디언트 챗봇 배너 ================
                 _ChatBanner(
-                  onTap: onStartChatbot ?? () => Navigator.of(ctx).pushNamed('/chat-debug'),
+                  onTap: onStartChatbot ??
+                      () => Navigator.of(ctx, rootNavigator: true)
+                          .pushNamed('/chat-debug'),
                 ),
+
                 const SizedBox(height: 14),
 
                 // ======================= 나의 서비스 =======================
@@ -114,14 +119,15 @@ class MorePage extends StatelessWidget {
                   iconData: Icons.support_agent,
                   title: '내 문의보기',
                   trailingInfo: '1:1 문의 · 답변',
-                  onTap: onOneToOne ?? () {
-                    final qnaApi = ctx.read<QnaApiService>();
-                    Navigator.of(ctx).push(
-                      MaterialPageRoute(
-                        builder: (_) => QnaListPage(api: qnaApi),
-                      ),
-                    );
-                  },
+                  onTap: onOneToOne ??
+                      () {
+                        final qnaApi = ctx.read<QnaApiService>();
+                        Navigator.of(ctx).push(
+                          MaterialPageRoute(
+                            builder: (_) => QnaListPage(api: qnaApi),
+                          ),
+                        );
+                      },
                 ),
                 _ServiceTile(
                   section: _SectionKind.myServices,
@@ -161,7 +167,8 @@ class MorePage extends StatelessWidget {
                         builder: (_) => MultiProvider(
                           providers: [
                             Provider<FaqApi>.value(value: api),
-                            ChangeNotifierProvider<FaqStore>.value(value: store),
+                            ChangeNotifierProvider<FaqStore>.value(
+                                value: store),
                           ],
                           child: const FaqListPage(),
                         ),
@@ -174,13 +181,13 @@ class MorePage extends StatelessWidget {
                   iconData: Icons.mark_unread_chat_alt_outlined,
                   title: '1대1 문의',
                   trailingInfo: '상담원 연결 · 기록',
-                  onTap: onOneToOne ?? () {
+                  onTap: () {
                     final qnaApi = ctx.read<QnaApiService>();
                     Navigator.of(ctx).push(
                       MaterialPageRoute(
                         builder: (_) => QnaListPage(
                           api: qnaApi,
-                          openComposerOnStart: true, // 진입 즉시 폼으로 "교체" 오픈
+                          openComposerOnStart: true, // ← 바로 문의쓰기 열기
                         ),
                       ),
                     );
@@ -191,9 +198,10 @@ class MorePage extends StatelessWidget {
                   iconData: Icons.person_outline,
                   title: '프로필 관리',
                   trailingInfo: '개인정보 · 알림',
-                  onTap: onMyProfile ?? () {
-                    // TODO: /profile
-                  },
+                  onTap: onMyProfile ??
+                      () {
+                        // TODO: /profile
+                      },
                 ),
               ],
             ),
@@ -417,8 +425,8 @@ class _ChatBanner extends StatelessWidget {
                         'assets/images/mrb_desk.jpeg',
                         fit: BoxFit.cover,
                         alignment: const Alignment(0, -0.85),
-                        errorBuilder: (_, __, ___) =>
-                        const Center(child: Text('🤖', style: TextStyle(fontSize: 26))),
+                        errorBuilder: (_, __, ___) => const Center(
+                            child: Text('🤖', style: TextStyle(fontSize: 26))),
                       ),
                     ),
                   ),
@@ -452,7 +460,8 @@ class _ChatBanner extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right, color: Colors.white, size: 26),
+                  const Icon(Icons.chevron_right,
+                      color: Colors.white, size: 26),
                 ],
               ),
             ),

@@ -1,21 +1,5 @@
 // lib/pages/chat/bnk_chat_page.dart
-//
-// ✅ 이번 수정 포인트(“모든 서비스” MorePage와 톤&무드 맞춤)
-// 1) AppBar: MorePage와 동일한 화이트 톤, 블랙 타이틀/아이콘, 살짝 낮은 음영
-// 2) 말풍선:
-//    - AI: 연한 그레이(가독성 ↑), 둥근 18
-//    - User: MorePage 배너 그라디언트(보라→블루)로 통일, 화이트 텍스트
-// 3) 입력영역: 라운드 12, 내부 아이콘(mic/stop/mode), 전송 버튼 원형 그라디언트
-// 4) 음성모드 FAB: 화이트 카드 + 약한 그림자(= MorePage 타일 느낌)
-// 5) 동의모달: 화이트 카드 + 라운드 + 그림자(섹션 카드 톤)
-// 6) 타임스탬프: 회색 600, 좌우 정렬 유지
-// 7) 라우트 연동: MorePage의 '/chat-debug'로 진입하는 경우를 가정(아래 예시)
-//
-// 🔗 라우팅 예시
-// routes: { '/chat-debug': (_) => const BnkChatPage(), }
-//
-// ⚠️ 네트워크: POST('$_baseUrl$_apiPath')에 body=jsonEncode(text) 그대로 유지
-// ⚠️ 음성/STT: permission_handler + speech_to_text / TTS: flutter_tts 그대로 유지
+// BnkChatScreen — 전송버튼: 배경 없는 IconButton(suffixIcon), 말풍선/입력창 굴곡(14), 드래그 가능한 음성모드 FAB
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -23,7 +7,6 @@ import 'package:http/http.dart' as http;
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:permission_handler/permission_handler.dart';
-
 import '../../constants/api_constants.dart';
 
 enum Sender { ai, user, system }
@@ -33,9 +16,8 @@ enum TtsState { playing, stopped }
 class ChatMessage {
   final Sender sender;
   String text;
-  final String? id; // for replacing loading message
+  final String? id;
   final DateTime timestamp;
-
   ChatMessage({
     required this.sender,
     required this.text,
@@ -44,48 +26,51 @@ class ChatMessage {
   }) : timestamp = timestamp ?? DateTime.now();
 }
 
-class BnkChatPage extends StatefulWidget {
-  const BnkChatPage({super.key});
-
+class BnkChatScreen extends StatefulWidget {
+  const BnkChatScreen({super.key});
   @override
-  State<BnkChatPage> createState() => _BnkChatPageState();
+  State<BnkChatScreen> createState() => _BnkChatScreenState();
 }
 
-class _BnkChatPageState extends State<BnkChatPage> {
-  // ===== Palette (MorePage 배너와 톤 맞춤) =====
+class _BnkChatScreenState extends State<BnkChatScreen> {
+  // Palette
   static const _brandBlue = Color(0xFF2962FF);
   static const _brandPurple = Color(0xFF7C4DFF);
-  static const _aiBubble = Color(0xFFEDEFF2); // 연그레이
-  static const _bg = Color(0xFFF0F2F5); // 페이지 배경 (MorePage와 동일톤 계열)
+  static const _aiBubble = Color(0xFFEDEFF2);
   static const _card = Colors.white;
 
-  final TextEditingController _controller = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
+  final _controller = TextEditingController();
+  final _scrollController = ScrollController();
   final List<ChatMessage> _messages = [];
-  bool _consented = false;
+  bool _consented = false; // 동의 전에는 입력/전송 비활성
   bool _sending = false;
 
-  // Networking
+  // API
   static const String _baseUrl = apiBaseUrl;
   static const String _apiPath = '/api/chat/memory';
 
-  // Speech to Text
+  // STT/TTS
   late final stt.SpeechToText _speech;
   bool _speechAvailable = false;
   bool _isListening = false;
-
-  // Voice Mode
-  bool _voiceMode = false;
-
-  // Text to Speech
   final FlutterTts _tts = FlutterTts();
   TtsState _ttsState = TtsState.stopped;
+
+  bool _voiceMode = false;
+
+  // Draggable FAB pos
+  double? _fabLeft;
+  double? _fabTop;
+  static const double _fabSize = 64;
+  static const double _fabMargin = 16;
 
   @override
   void initState() {
     super.initState();
     _initSpeech();
     _initTts();
+    // 전송 아이콘 활성/비활성 자동 업데이트용
+    _controller.addListener(() => setState(() {}));
   }
 
   Future<void> _initSpeech() async {
@@ -109,10 +94,7 @@ class _BnkChatPageState extends State<BnkChatPage> {
     _tts.setStartHandler(() => setState(() => _ttsState = TtsState.playing));
     _tts.setCompletionHandler(
         () => setState(() => _ttsState = TtsState.stopped));
-    _tts.setErrorHandler((msg) {
-      debugPrint('TTS error: $msg');
-      setState(() => _ttsState = TtsState.stopped);
-    });
+    _tts.setErrorHandler((_) => setState(() => _ttsState = TtsState.stopped));
   }
 
   @override
@@ -122,11 +104,6 @@ class _BnkChatPageState extends State<BnkChatPage> {
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  // ===== UI helpers =====
-  void _showIntro() {
-    _appendAi('안녕하세요! 무엇을 도와드릴까요?\n예) “가까운 지점 알려줘”, “적금 추천해줘”');
   }
 
   void _appendAi(String text, {bool speak = false}) {
@@ -142,44 +119,28 @@ class _BnkChatPageState extends State<BnkChatPage> {
 
   String _addLoading() {
     final id = DateTime.now().millisecondsSinceEpoch.toString();
-    setState(() {
-      _messages.add(ChatMessage(
-        sender: Sender.ai,
-        text: '답변을 생성 중입니다…',
-        id: id,
-      ));
-    });
+    setState(() => _messages
+        .add(ChatMessage(sender: Sender.ai, text: '답변을 생성 중입니다…', id: id)));
     _scrollToBottom();
     return id;
   }
 
   void _replaceById(String id, String newText) {
-    final idx = _messages.indexWhere((m) => m.id == id);
-    if (idx != -1) {
-      setState(() => _messages[idx].text = newText);
-    }
+    final i = _messages.indexWhere((m) => m.id == id);
+    if (i != -1) setState(() => _messages[i].text = newText);
   }
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOut,
-        );
-      }
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent + 80,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+      );
     });
   }
 
-  // ===== Consent =====
-  Future<void> _agree() async {
-    setState(() => _consented = true);
-    _appendAi('개인정보 수집에 동의하셨습니다', speak: true);
-    _showIntro();
-  }
-
-  // ===== Networking =====
   Future<void> _sendMessage() async {
     if (_sending) return;
     final text = _controller.text.trim();
@@ -187,7 +148,6 @@ class _BnkChatPageState extends State<BnkChatPage> {
 
     _controller.clear();
     _appendUser(text);
-
     final loadingId = _addLoading();
 
     try {
@@ -196,20 +156,17 @@ class _BnkChatPageState extends State<BnkChatPage> {
       final res = await http.post(
         uri,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(text), // 서버 스펙: raw JSON string
+        body: jsonEncode(text),
       );
-
       if (res.statusCode >= 200 && res.statusCode < 300) {
         _replaceById(loadingId, res.body);
         await _speak(res.body);
       } else {
-        final err = '⚠️ 오류: ${res.statusCode} ${res.reasonPhrase}';
-        _replaceById(loadingId, err);
+        _replaceById(loadingId, '⚠️ 오류: ${res.statusCode} ${res.reasonPhrase}');
         await _speak('오류가 발생했습니다. 다시 시도해 주세요.');
       }
     } catch (e) {
-      final err = '⚠️ 네트워크 오류: $e';
-      _replaceById(loadingId, err);
+      _replaceById(loadingId, '⚠️ 네트워크 오류: $e');
       await _speak('네트워크 오류가 발생했습니다.');
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -217,12 +174,9 @@ class _BnkChatPageState extends State<BnkChatPage> {
     }
   }
 
-  // ===== STT / 권한 =====
   Future<bool> _ensureMicPermission() async {
     var status = await Permission.microphone.status;
-
     if (status.isGranted) return true;
-
     if (status.isPermanentlyDenied) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -234,21 +188,18 @@ class _BnkChatPageState extends State<BnkChatPage> {
       }
       return false;
     }
-
     final req = await Permission.microphone.request();
     return req.isGranted;
   }
 
   Future<void> _toggleListening() async {
     if (!await _ensureMicPermission()) return;
-
     if (!_speechAvailable) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('이 기기에서 음성 인식을 사용할 수 없습니다.')),
       );
       return;
     }
-
     if (_isListening) {
       await _speech.stop();
       setState(() => _isListening = false);
@@ -258,22 +209,15 @@ class _BnkChatPageState extends State<BnkChatPage> {
         onError: (e) => debugPrint('STT error: $e'),
       );
       if (!ok) return;
-
       await _speech.listen(
         localeId: 'ko_KR',
         listenMode: stt.ListenMode.confirmation,
-        onResult: (r) {
-          final recognized = r.recognizedWords;
-          setState(() => _controller.text = recognized);
-          // 자동 전송 원하면 아래 주석 해제
-          // if (r.finalResult && recognized.trim().isNotEmpty) _sendMessage();
-        },
+        onResult: (r) => setState(() => _controller.text = r.recognizedWords),
       );
       setState(() => _isListening = true);
     }
   }
 
-  // ===== Voice Mode =====
   Future<void> _toggleVoiceMode() async {
     if (!_consented) {
       if (mounted) {
@@ -285,18 +229,15 @@ class _BnkChatPageState extends State<BnkChatPage> {
     }
     setState(() => _voiceMode = !_voiceMode);
     if (_voiceMode) {
-      if (!_isListening) {
-        await _toggleListening();
-      }
+      if (!_isListening) await _toggleListening();
     } else {
       if (_isListening) {
         await _speech.stop();
-        setState(() => _isListening = false);
+        if (mounted) setState(() => _isListening = false);
       }
     }
   }
 
-  // ===== TTS =====
   Future<void> _speak(String text) async {
     if (text.trim().isEmpty) return;
     try {
@@ -315,20 +256,16 @@ class _BnkChatPageState extends State<BnkChatPage> {
     } catch (_) {}
   }
 
-  String _formatTimestamp(DateTime time) {
-    final h = time.hour.toString().padLeft(2, '0');
-    final m = time.minute.toString().padLeft(2, '0');
-    return '$h:$m';
-  }
+  String _time(DateTime t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
-  // ===== UI Parts =====
+  // ===== Bubbles =====
   Widget _buildBubble(ChatMessage m) {
     final isAi = m.sender == Sender.ai;
-
     final userGradient = const LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
-      colors: [_brandPurple, _brandBlue], // MorePage 배너와 동일 계열
+      colors: [Color(0xFF7C4DFF), Color(0xFF2962FF)],
     );
 
     final bubble = Container(
@@ -337,13 +274,9 @@ class _BnkChatPageState extends State<BnkChatPage> {
       decoration: BoxDecoration(
         color: isAi ? _aiBubble : null,
         gradient: isAi ? null : userGradient,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 6,
-            offset: Offset(0, 3),
-          ),
+          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
         ],
       ),
       child: Text(
@@ -388,10 +321,8 @@ class _BnkChatPageState extends State<BnkChatPage> {
               children: [
                 bubble,
                 const SizedBox(height: 4),
-                Text(
-                  _formatTimestamp(m.timestamp),
-                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                ),
+                Text(_time(m.timestamp),
+                    style: TextStyle(fontSize: 11, color: Colors.grey[600])),
               ],
             ),
           ),
@@ -400,107 +331,185 @@ class _BnkChatPageState extends State<BnkChatPage> {
     );
   }
 
-  Widget _buildInputBar() {
+  // ===== Inner Input Bar (전송버튼: 배경 없는 IconButton) =====
+  Widget _buildInnerInputBar() {
     final listening = _voiceMode || _isListening;
+    final canSend =
+        _consented && !_sending && _controller.text.trim().isNotEmpty;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      constraints: const BoxConstraints(maxWidth: 520),
-      child: Row(
-        children: [
-          // Mic / Stop
-          InkWell(
-            onTap: _consented ? _toggleListening : null,
-            borderRadius: BorderRadius.circular(12),
-            child: Ink(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: _card,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: const [
-                  BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 6,
-                      offset: Offset(0, 3)),
-                ],
-              ),
-              child: Icon(
-                listening ? Icons.stop_circle_outlined : Icons.mic_none,
-                color: listening ? _brandBlue : Colors.black87,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          // TextField
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: _card,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: const [
-                  BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 6,
-                      offset: Offset(0, 3)),
-                ],
-              ),
-              child: TextField(
-                controller: _controller,
-                enabled: _consented,
-                onSubmitted: (_) => _sendMessage(),
-                decoration: InputDecoration(
-                  hintText: !_consented
-                      ? '동의 후 이용할 수 있습니다'
-                      : (listening ? '듣는 중… 말한 뒤 전송을 누르세요' : '메시지를 입력하세요'),
-                  border: InputBorder.none,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(6, 6, 6, 8),
+        child: Row(
+          children: [
+            // Mic/Stop
+            InkWell(
+              onTap: _consented ? _toggleListening : null,
+              borderRadius: BorderRadius.circular(14),
+              child: Ink(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: _card,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: const [
+                    BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 6,
+                        offset: Offset(0, 3)),
+                  ],
+                ),
+                child: Icon(
+                  listening ? Icons.stop_circle_outlined : Icons.mic_none,
+                  color: listening ? _brandBlue : Colors.black87,
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
+            const SizedBox(width: 8),
 
-          // Send
-          InkWell(
-            onTap: _consented && !_sending ? _sendMessage : null,
-            borderRadius: BorderRadius.circular(24),
-            child: Ink(
-              width: 44,
-              height: 44,
+            // TextField (+ 배경 없는 전송 아이콘)
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _card,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: const [
+                    BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 6,
+                        offset: Offset(0, 3)),
+                  ],
+                ),
+                child: TextField(
+                  controller: _controller,
+                  enabled: _consented,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _sendMessage(),
+                  decoration: InputDecoration(
+                    hintText: '메시지를 입력하세요',
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                    suffixIconConstraints:
+                        const BoxConstraints(minWidth: 40, minHeight: 40),
+                    // ← 배경 없는 전송 버튼
+                    suffixIcon: IconButton(
+                      tooltip: '전송',
+                      splashRadius: 20,
+                      onPressed: canSend ? _sendMessage : null,
+                      icon: Icon(
+                        Icons.send_rounded,
+                        size: 22,
+                        color: Color(0xFF2962FF),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===== Draggable Voice FAB (기본 위치를 더 위로) =====
+  Widget _buildDraggableVoiceFab(BoxConstraints cons) {
+    final size = cons.biggest;
+    final kb = MediaQuery.of(context).viewInsets.bottom;
+
+    // 초기 위치: 우하단에서 입력창과 안 겹치게 220px 위로
+    _fabLeft ??= size.width - _fabSize - _fabMargin;
+    _fabTop ??= size.height - _fabSize - (kb > 0 ? kb : 0) - 185;
+
+    double clamp(double v, double min, double max) =>
+        v < min ? min : (v > max ? max : v);
+
+    final minLeft = _fabMargin;
+    final maxLeft = size.width - _fabSize - _fabMargin;
+    final minTop = _fabMargin + kToolbarHeight;
+    final maxTop = size.height - _fabSize - (kb > 0 ? kb : 0) - _fabMargin;
+
+    return Positioned(
+      left: clamp(_fabLeft!, minLeft, maxLeft),
+      top: clamp(_fabTop!, minTop, maxTop),
+      child: Opacity(
+        opacity: _consented ? 1.0 : 0.4,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              onTap: _toggleVoiceMode,
+              onPanUpdate: (d) {
+                setState(() {
+                  _fabLeft = clamp(_fabLeft! + d.delta.dx, minLeft, maxLeft);
+                  _fabTop = clamp(_fabTop! + d.delta.dy, minTop, maxTop);
+                });
+              },
+              child: AnimatedScale(
+                scale: _voiceMode || _isListening ? 1.06 : 1.0,
+                duration: const Duration(milliseconds: 180),
+                child: Container(
+                  width: _fabSize,
+                  height: _fabSize,
+                  decoration: BoxDecoration(
+                    color: _card,
+                    shape: BoxShape.circle,
+                    boxShadow: const [
+                      BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 10,
+                          offset: Offset(0, 4)),
+                    ],
+                    border: Border.all(
+                      color: (_voiceMode || _isListening)
+                          ? _brandBlue
+                          : const Color(0xFFE5E7EB),
+                      width: 1.2,
+                    ),
+                  ),
+                  child: ClipOval(
+                    child: Image.asset('assets/images/mrb_airpod_max.jpeg',
+                        fit: BoxFit.cover),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                gradient: _consented && !_sending
-                    ? const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [_brandPurple, _brandBlue],
-                      )
-                    : null,
-                color: _consented && !_sending ? null : Colors.grey,
+                color: _card,
+                borderRadius: BorderRadius.circular(12),
                 boxShadow: const [
-                  BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 6,
-                      offset: Offset(0, 3)),
+                  BoxShadow(color: Colors.black12, blurRadius: 6)
                 ],
               ),
-              child: const Icon(Icons.arrow_upward, color: Colors.white),
+              child: Text(
+                '음성모드',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: (_voiceMode || _isListening)
+                      ? _brandBlue
+                      : const Color(0xFF666666),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // AppBar: MorePage 톤(화이트/블랙)
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: Colors.white,
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0.6,
@@ -536,159 +545,109 @@ class _BnkChatPageState extends State<BnkChatPage> {
           const SizedBox(width: 8),
         ],
       ),
-      body: Stack(
-        children: [
-          Column(
+      body: LayoutBuilder(
+        builder: (_, cons) {
+          return Stack(
             children: [
-              const SizedBox(height: 6),
-              // 대화 카드
-              Expanded(
-                child: Container(
-                  margin:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-                  decoration: BoxDecoration(
-                    color: _card,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: const [
-                      BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 8,
-                          offset: Offset(0, 4)),
-                    ],
-                  ),
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) =>
-                        _buildBubble(_messages[index]),
-                  ),
-                ),
-              ),
-              _buildInputBar(),
-            ],
-          ),
-
-          // 음성 모드 카드형 FAB (MorePage 타일 톤)
-          Positioned(
-            right: 16,
-            bottom: 96,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                GestureDetector(
-                  onTap: _toggleVoiceMode,
-                  child: AnimatedScale(
-                    scale: _voiceMode || _isListening ? 1.06 : 1.0,
-                    duration: const Duration(milliseconds: 180),
-                    child: Opacity(
-                      opacity: _consented ? 1.0 : 0.4,
+              // 카드(메시지 + 내부 입력바)
+              Positioned.fill(
+                child: Column(
+                  children: [
+                    const SizedBox(height: 6),
+                    Expanded(
                       child: Container(
-                        width: 64,
-                        height: 64,
+                        margin: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
                           color: _card,
-                          shape: BoxShape.circle,
+                          borderRadius: BorderRadius.circular(12),
                           boxShadow: const [
                             BoxShadow(
                                 color: Colors.black12,
-                                blurRadius: 10,
+                                blurRadius: 8,
                                 offset: Offset(0, 4)),
                           ],
-                          border: Border.all(
-                            color: (_voiceMode || _isListening)
-                                ? _brandBlue
-                                : const Color(0xFFE5E7EB),
-                            width: 1.2,
-                          ),
                         ),
-                        child: ClipOval(
-                          child: Image.asset(
-                            'assets/images/mrb_airpod_max.jpeg',
-                            fit: BoxFit.cover,
-                          ),
+                        child: Column(
+                          children: [
+                            Expanded(
+                              child: ListView.builder(
+                                controller: _scrollController,
+                                padding:
+                                    const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                                itemCount: _messages.length,
+                                itemBuilder: (_, i) =>
+                                    _buildBubble(_messages[i]),
+                              ),
+                            ),
+                            _buildInnerInputBar(),
+                          ],
                         ),
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _card,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: const [
-                      BoxShadow(color: Colors.black12, blurRadius: 6)
-                    ],
-                  ),
-                  child: Text(
-                    '음성모드',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: (_voiceMode || _isListening)
-                          ? _brandBlue
-                          : const Color(0xFF666666),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // 개인정보 동의 모달 (카드형)
-          if (!_consented)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black54,
-                alignment: Alignment.center,
-                child: Container(
-                  width: 360,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: _card,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: const [
-                      BoxShadow(color: Colors.black26, blurRadius: 12)
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        '개인정보 수집 및 이용 동의',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: 10),
-                      const Text(
-                        '챗봇 이용을 위해 개인정보 수집에 동의해 주세요.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Color(0xFF4B5563)),
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _agree,
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                            backgroundColor: _brandBlue,
-                          ),
-                          child: const Text('동의합니다',
-                              style: TextStyle(color: Colors.white)),
-                        ),
-                      ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
-            ),
-        ],
+              // 드래그 가능한 음성모드 FAB (기본 위치 상향)
+              _buildDraggableVoiceFab(cons),
+
+              // 개인정보 동의 모달
+              if (!_consented)
+                Positioned.fill(
+                  child: Container(
+                    color: Colors.black54,
+                    alignment: Alignment.center,
+                    child: Container(
+                      width: 360,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: _card,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: const [
+                          BoxShadow(color: Colors.black26, blurRadius: 12)
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('개인정보 수집 및 이용 동의',
+                              style: TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.w800)),
+                          const SizedBox(height: 10),
+                          const Text(
+                            '챗봇 이용을 위해 개인정보 수집에 동의해 주세요.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Color(0xFF4B5563)),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                setState(() => _consented = true);
+                                _appendAi('개인정보 수집에 동의하셨습니다', speak: true);
+                                _appendAi(
+                                    '안녕하세요! 무엇을 도와드릴까요?\n예) “가까운 지점 알려줘”, “적금 추천해줘”');
+                              },
+                              style: ElevatedButton.styleFrom(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
+                                backgroundColor: _brandBlue,
+                              ),
+                              child: const Text('동의합니다',
+                                  style: TextStyle(color: Colors.white)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }

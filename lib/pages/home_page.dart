@@ -6,7 +6,6 @@ import 'package:local_auth/local_auth.dart';
 import 'package:reframe/constants/number_format.dart';
 
 // 필요 페이지들 직접 import (위젯 push용)
-import 'package:reframe/event/pages/fortune_hub_page.dart';
 import 'package:reframe/model/account.dart';
 import 'package:reframe/pages/account/account_detail_page.dart';
 import 'package:reframe/pages/chat/bnk_chat_page.dart';
@@ -154,7 +153,8 @@ class _HomePageState extends State<HomePage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.account_balance_wallet_outlined, size: 40),
+                      const Icon(Icons.account_balance_wallet_outlined,
+                          size: 40),
                       const SizedBox(height: 12),
                       const Text('등록된 계좌가 없습니다.'),
                       const SizedBox(height: 8),
@@ -193,12 +193,19 @@ class _HomePageState extends State<HomePage> {
                 final account = data[idx];
                 return _AccountCard(
                   title: account.accountName ?? 'BNK 부산은행 계좌',
-                  subtitle: '${_showTypeText(account.accountType)} · ${account.accountNumber}',
-                  balanceText: account.balance != null ? '${money.format(account.balance)} 원' : '- 원',
+                  subtitle:
+                      '${_showTypeText(account.accountType)} · ${account.accountNumber}',
+                  balanceText: account.balance != null
+                      ? '${money.format(account.balance)} 원'
+                      : '- 원',
                   isDefault: (account.isDefault == 1 ?? false),
                   onTap: () {
-                    if(account.accountType == AccountType.product) {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => AccountDetailPage(accountId: account.id)));
+                    if (account.accountType == AccountType.product) {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) =>
+                                  AccountDetailPage(accountId: account.id)));
                     }
                   },
                 );
@@ -232,19 +239,19 @@ class _AccountCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final badge = isDefault
         ? Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary.withOpacity(.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        '기본계좌',
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: Theme.of(context).colorScheme.primary,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    )
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withOpacity(.12),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              '기본계좌',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          )
         : null;
 
     return Card(
@@ -267,9 +274,12 @@ class _AccountCard extends StatelessWidget {
                         Flexible(
                           child: Text(
                             title,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -283,8 +293,12 @@ class _AccountCard extends StatelessWidget {
                     Text(
                       subtitle,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(.7),
-                      ),
+                            color: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.color
+                                ?.withOpacity(.7),
+                          ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],

@@ -21,7 +21,7 @@ class _InputPageState extends State<InputPage> {
   final dayController = TextEditingController();
 
   String gender = "남";
-  bool isAgreed = false;
+  bool isAgreed = true; // ✅ 3) 기본값 체크 On
   String? invitedBy;
 
   late final AppLinks _appLinks;
@@ -64,7 +64,8 @@ class _InputPageState extends State<InputPage> {
     super.didChangeDependencies();
     final raw = ModalRoute.of(context)?.settings.arguments;
     if (raw is Map) {
-      final v = (raw['inviter'] ?? raw['inviteCode'] ?? raw['code'])?.toString();
+      final v =
+          (raw['inviter'] ?? raw['inviteCode'] ?? raw['code'])?.toString();
       if (v != null && v.isNotEmpty && invitedBy == null) {
         setState(() => invitedBy = v); // StartPage → InputPage 전달분 반영
       }
@@ -87,17 +88,17 @@ class _InputPageState extends State<InputPage> {
 
     // 런타임 링크
     _linkSub = _appLinks.uriLinkStream.listen(
-          (uri) => _maybeCaptureInvite(uri, source: 'stream'),
+      (uri) => _maybeCaptureInvite(uri, source: 'stream'),
       onError: (err) => debugPrint('⚠️ uri link stream error: $err'),
     );
   }
 
   bool _isOurLink(Uri link) {
     final isCustom = link.scheme == 'abcd1234' && link.host == 'fortune';
-    final isHttps = link.scheme == 'https'
-        && link.host == 'abc123-2580c.web.app'
-        && link.pathSegments.isNotEmpty
-        && link.pathSegments.first == 'fortune'; // /fortune/...
+    final isHttps = link.scheme == 'https' &&
+        link.host == 'abc123-2580c.web.app' &&
+        link.pathSegments.isNotEmpty &&
+        link.pathSegments.first == 'fortune'; // /fortune/...
     return isCustom || isHttps;
   }
 
@@ -109,10 +110,9 @@ class _InputPageState extends State<InputPage> {
     if (_lastHandled == key) return; // 같은 링크 두 번 방지
     _lastHandled = key;
 
-    final invite =
-        link.queryParameters['inviteCode'] ??
-            link.queryParameters['inviter'] ??
-            link.queryParameters['code'];
+    final invite = link.queryParameters['inviteCode'] ??
+        link.queryParameters['inviter'] ??
+        link.queryParameters['code'];
 
     if (invite != null && invite.isNotEmpty) {
       setState(() => invitedBy = invite); // 내부적으로만 저장, 화면엔 노출 X
@@ -145,8 +145,11 @@ class _InputPageState extends State<InputPage> {
     final d = dayController.text.trim();
 
     if (name.isEmpty) return _fail('이름을 입력해주세요.');
-    if (y.length != 4 || int.tryParse(y) == null) return _fail('생년(4자리 숫자)을 입력해주세요.');
-    final mi = int.tryParse(m); final di = int.tryParse(d);
+    if (y.length != 4 || int.tryParse(y) == null) {
+      return _fail('생년(4자리 숫자)을 입력해주세요.');
+    }
+    final mi = int.tryParse(m);
+    final di = int.tryParse(d);
     if (mi == null || mi < 1 || mi > 12) return _fail('월은 1~12 사이여야 해요.');
     if (di == null || di < 1 || di > 31) return _fail('일은 1~31 사이여야 해요.');
     return true;
@@ -178,11 +181,11 @@ class _InputPageState extends State<InputPage> {
       if (!mounted) return;
 
       final FortuneFlowArgs args = (
-      isAgreed: isAgreed,
-      name: isAgreed ? name : null,
-      birthDate: isAgreed ? birth : null,
-      gender: isAgreed ? gender : null,
-      invitedBy: invitedBy, // 내부 전달만, 화면 노출 없음
+        isAgreed: isAgreed,
+        name: isAgreed ? name : null,
+        birthDate: isAgreed ? birth : null,
+        gender: isAgreed ? gender : null,
+        invitedBy: invitedBy, // 내부 전달만, 화면 노출 없음
       );
 
       Navigator.push(
@@ -204,7 +207,7 @@ class _InputPageState extends State<InputPage> {
       labelText: label,
       hintText: hint,
       filled: true,
-      fillColor: Colors.grey.shade50,
+      fillColor: Colors.white,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -254,7 +257,8 @@ class _InputPageState extends State<InputPage> {
 
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          // ✅ 1) 상단 여백 늘려서 전체 섹션을 '아래로' 살짝 내림
+          padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
           children: [
             // 상단 타이틀(지연 시작 + 타이핑, 커서 없음)
             Padding(
@@ -270,7 +274,7 @@ class _InputPageState extends State<InputPage> {
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
 
             // 이름
             TextField(
@@ -278,9 +282,9 @@ class _InputPageState extends State<InputPage> {
               decoration: _decor('이름'),
               textInputAction: TextInputAction.next,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 22),
 
-// 성별
+            // 성별
             const Text(
               "성별",
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
@@ -296,15 +300,19 @@ class _InputPageState extends State<InputPage> {
                       height: 52, // ✅ 생년월일 입력칸과 동일한 높이
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: gender == "남" ? const Color(0xFFD8E3FF) : Colors.white,
+                        color: gender == "남"
+                            ? const Color(0xFFD8E3FF)
+                            : Colors.white,
                         border: Border.all(color: Colors.grey.shade300),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         "남",
                         style: TextStyle(
-                          color: gender == "남" ? Colors.black87 : Colors.black54,
-                          fontWeight: gender == "남" ? FontWeight.w600 : FontWeight.w400,
+                          color:
+                              gender == "남" ? Colors.black87 : Colors.black54,
+                          fontWeight:
+                              gender == "남" ? FontWeight.w600 : FontWeight.w400,
                         ),
                       ),
                     ),
@@ -318,15 +326,19 @@ class _InputPageState extends State<InputPage> {
                       height: 52, // 동일 높이
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: gender == "여" ? const Color(0xFFD8E3FF) : Colors.white,
+                        color: gender == "여"
+                            ? const Color(0xFFD8E3FF)
+                            : Colors.white,
                         border: Border.all(color: Colors.grey.shade300),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         "여",
                         style: TextStyle(
-                          color: gender == "여" ? Colors.black87 : Colors.black54,
-                          fontWeight: gender == "여" ? FontWeight.w600 : FontWeight.w400,
+                          color:
+                              gender == "여" ? Colors.black87 : Colors.black54,
+                          fontWeight:
+                              gender == "여" ? FontWeight.w600 : FontWeight.w400,
                         ),
                       ),
                     ),
@@ -334,7 +346,7 @@ class _InputPageState extends State<InputPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 22),
 
             // 생년월일
             const Text(
@@ -348,7 +360,7 @@ class _InputPageState extends State<InputPage> {
                   child: TextField(
                     controller: yearController,
                     keyboardType: TextInputType.number,
-                    decoration: _decor('년', hint: '예: 1998'),
+                    decoration: _decor('년', hint: '2025'),
                     textInputAction: TextInputAction.next,
                   ),
                 ),
@@ -357,7 +369,7 @@ class _InputPageState extends State<InputPage> {
                   child: TextField(
                     controller: monthController,
                     keyboardType: TextInputType.number,
-                    decoration: _decor('월'),
+                    decoration: _decor('월', hint: '12'),
                     textInputAction: TextInputAction.next,
                   ),
                 ),
@@ -366,35 +378,60 @@ class _InputPageState extends State<InputPage> {
                   child: TextField(
                     controller: dayController,
                     keyboardType: TextInputType.number,
-                    decoration: _decor('일'),
+                    decoration: _decor('일', hint: '31'),
                     textInputAction: TextInputAction.done,
                   ),
                 ),
               ],
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            // 동의
-            Row(
+            // 개인정보 동의 영역
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Checkbox(
-                  value: isAgreed,
-                  onChanged: (v) => setState(() => isAgreed = v ?? false),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Checkbox(
+                      value: isAgreed,
+                      onChanged: (v) => setState(() => isAgreed = v ?? false),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(top: 14),
+                        child: Text(
+                          '개인정보 수집/이용 동의 (선택)',
+                          style: TextStyle(
+                              fontSize: 13.5, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const Expanded(
+
+                // ✅ 체크박스 밑 필수 안내 문구
+                const Padding(
+                  padding: EdgeInsets.only(left: 12, right: 8, bottom: 4),
                   child: Text(
-                    "개인정보 수집·이용에 동의합니다. (동의 시 이름/생년월일/성별을 서버에 저장하며, "
-                        "동의하지 않으면 결과 페이지에서만 일시적으로 사용됩니다.)",
-                    style: TextStyle(fontSize: 13, height: 1.3),
+                    '동의 시 이름·생년월일·성별을 서버에 저장합니다.\n'
+                    '동의하지 않으면 결과 페이지에서만 일시적으로 사용됩니다.',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      height: 1.4,
+                      color: Colors.black54,
+                    ),
                   ),
                 ),
               ],
             ),
 
-            const SizedBox(height: 30),
+            const SizedBox(height: 40), // ✅ 1) 전체를 더 아래로 내려 보이도록 하단 여백 추가
           ],
         ),
       ),

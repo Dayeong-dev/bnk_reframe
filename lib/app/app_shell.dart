@@ -1,6 +1,6 @@
 // lib/shell/app_shell.dart
 import 'package:flutter/material.dart';
-import 'package:reframe/event/pages/fortune_hub_page.dart';
+import 'package:reframe/event/pages/start_page.dart';
 import 'package:reframe/pages/customer/more_page.dart';
 import 'package:reframe/pages/deposit/deposit_main_page.dart';
 import 'package:reframe/pages/home_page.dart';
@@ -19,7 +19,7 @@ class _AppShellState extends State<AppShell> {
   Widget _rootForIndex(int i) => switch (i) {
         0 => const HomePage(),
         1 => DepositMainPage(),
-        2 => const FortuneHubPage(),
+        2 => const StartPage(),
         3 => const MorePage(),
         _ => const HomePage(),
       };

@@ -28,7 +28,6 @@ import 'event/pages/coupons_page.dart';
 // import 'event/pages/input_page.dart';
 // import 'event/pages/result_page.dart';
 // import 'event/pages/loading_page.dart';
-import 'package:reframe/event/pages/fortune_hub_page.dart';
 // ── Savings 테스트 페이지 임포트 (기존 main.dart에 있던 것 유지) ─────────
 import 'package:reframe/pages/savings_test/screens/start_screen.dart';
 import 'package:reframe/pages/savings_test/screens/question_screen.dart';
@@ -99,7 +98,7 @@ class MyApp extends StatelessWidget {
           '/savings/result': (_) => const ResultScreen(),
 
           // 운세 이벤트(선택) 네임드 라우트
-          '/event/hub': (_) => const FortuneHubPage(),
+
           '/event/fortune': (_) => const StartPage(),
           '/event/coupons': (_) => const CouponsPage(stampCount: 0),
           // 필요 시 추가:

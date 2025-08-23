@@ -5,6 +5,13 @@ import '../service/fortune_auth_service.dart';
 import '../config/share_links.dart';
 import 'my_coupons_page.dart';
 
+/// rootNavigator로 네비게이션(모달/탭 밖으로 밀기)
+void pushNamedRoot(BuildContext context, String routeName,
+    {Object? arguments}) {
+  Navigator.of(context, rootNavigator: true)
+      .pushNamed(routeName, arguments: arguments);
+}
+
 /// 쿠폰 스탬프 페이지 (컨텐츠 전용)
 class CouponsPage extends StatefulWidget {
   final int stampCount; // 현재 스탬프 개수
@@ -26,12 +33,12 @@ class _CouponsPageState extends State<CouponsPage>
 
   late final AnimationController _popCtrl;
 
-  late final Animation<double> _scale;        // 팝(확대→안정)
-  late final Animation<double> _fade;         // 도장 페이드 인
-  late final Animation<double> _rotate;       // 미세 회전(스윙 후 0°)
+  late final Animation<double> _scale; // 팝(확대→안정)
+  late final Animation<double> _fade; // 도장 페이드 인
+  late final Animation<double> _rotate; // 미세 회전(스윙 후 0°)
   late final Animation<double> _flashOpacity; // 라디얼 플래시 투명도
-  late final Animation<double> _flashScale;   // 라디얼 플래시 크기
-  late final Animation<double> _nudgeY;       // 순간 하강→복귀
+  late final Animation<double> _flashScale; // 라디얼 플래시 크기
+  late final Animation<double> _nudgeY; // 순간 하강→복귀
 
   @override
   void initState() {
@@ -181,9 +188,10 @@ class _CouponsPageState extends State<CouponsPage>
   @override
   Widget build(BuildContext context) {
     final int stamped = widget.stampCount.clamp(0, total).toInt();
+    const double kRadius = 14;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -216,12 +224,23 @@ class _CouponsPageState extends State<CouponsPage>
             ),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 5),
 
-          // 내 쿠폰함 보기
+          // 내 쿠폰함 보기 — TextButton(테두리 없음) + 라운드 통일
           SizedBox(
             height: 56,
-            child: OutlinedButton(
+            child: TextButton(
+              style: TextButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(kRadius),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                foregroundColor: Theme.of(context).colorScheme.primary,
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               onPressed: () {
                 Navigator.push(
                   context,
@@ -234,43 +253,42 @@ class _CouponsPageState extends State<CouponsPage>
 
           const SizedBox(height: 12),
 
-          // 공유 버튼(옵션)
+          // 공유 버튼 — 가시성을 위해 FilledButton 유지 (라운드 통일)
           SizedBox(
             height: 56,
-            child: ElevatedButton(
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(kRadius),
+                ),
+              ),
               onPressed: _share,
               child: const Text(
                 '친구에게 공유하기',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               ),
             ),
           ),
 
-          const SizedBox(height: 40),
+          const SizedBox(height: 28),
 
-          // 🔶 하단 CTA 카드 2개 (텍스트 + 하단 이미지)
-          Row(
+          // 하단 CTA: 기존 2개만 2열로 길고 넓게
+          GridView.count(
+            physics: const NeverScrollableScrollPhysics(),
+            shrinkWrap: true,
+            crossAxisCount: 1,
+            mainAxisSpacing: 12,
+            childAspectRatio: 5 / 2, // ↓값이 작을수록 세로로 "길게"
             children: [
-              Expanded(
-                child: _CTAImageCard(
-                  title: '나에게 딱 맞는\n예·적금 상품\n추천받기',
-                  imagePath: 'assets/images/pig.png',
-                  onTap: () {
-                    // ✅ Savings 테스트: StartScreen
-                    Navigator.pushNamed(context, '/savings/start');
-                  },
-                ),
+              _CTAImageCard(
+                title: '나에게 딱 맞는\n예·적금 상품\n추천받기',
+                imagePath: 'assets/images/pig.png',
+                onTap: () => pushNamedRoot(context, '/savings/start'),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _CTAImageCard(
-                  title: '오늘의 운세\n확인하고\n커피까지!',
-                  imagePath: 'assets/images/coffee.png',
-                  onTap: () {
-                    // ✅ 운세 시작 페이지
-                    Navigator.pushNamed(context, '/event/fortune');
-                  },
-                ),
+              _CTAImageCard(
+                title: '오늘의 운세\n확인하고\n커피까지!',
+                imagePath: 'assets/images/coffee.png',
+                onTap: () => pushNamedRoot(context, '/event/fortune'),
               ),
             ],
           ),
@@ -284,12 +302,12 @@ class _CouponsPageState extends State<CouponsPage>
 class _StampSlot extends StatelessWidget {
   final bool isStamped;
 
-  final Animation<double>? scale;        // 팝 스케일
-  final Animation<double>? fade;         // 도장 페이드
-  final Animation<double>? rotate;       // 미세 회전
+  final Animation<double>? scale; // 팝 스케일
+  final Animation<double>? fade; // 도장 페이드
+  final Animation<double>? rotate; // 미세 회전
   final Animation<double>? flashOpacity; // 라디얼 플래시 투명도
-  final Animation<double>? flashScale;   // 라디얼 플래시 크기
-  final Animation<double>? nudgeY;       // 순간 하강
+  final Animation<double>? flashScale; // 라디얼 플래시 크기
+  final Animation<double>? nudgeY; // 순간 하강
 
   const _StampSlot({
     required this.isStamped,
@@ -331,7 +349,6 @@ class _StampSlot extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         base,
-
         if (flashOpacity != null && flashScale != null)
           AnimatedBuilder(
             animation: Listenable.merge([flashOpacity!, flashScale!]),
@@ -355,12 +372,11 @@ class _StampSlot extends StatelessWidget {
               );
             },
           ),
-
         FadeTransition(
           opacity: fade!,
           child: AnimatedBuilder(
-            animation:
-            Listenable.merge([scale!, rotate!, if (nudgeY != null) nudgeY!]),
+            animation: Listenable.merge(
+                [scale!, rotate!, if (nudgeY != null) nudgeY!]),
             builder: (context, _) {
               return Transform.translate(
                 offset: Offset(0, nudgeY?.value ?? 0.0),
@@ -401,7 +417,6 @@ class _CTAImageCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Container(
-          height: 120,
           padding: const EdgeInsets.all(14),
           child: Stack(
             children: [
@@ -411,7 +426,7 @@ class _CTAImageCard extends StatelessWidget {
                   child: Text(
                     title,
                     style: const TextStyle(
-                      fontSize: 14,
+                      fontSize: 22,
                       fontWeight: FontWeight.w800,
                       height: 1.25,
                     ),
@@ -423,8 +438,8 @@ class _CTAImageCard extends StatelessWidget {
                 bottom: 0,
                 child: Image.asset(
                   imagePath,
-                  width: 56,
-                  height: 56,
+                  width: 100,
+                  height: 100,
                   fit: BoxFit.contain,
                 ),
               ),

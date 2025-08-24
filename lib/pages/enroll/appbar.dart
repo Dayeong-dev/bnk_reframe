@@ -6,8 +6,9 @@ AppBar buildAppBar(BuildContext context) {
     title: const Text('상품 가입'),
     actions: [
       TextButton(
-        onPressed: () => Navigator.of(context).popUntil(ModalRoute.withName('/deposit/detail')),
-        child: const Text('나가기', style: TextStyle(color: Colors.red)),
+        onPressed: () => Navigator.of(context)
+            .popUntil(ModalRoute.withName('/deposit/detail')),
+        child: const Text('나가기'),
       ),
     ],
   );

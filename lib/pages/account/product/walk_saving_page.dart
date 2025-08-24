@@ -416,7 +416,7 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                                       style: const TextStyle(fontWeight: FontWeight.w700, color: _textStrong)),
                                   subtitle: Text(subtitle, style: const TextStyle(color: _textWeak)),
                                   trailing: _StatusPill(
-                                    text: isPaid ? 'PAID' : 'UNPAID',
+                                    text: isPaid ? '납입완료' : '미납입',
                                     tone: isPaid ? _ChipTone.success : _ChipTone.warning,
                                   ),
                                 ),

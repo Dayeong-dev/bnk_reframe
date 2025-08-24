@@ -33,12 +33,17 @@ import 'package:reframe/event/pages/fortune_hub_page.dart';
 import 'package:reframe/pages/savings_test/screens/start_screen.dart';
 import 'package:reframe/pages/savings_test/screens/question_screen.dart';
 import 'package:reframe/pages/savings_test/screens/result_screen.dart';
+import 'package:intl/date_symbol_data_local.dart'; // ← 이거 추가
 
 // 전역 네비게이터 키 (기존 유지)
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 1) 날짜 포맷 로케일 데이터 로드
+  await initializeDateFormatting ('ko_KR', null);
+  // (사용한다면) 다른 로케일도 추가로 호출 가능: await initializeDateFormatting('en_US');
 
   // 1) 네이버 지도 SDK 초기화
   await FlutterNaverMap().init(

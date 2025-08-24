@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:reframe/pages/enroll/enroll_first.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -26,7 +27,10 @@ import 'package:reframe/env/app_endpoints.dart';
 import 'package:reframe/utils/recent_my_review.dart';
 
 /// =======================================================
-///  DepositDetailPage (심플 센터 정렬 버전) — 공백 개선 + 상단 플로팅 알림
+///  DepositDetailPage (심플 센터 정렬 버전)
+///  - presence 배지를 레이아웃 차지 X 상단 플로팅 토스트로 전환
+///  - 진입 시 위에서 슬라이드 인 → 10초 후 자동 사라짐
+///  - 사용자가 위로 스크롤하면 즉시 사라짐
 /// =======================================================
 
 const _brand = Color(0xFF304FFE);
@@ -109,10 +113,20 @@ class _DepositDetailPageState extends State<DepositDetailPage>
   WebSocketChannel? _ws;
   StreamSubscription? _wsSub;
 
-  // 상단 플로팅 토스트 상태
+  // ===== 상단 플로팅 토스트 (리뷰 알림) =====
   OverlayEntry? _toastEntry;
   AnimationController? _toastAC;
   Timer? _toastTimer;
+
+  // ===== 상단 플로팅 토스트 (Presence) — 이번에 추가 =====
+  OverlayEntry? _presenceToastEntry;
+  AnimationController? _presenceToastAC;
+  Timer? _presenceToastTimer;
+  static const _presenceToastDuration = Duration(seconds: 10);
+  bool get _presenceToastVisible => _presenceToastEntry != null;
+
+  // 스크롤 제어(위로 스크롤 시 토스트 닫기)
+  final ScrollController _scroll = ScrollController();
 
   String _productTypeOf(DepositProduct p) {
     final c = (p.category ?? '').trim();
@@ -148,18 +162,35 @@ class _DepositDetailPageState extends State<DepositDetailPage>
   @override
   void initState() {
     super.initState();
+
+    // 스크롤 방향 감지: 사용자가 "위로 올리면"(offset 증가, forward) presence 토스트 닫기
+    _scroll.addListener(() {
+      if (_presenceToastVisible &&
+          _scroll.position.userScrollDirection == ScrollDirection.forward) {
+        _hidePresenceToast(immediate: true);
+      }
+    });
+
     loadProduct();
   }
 
   @override
   void dispose() {
-    // 토스트 정리
+    // 리뷰 토스트 정리
     _toastTimer?.cancel();
     _toastAC?.dispose();
     _toastEntry?.remove();
+
+    // Presence 토스트 정리
+    _presenceToastTimer?.cancel();
+    _presenceToastAC?.dispose();
+    _presenceToastEntry?.remove();
+
     // WS 정리
     _wsSub?.cancel();
     _ws?.sink.close(ws_status.goingAway);
+
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -170,6 +201,13 @@ class _DepositDetailPageState extends State<DepositDetailPage>
       setState(() => product = result);
       await _logProductViewOnce(result);
       _subscribeReviewTopic(result.productId);
+
+      // 첫 진입 시 presence가 이미 잡혀있다면(>0) 한 프레임 뒤 토스트 노출
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_presenceCount > 0 && mounted) {
+          _showPresenceToast('지금 $_presenceCount명이 같이 보고 있어요👀');
+        }
+      });
     } catch (e) {
       debugPrint("❌ 상품 불러오기 실패: $e");
     }
@@ -178,7 +216,6 @@ class _DepositDetailPageState extends State<DepositDetailPage>
   void _subscribeReviewTopic(int productId) {
     final reviewTopic = 'product.$productId.reviews';
     final presenceTopic = '$reviewTopic.presence';
-
 
     final wsUrl = Uri.parse('${AppEndpoints.wsBase}?topic=$reviewTopic');
     debugPrint('🔌 WS connect → $wsUrl');
@@ -199,7 +236,8 @@ class _DepositDetailPageState extends State<DepositDetailPage>
 
           final type = msg['type'] as String?;
           if (type == 'review_created' && mounted) {
-            final snippet = _normalizeSnippet((msg['contentSnippet'] as String?) ?? '');
+            final snippet =
+                _normalizeSnippet((msg['contentSnippet'] as String?) ?? '');
             final rating = (msg['rating'] as num?)?.toInt() ?? 0;
 
             final suppress = RecentMyReviewBuffer.I.shouldSuppress(
@@ -214,7 +252,15 @@ class _DepositDetailPageState extends State<DepositDetailPage>
           // ✅ presence 반영
           if (type == 'presence') {
             final n = (msg['count'] as num?)?.toInt() ?? 0;
-            if (mounted) setState(() => _presenceCount = n);
+            if (mounted) {
+              setState(() => _presenceCount = n);
+              // 0명이면 숨김, 1명 이상이면 10초 플로팅 표시(갱신 시 타이머 리셋)
+              if (n > 0) {
+                _showPresenceToast('현재 ${n}명의 고객이 조회 중입니다');
+              } else {
+                _hidePresenceToast(immediate: true);
+              }
+            }
             return;
           }
         } catch (e) {
@@ -235,7 +281,7 @@ class _DepositDetailPageState extends State<DepositDetailPage>
     return t.replaceAll('...', '…');
   }
 
-  /// ======= 상단 플로팅 알림(UI) — 흰 배경 + 노란 종 + 그림자 최소 =======
+  /// ======= 상단 플로팅 알림(UI) — 리뷰 알림(기존) =======
   void _showTopToast(
     String text, {
     Duration duration = const Duration(seconds: 3),
@@ -368,6 +414,121 @@ class _DepositDetailPageState extends State<DepositDetailPage>
     });
   }
 
+  /// ======= 상단 플로팅 알림(UI) — Presence 토스트(신규) =======
+  void _showPresenceToast(String text) {
+    // 기존 타이머/애니메이션/엔트리 정리 후 재생성(갱신 시 깔끔)
+    _presenceToastTimer?.cancel();
+    _presenceToastAC?.dispose();
+    _presenceToastEntry?.remove();
+
+    _presenceToastAC = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 260));
+    final fade =
+        CurvedAnimation(parent: _presenceToastAC!, curve: Curves.easeOutCubic);
+    final slide = Tween<Offset>(begin: const Offset(0, -0.25), end: Offset.zero)
+        .animate(CurvedAnimation(
+            parent: _presenceToastAC!, curve: Curves.easeOutCubic));
+
+    _presenceToastEntry = OverlayEntry(
+      builder: (context) {
+        final safeTop = MediaQuery.of(context).padding.top;
+        return IgnorePointer(
+          ignoring: false,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: Padding(
+                    padding: EdgeInsets.only(top: safeTop + 10),
+                    child: SlideTransition(
+                      position: slide,
+                      child: FadeTransition(
+                        opacity: fade,
+                        child: GestureDetector(
+                          onTap: () => _hidePresenceToast(immediate: true),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: Container(
+                              constraints: const BoxConstraints(maxWidth: 560),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 9),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(999),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color(0x19000000),
+                                    blurRadius: 8,
+                                    offset: Offset(0, 3),
+                                  )
+                                ],
+                                border: Border.all(
+                                  color: const Color(0x14000000),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.visibility,
+                                      size: 16, color: Color(0xFF1565C0)),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    text, // 예: "현재 3명 열람 중"
+                                    style: const TextStyle(
+                                      color: Color(0xFF0D47A1),
+                                      fontWeight: FontWeight.w800,
+                                      height: 1.2,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    Overlay.of(context, rootOverlay: true).insert(_presenceToastEntry!);
+    _presenceToastAC!.forward();
+
+    // 10초 후 자동 닫힘(갱신되면 타이머 리셋)
+    _presenceToastTimer = Timer(_presenceToastDuration, () {
+      _hidePresenceToast();
+    });
+  }
+
+  Future<void> _hidePresenceToast({bool immediate = false}) async {
+    _presenceToastTimer?.cancel();
+    if (_presenceToastEntry == null) return;
+
+    if (immediate) {
+      _presenceToastEntry?.remove();
+      _presenceToastEntry = null;
+      _presenceToastAC?.dispose();
+      _presenceToastAC = null;
+      return;
+    }
+
+    try {
+      await _presenceToastAC?.reverse();
+    } finally {
+      _presenceToastEntry?.remove();
+      _presenceToastEntry = null;
+      _presenceToastAC?.dispose();
+      _presenceToastAC = null;
+    }
+  }
+
   /// 상세 알림 → 상단 토스트 (문구 고정)
   void _showReviewToast() {
     _showTopToast('이 상품의 새로운 리뷰가 등록되었습니다');
@@ -466,7 +627,8 @@ class _DepositDetailPageState extends State<DepositDetailPage>
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
-        title: Text(product!.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+        title: Text(product!.name,
+            style: const TextStyle(fontWeight: FontWeight.w700)),
         centerTitle: true,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
@@ -474,38 +636,11 @@ class _DepositDetailPageState extends State<DepositDetailPage>
       ),
       bottomNavigationBar: _bottomActionBar(),
       body: ListView(
+        controller: _scroll, // ✅ 스크롤 감지
         padding: EdgeInsets.fromLTRB(16, 16, 16, 12 + safeBottom),
         physics: const ClampingScrollPhysics(),
         children: [
-          // ✅ presence 칩
-          if (_presenceCount > 0)
-            Align(
-              alignment: Alignment.centerRight,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                margin: const EdgeInsets.only(bottom: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE3F2FD),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: const Color(0xFF90CAF9)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.visibility, size: 16, color: Color(0xFF1565C0)),
-                    const SizedBox(width: 6),
-                    Text(
-                      '현재 $_presenceCount명 열람 중',
-                      style: const TextStyle(
-                        color: Color(0xFF0D47A1),
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
+          // ✅ (삭제됨) 레이아웃 차지하던 presence 칩
           FadeSlideInOnVisible(child: _buildHeader(product!)),
           const SizedBox(height: 18),
           _sectionDivider("상품 상세"),
@@ -519,7 +654,6 @@ class _DepositDetailPageState extends State<DepositDetailPage>
       ),
     );
   }
-
 
   Widget _bottomActionBar() {
     return SafeArea(
@@ -544,7 +678,8 @@ class _DepositDetailPageState extends State<DepositDetailPage>
                         builder: (_) => ReviewPage(
                           productId: p.productId,
                           productName: p.name,
-                          presenceOthers: (_presenceCount > 0) ? (_presenceCount - 1) : 0,
+                          presenceOthers:
+                              (_presenceCount > 0) ? (_presenceCount - 1) : 0,
                         ),
                       ),
                     );

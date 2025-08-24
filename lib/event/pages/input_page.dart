@@ -1,11 +1,8 @@
 // input_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
-
 import 'package:flutter/services.dart';
-
 import 'package:flutter/cupertino.dart';
-
 import 'package:app_links/app_links.dart';
 
 import '../models/types.dart';
@@ -31,9 +28,9 @@ class _InputPageState extends State<InputPage> {
 
   String gender = "남";
 
-  bool isAgreed = true; // ✅ 기본값 체크 On
+  // ✅ 기본값 체크 On (중복 선언 제거)
+  bool isAgreed = true;
 
-  bool isAgreed = true; // 기본값 체크 On
   String? invitedBy;
 
   late final AppLinks _appLinks;
@@ -80,14 +77,10 @@ class _InputPageState extends State<InputPage> {
     final raw = ModalRoute.of(context)?.settings.arguments;
     if (raw is Map) {
       final v =
-      (raw['inviter'] ?? raw['inviteCode'] ?? raw['code'])?.toString();
+          (raw['inviter'] ?? raw['inviteCode'] ?? raw['code'])?.toString();
       if (v != null && v.isNotEmpty && invitedBy == null) {
-
         setState(() => invitedBy = v); // StartPage → InputPage 전달분 반영
         _recordInviteVisitIfNeeded(v, source: 'route-arg');
-
-        setState(() => invitedBy = v);
-
       }
     }
   }
@@ -104,7 +97,7 @@ class _InputPageState extends State<InputPage> {
     }
 
     _linkSub = _appLinks.uriLinkStream.listen(
-          (uri) => _maybeCaptureInvite(uri, source: 'stream'),
+      (uri) => _maybeCaptureInvite(uri, source: 'stream'),
       onError: (err) => debugPrint('⚠️ uri link stream error: $err'),
     );
   }
@@ -131,17 +124,17 @@ class _InputPageState extends State<InputPage> {
         link.queryParameters['code'];
 
     if (invite != null && invite.isNotEmpty) {
-
-      setState(() => invitedBy = invite); // 내부적으로만 저장
-      setState(() => invitedBy = invite);
-
+      if (invitedBy != invite) {
+        setState(() => invitedBy = invite); // 내부 저장 (중복 setState 제거)
+      }
       debugPrint('📩 invitedBy captured($source): $invitedBy | $link');
       _recordInviteVisitIfNeeded(invite, source: source ?? 'link');
     }
   }
 
   // ====== 초대 방문 기록(클레임/정산 없이 "방문만" 저장) ======
-  Future<void> _recordInviteVisitIfNeeded(String inviter, {String? source}) async {
+  Future<void> _recordInviteVisitIfNeeded(String inviter,
+      {String? source}) async {
     if (_inviteRecordedFor == inviter) return; // 동일 초대자 중복 기록 방지
 
     try {
@@ -160,7 +153,7 @@ class _InputPageState extends State<InputPage> {
       debugPrint('✅ visit recorded for inviter=$inviter by invitee=$invitee');
     } catch (e, st) {
       debugPrint('⚠️ visit record failed: $e\n$st');
-      // 방문 기록 실패는 UX 영향 최소화: 알림만 없이 지나감
+      // 방문 기록 실패는 UX 영향 최소화: 알림 없이 지나감
     }
   }
 
@@ -232,18 +225,20 @@ class _InputPageState extends State<InputPage> {
           );
         }
       }
+    }
 
+    if (!mounted) return;
 
-      if (!mounted) return;
+    // 화면 이동은 한 번만 수행
+    final FortuneFlowArgs args = (
+      isAgreed: isAgreed,
+      name: isAgreed ? name : null,
+      birthDate: isAgreed ? birth : null,
+      gender: isAgreed ? gender : null,
+      invitedBy: invitedBy, // 내부 전달만, 화면 노출 없음
+    );
 
-      final FortuneFlowArgs args = (
-        isAgreed: isAgreed,
-        name: isAgreed ? name : null,
-        birthDate: isAgreed ? birth : null,
-        gender: isAgreed ? gender : null,
-        invitedBy: invitedBy,
-      );
-
+    try {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => LoadingPage(args: args)),
@@ -252,26 +247,10 @@ class _InputPageState extends State<InputPage> {
       debugPrint('🔥 저장/이동 중 오류: $e');
       debugPrint(stack.toString());
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('문제가 발생했어요. 다시 시도해주세요.')));
-
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('문제가 발생했어요. 다시 시도해주세요.')),
+      );
     }
-
-    if (!mounted) return;
-
-    final FortuneFlowArgs args = (
-    isAgreed: isAgreed,
-    name: isAgreed ? name : null,
-    birthDate: isAgreed ? birth : null,
-    gender: isAgreed ? gender : null,
-    invitedBy: invitedBy, // 내부 전달만, 화면 노출 없음
-    );
-
-    // ✅ 항상 결과 로딩으로 진행
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => LoadingPage(args: args)),
-    );
   }
 
   InputDecoration _decor(String label, {String? hint}) {
@@ -401,7 +380,8 @@ class _InputPageState extends State<InputPage> {
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 16),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10)),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                               visualDensity: VisualDensity.compact,
                             ),
                             onPressed: () {
@@ -508,9 +488,7 @@ class _InputPageState extends State<InputPage> {
         elevation: 0.5,
       ),
 
-
       // ✅ 하단 고정 버튼
-
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.only(bottom: 20, left: 24, right: 24),
@@ -520,42 +498,41 @@ class _InputPageState extends State<InputPage> {
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 18),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onPressed: _onStart,
-              child: const Text('운세 보러가기',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              child: const Text(
+                '운세 보러가기',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
             ),
           ),
         ),
       ),
+
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
           children: [
-
             // 상단 타이틀(타이핑)
-
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
                 _typedTitle.isEmpty ? ' ' : _typedTitle,
                 textAlign: TextAlign.left,
                 style: const TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black87),
+                  fontSize: 26,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
               ),
             ),
 
-
             // ✅ 초대코드 배지(감지된 경우에만)
             _inviteBadge(),
-
             const SizedBox(height: 6),
-
             const SizedBox(height: 20),
-
 
             // 이름
             TextField(
@@ -588,9 +565,9 @@ class _InputPageState extends State<InputPage> {
                         "남",
                         style: TextStyle(
                           color:
-                          gender == "남" ? Colors.black87 : Colors.black54,
+                              gender == "남" ? Colors.black87 : Colors.black54,
                           fontWeight:
-                          gender == "남" ? FontWeight.w600 : FontWeight.w400,
+                              gender == "남" ? FontWeight.w600 : FontWeight.w400,
                         ),
                       ),
                     ),
@@ -614,9 +591,9 @@ class _InputPageState extends State<InputPage> {
                         "여",
                         style: TextStyle(
                           color:
-                          gender == "여" ? Colors.black87 : Colors.black54,
+                              gender == "여" ? Colors.black87 : Colors.black54,
                           fontWeight:
-                          gender == "여" ? FontWeight.w600 : FontWeight.w400,
+                              gender == "여" ? FontWeight.w600 : FontWeight.w400,
                         ),
                       ),
                     ),
@@ -646,9 +623,11 @@ class _InputPageState extends State<InputPage> {
                 ),
                 child: Row(
                   children: [
-                    Text(birthLabel,
-                        style: const TextStyle(
-                            fontSize: 15.5, fontWeight: FontWeight.w600)),
+                    Text(
+                      birthLabel,
+                      style: const TextStyle(
+                          fontSize: 15.5, fontWeight: FontWeight.w600),
+                    ),
                     const Spacer(),
                     const Icon(Icons.calendar_month_outlined),
                   ],
@@ -685,14 +664,11 @@ class _InputPageState extends State<InputPage> {
                   ],
                 ),
 
-
                 // 안내 문구
-
                 const Padding(
                   padding: EdgeInsets.only(left: 12, right: 8, bottom: 4),
                   child: Text(
-                    '동의 시 이름·생년월일·성별을 서버에 저장합니다.\n'
-                        '동의하지 않으면 결과 페이지에서만 일시적으로 사용됩니다.',
+                    '동의 시 이름·생년월일·성별을 서버에 저장합니다.\n동의하지 않으면 결과 페이지에서만 일시적으로 사용됩니다.',
                     style: TextStyle(
                         fontSize: 12.5, height: 1.4, color: Colors.black54),
                   ),

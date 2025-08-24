@@ -11,8 +11,32 @@ import 'package:reframe/pages/enroll/enroll_third.dart';
 import 'package:reframe/model/group_type.dart';
 import 'package:reframe/service/account_service.dart';
 import 'package:reframe/service/deposit_service.dart';
-import 'package:firebase_analytics/firebase_analytics.dart'; // ★ 추가: Analytics
+import 'package:firebase_analytics/firebase_analytics.dart'; // Analytics
 
+/// ======================
+/// Toss 스타일 토큰 (배경: 흰색 통일)
+/// ======================
+class TossTokens {
+  // 컬러
+  static const Color primary = Color(0xFF3182F6); // Toss 블루 톤
+  static const Color bg = Colors.white; // ✅ 화면 배경 = 흰색 통일
+  static const Color card = Colors.white; // 카드 배경
+  static const Color border = Color(0xFFE5E8EB); // 얇은 보더
+  static const Color textStrong = Color(0xFF111827);
+  static const Color text = Color(0xFF374151);
+  static const Color textWeak = Color(0xFF6B7280);
+  static const Color fieldFill = Color(0xFFF2F4F6); // 인풋/칩 기본 배경
+  static const Color disabled = Color(0xFFD1D5DB);
+
+  // 라운드 & 간격
+  static const double r8 = 8;
+  static const double r10 = 10;
+  static const double r12 = 12;
+}
+
+/// ======================
+/// SecondStep Page
+/// ======================
 class SecondStepPage extends StatefulWidget {
   const SecondStepPage({
     super.key,
@@ -26,25 +50,22 @@ class SecondStepPage extends StatefulWidget {
 }
 
 class _SecondStepPageState extends State<SecondStepPage> {
-  // ★ 그대로: 폼키, 입력데이터, Future 핸들러
   final _formKey = GlobalKey<FormState>();
   final EnrollForm _data = EnrollForm();
 
   ProductInputFormat? _productInput;
   late Future<ProductInputFormat> _future;
 
-  // ★ 범위 기본값을 명시적으로 부여(Null/0으로 인한 오류 방지)
   int _minMonths = 1;
   int _maxMonths = 60;
-  int _minAmount = 5;     // 만원
-  int _maxAmount = 1000;  // 만원
+  int _minAmount = 5; // 만원
+  int _maxAmount = 1000; // 만원
 
   String? _fromAccountName;
   String? _maturityAccountName;
 
-  bool _viewLogged = false; // ★ view 로깅 중복 방지
+  bool _viewLogged = false;
 
-  // ★ 퍼널 로깅 헬퍼
   Future<void> _logStep({
     required String stage, // "view" | "submit"
     int? amount,
@@ -64,15 +85,15 @@ class _SecondStepPageState extends State<SecondStepPage> {
     );
   }
 
-  // state 필드
   late final bool _isTermList =
-  (widget.product.termMode?.toUpperCase() == 'TERMLIST');
+      (widget.product.termMode?.toUpperCase() == 'TERMLIST');
 
-  List<int> _termOptions = []; // [3,6,12] 같은 선택지
+  List<int> _termOptions = [];
 
   List<int> _parseTermLists(String? s) {
     if (s == null || s.trim().isEmpty) return [];
-    return s.split(RegExp(r'[/,\s]+'))
+    return s
+        .split(RegExp(r'[/,\s]+'))
         .map((e) => int.tryParse(e.trim()))
         .whereType<int>()
         .toList()
@@ -81,50 +102,48 @@ class _SecondStepPageState extends State<SecondStepPage> {
 
   late Future<List<Account>> _accountsFuture;
 
-
-
   @override
   void initState() {
     super.initState();
-    _accountsFuture = fetchAccounts(AccountType.demand);     // 계좌 가져오기 시작
+    _accountsFuture = fetchAccounts(AccountType.demand);
 
     _termOptions = _parseTermLists(widget.product.termList);
-    // 기존 min/max 기본 세팅은 그대로
+
     _future = getProductInputFormat(widget.product.productId).then((result) {
       _minMonths = widget.product.minPeriodMonths ?? _minMonths;
       _maxMonths = widget.product.maxPeriodMonths ?? _maxMonths;
 
-      // TERMLIST면 기본값을 첫 옵션으로, 아니면 min값으로
       if (result.input1 && _data.periodMonths == null) {
-        _data.periodMonths =
-        _isTermList ? (_termOptions.isNotEmpty ? _termOptions.first : 6)
+        _data.periodMonths = _isTermList
+            ? (_termOptions.isNotEmpty ? _termOptions.first : 6)
             : _minMonths;
       }
       if (result.input2 && _data.paymentAmount == null) {
         _data.paymentAmount = _minAmount;
       }
+
       setState(() => _productInput = result);
-      if (!_viewLogged) { _viewLogged = true; _logStep(stage: 'view'); }
+
+      if (!_viewLogged) {
+        _viewLogged = true;
+        _logStep(stage: 'view');
+      }
       return result;
     });
   }
 
-  // ★ _SecondStepPageState 클래스 안 어딘가(필드 아래)에 추가
   int? _toIntId(Object? v) {
     if (v == null) return null;
     if (v is int) return v;
     if (v is String) {
-      // 1) "123"처럼 숫자만이면 그대로 파싱
       final direct = int.tryParse(v);
       if (direct != null) return direct;
-      // 2) "A-1111"처럼 문자+숫자면 숫자만 추출
       final m = RegExp(r'\d+').firstMatch(v);
       if (m != null) return int.tryParse(m.group(0)!);
     }
     return null;
   }
 
-  // === 유효성 검사 ===
   bool _isValidAnchor(int? a) {
     if (a == null) return false;
     if (a == kLastDay) return true;
@@ -190,19 +209,22 @@ class _SecondStepPageState extends State<SecondStepPage> {
     return errs;
   }
 
-  bool get _canSubmit => _productInput != null && _validate(_productInput!).isEmpty;
+  bool get _canSubmit =>
+      _productInput != null && _validate(_productInput!).isEmpty;
 
-  // === 다음 단계로 ===
   void _nextStep() async {
     final errs = _validate(_productInput!);
     if (errs.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errs.first)),
+        SnackBar(
+          content: Text(errs.first),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: TossTokens.text,
+        ),
       );
       return;
     }
 
-    // submit 로깅
     await _logStep(
       stage: 'submit',
       amount: _data.paymentAmount,
@@ -221,28 +243,67 @@ class _SecondStepPageState extends State<SecondStepPage> {
   }
 
   Future<Account?> _pickAccount(String title) async {
-    final accounts = await _accountsFuture; // 이미 완료되어 있으면 바로 반환됨
+    final accounts = await _accountsFuture;
     return await showModalBottomSheet<Account?>(
       context: context,
-      showDragHandle: true,
-      backgroundColor: Colors.white,
+      showDragHandle: false,
+      isScrollControlled: true,
+      backgroundColor: TossTokens.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(TossTokens.r12)),
+      ),
       builder: (context) {
         return SafeArea(
-          child: SizedBox(
-            width: double.infinity,
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 12, // ✅ 핸들바 제거 → 여백만 유지
+              bottom: 16 + MediaQuery.of(context).padding.bottom,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // ✅ 핸들바/Divider 제거됨
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: TossTokens.textStrong,
+                  ),
+                ),
                 const SizedBox(height: 8),
-                Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
-                ...accounts.map((acc) => ListTile(
-                  title: Text('${acc.bankName ?? ''} ${acc.accountNumber ?? ''}'),
-                  subtitle: Text('잔액: ${acc.balance}원'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.pop(context, acc),
-                )),
-                const SizedBox(height: 8),
+
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: accounts.length,
+                    separatorBuilder: (_, __) =>
+                        const Divider(height: 1, color: TossTokens.border),
+                    itemBuilder: (_, i) {
+                      final acc = accounts[i];
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(vertical: 6),
+                        title: Text(
+                          '${acc.bankName ?? ''} ${acc.accountNumber ?? ''}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: TossTokens.textStrong,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '잔액: ${acc.balance}원',
+                          style: const TextStyle(color: TossTokens.textWeak),
+                        ),
+                        trailing: const Icon(Icons.chevron_right,
+                            color: TossTokens.textWeak),
+                        onTap: () => Navigator.pop(context, acc),
+                      );
+                    },
+                  ),
+                ),
               ],
             ),
           ),
@@ -253,142 +314,169 @@ class _SecondStepPageState extends State<SecondStepPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: backgroundColor2,
-      appBar: buildAppBar(context),
-      bottomNavigationBar: _BottomButton(enabled: _canSubmit, onPressed: _nextStep),
-      body: FutureBuilder(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return const Center(child: Text('입력 포맷을 불러오지 못했습니다.'));
-          }
+    // 페이지 전체 톤(Toss) — 배경 흰색
+    final theme = Theme.of(context).copyWith(
+      colorScheme: Theme.of(context).colorScheme.copyWith(
+            primary: TossTokens.primary,
+            onPrimary: Colors.white,
+          ),
+      scaffoldBackgroundColor: TossTokens.bg, // ✅ 흰색
+      appBarTheme: const AppBarTheme(
+        backgroundColor: TossTokens.card,
+        foregroundColor: TossTokens.textStrong,
+        elevation: 0,
+        centerTitle: true,
+      ),
+      dividerColor: TossTokens.border,
+      inputDecorationTheme: const InputDecorationTheme(
+        filled: true,
+        fillColor: TossTokens.fieldFill,
+        border: OutlineInputBorder(
+          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.all(Radius.circular(TossTokens.r10)),
+        ),
+        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      ),
+    );
 
-          final p = snapshot.data as ProductInputFormat;
+    return Theme(
+      data: theme,
+      child: Scaffold(
+        backgroundColor: TossTokens.bg, // ✅ 흰색
+        appBar: buildAppBar(context),
+        bottomNavigationBar:
+            _BottomButton(enabled: _canSubmit, onPressed: _nextStep),
+        body: FutureBuilder(
+          future: _future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return const Center(child: Text('입력 포맷을 불러오지 못했습니다.'));
+            }
 
-          return Form(
-            key: _formKey,
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-              children: [
-                // 상품 이름
-                Text(widget.product.name,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 12),
+            final p = snapshot.data as ProductInputFormat;
 
-                // 납입 기간
-                if (p.input1) ...[
-                  _isTermList
-                      ? TermListSection(
-                    options: _termOptions,
-                    value: _data.periodMonths!,
-                    onChanged: (v) => setState(() => _data.periodMonths = v),
-                  )
-                      : PeriodSection(
-                    value: _data.periodMonths!,
-                    min: _minMonths,
-                    max: _maxMonths,
-                    onChanged: (v) => setState(() => _data.periodMonths = v),
-                  ),
+            return Form(
+              key: _formKey,
+              child: ListView(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                children: [
+                  // 상단 타이틀 (강조)
+                  Text(widget.product.name,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: TossTokens.textStrong,
+                      )),
                   const SizedBox(height: 12),
-                ],
 
-                // 납입 금액
-                if (p.input2) ...[
-                  AmountSection(
-                    value: _data.paymentAmount!, // initState에서 기본값 주입됨
-                    min: _minAmount,
-                    max: _maxAmount,
-                    onChanged: (v) => setState(() => _data.paymentAmount = v),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-
-                // 납입 일정
-                if (p.input3) ...[
-                  CupertinoMonthlyWheel(onChanged: (firstDebitDate, int anchor) {
-                    setState(() {
-                      _data.transferDate = anchor;
-                    });
-                  }),
-                  const SizedBox(height: 12),
-                ],
-
-                // 출금 계좌
-                if (p.fromAccountReq) ...[
-                  AccountPickerSection(
-                    title: '출금 계좌',
-                    subtitle: '월 납입 출금 계좌',
-                    selectedId: _fromAccountName,
-                    onPick: () async {
-                      final account = await _pickAccount('출금 계좌 선택');
-                      if (account != null) {
-                        // NOTE: EnrollForm.fromAccountId 타입에 맞게 변경 필요(여기선 String 예시)
-                        _data.fromAccountId = _toIntId(account.id);
-                        _data.fromAccountNumber = account.accountNumber;
+                  if (p.input1) ...[
+                    _isTermList
+                        ? TermListSection(
+                            options: _termOptions,
+                            value: _data.periodMonths!,
+                            onChanged: (v) =>
+                                setState(() => _data.periodMonths = v),
+                          )
+                        : PeriodSection(
+                            value: _data.periodMonths!,
+                            min: _minMonths,
+                            max: _maxMonths,
+                            onChanged: (v) =>
+                                setState(() => _data.periodMonths = v),
+                          ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (p.input2) ...[
+                    AmountSection(
+                      value: _data.paymentAmount!,
+                      min: _minAmount,
+                      max: _maxAmount,
+                      onChanged: (v) => setState(() => _data.paymentAmount = v),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (p.input3) ...[
+                    CupertinoMonthlyWheel(
+                      onChanged: (firstDebitDate, int anchor) {
                         setState(() {
-                          _fromAccountName =
-                              '${account.bankName} ${account.accountNumber}';
+                          _data.transferDate = anchor;
                         });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                ],
-
-                // 만기 시 입금 계좌
-                if (p.maturityAccountReq) ...[
-                  AccountPickerSection(
-                    title: '만기 계좌',
-                    subtitle: '만기 입금 계좌',
-                    selectedId: _maturityAccountName,
-                    onPick: () async {
-                      Account? account = await _pickAccount('만기 시 입금 계좌 선택');
-                      if (account != null) {
-                        _data.maturityAccountId = _toIntId(account.id);
-                        _data.maturityAccountNumber = account.accountNumber;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (p.fromAccountReq) ...[
+                    AccountPickerSection(
+                      title: '출금 계좌',
+                      subtitle: '월 납입 출금 계좌',
+                      selectedId: _fromAccountName,
+                      onPick: () async {
+                        final account = await _pickAccount('출금 계좌 선택');
+                        if (account != null) {
+                          _data.fromAccountId = _toIntId(account.id);
+                          _data.fromAccountNumber = account.accountNumber;
+                          setState(() {
+                            _fromAccountName =
+                                '${account.bankName} ${account.accountNumber}';
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (p.maturityAccountReq) ...[
+                    AccountPickerSection(
+                      title: '만기 계좌',
+                      subtitle: '만기 입금 계좌',
+                      selectedId: _maturityAccountName,
+                      onPick: () async {
+                        final account = await _pickAccount('만기 시 입금 계좌 선택');
+                        if (account != null) {
+                          _data.maturityAccountId = _toIntId(account.id);
+                          _data.maturityAccountNumber = account.accountNumber;
+                          setState(() {
+                            _maturityAccountName =
+                                '${account.bankName} ${account.accountNumber}';
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (p.input7) ...[
+                    GroupNameSection(
+                      value: _data.groupName ?? '',
+                      onChanged: (v) => setState(() => _data.groupName = v),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (p.input8) ...[
+                    GroupTypeSection(
+                      selectedCode: _data.groupType ?? '',
+                      onChanged: (String code, String label) {
                         setState(() {
-                          _maturityAccountName =
-                              '${account.bankName} ${account.accountNumber}';
+                          _data.groupType = code;
                         });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
+                      },
+                    ),
+                  ]
                 ],
-
-                // 모임 이름
-                if (p.input7) ...[
-                  GroupNameSection(
-                    value: _data.groupName ?? '',
-                    onChanged: (v) => setState(() => _data.groupName = v),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-
-                // 모임 구분
-                if (p.input8) ...[
-                  GroupTypeSection(
-                    selectedCode: _data.groupType ?? '',
-                    onChanged: (String code, String label) {
-                      setState(() {
-                        _data.groupType = code;
-                      });
-                    },
-                  ),
-                ]
-              ],
-            ),
-          );
-        },
+              ),
+            );
+          },
+        ),
       ),
     );
   }
 }
 
+/// ======================
+/// 하단 CTA 버튼 (Toss 톤)
+/// ======================
 class _BottomButton extends StatelessWidget {
   final bool enabled;
   final VoidCallback onPressed;
@@ -399,24 +487,27 @@ class _BottomButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       child: Container(
-        color: Colors.white,
-        padding:
-            EdgeInsets.fromLTRB(16, 8, 16, 8),
+        color: TossTokens.card,
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
         child: SizedBox(
           width: double.infinity,
-          height: 48,
+          height: 56,
           child: ElevatedButton(
             onPressed: enabled ? onPressed : null,
             style: ElevatedButton.styleFrom(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              backgroundColor: primaryColor,
-              disabledBackgroundColor: const Color(0xFFD0D0D0),
+              backgroundColor:
+                  enabled ? TossTokens.primary : TossTokens.disabled,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(TossTokens.r12),
+              ),
+              elevation: 0,
             ),
             child: const Text(
               '다음',
               style: TextStyle(
-                color: Colors.white,
                 fontWeight: FontWeight.w800,
+                fontSize: 16,
               ),
             ),
           ),
@@ -426,8 +517,16 @@ class _BottomButton extends StatelessWidget {
   }
 }
 
+/// ======================
+/// 공용 Section Card (Toss 톤)
+/// ======================
 class SectionCard extends StatelessWidget {
-  const SectionCard({super.key, required this.title, this.subtitle, required this.child});
+  const SectionCard({
+    super.key,
+    required this.title,
+    this.subtitle,
+    required this.child,
+  });
 
   final String title;
   final String? subtitle;
@@ -435,30 +534,152 @@ class SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-            if (subtitle != null) ...[
-              const SizedBox(height: 4),
-              Text(subtitle!, style: const TextStyle(color: Colors.black45)),
-            ],
-            const SizedBox(height: 12),
-            child,
+    return Container(
+      decoration: BoxDecoration(
+        color: TossTokens.card,
+        borderRadius: BorderRadius.circular(TossTokens.r12),
+        border: Border.all(color: TossTokens.border),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: TossTokens.textStrong,
+              )),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              subtitle!,
+              style: const TextStyle(color: TossTokens.textWeak, fontSize: 13),
+            ),
           ],
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+/// ======================
+/// 유틸: 날짜 포맷 + 배지 + 미리보기 카드
+/// ======================
+String _fmtK(DateTime d) {
+  const wk = ['월', '화', '수', '목', '금', '토', '일'];
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${d.year}.${two(d.month)}.${two(d.day)}(${wk[d.weekday - 1]})';
+}
+
+class _Badge extends StatelessWidget {
+  const _Badge(this.text, {this.primary = false, super.key});
+  final String text;
+  final bool primary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: primary
+            ? TossTokens.primary.withOpacity(.12)
+            : TossTokens.fieldFill,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color:
+              primary ? TossTokens.primary.withOpacity(.35) : TossTokens.border,
+        ),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          color: primary ? TossTokens.primary : TossTokens.text,
         ),
       ),
     );
   }
 }
 
-// 납입 기간 섹션
+class _DebitPreviewCard extends StatelessWidget {
+  const _DebitPreviewCard({
+    required this.firstDate,
+    required this.isThisMonth,
+    super.key,
+  });
+
+  final DateTime firstDate;
+  final bool isThisMonth;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: TossTokens.fieldFill,
+        borderRadius: BorderRadius.circular(TossTokens.r12),
+        border: Border.all(color: TossTokens.border),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.event_available_outlined,
+              size: 20, color: TossTokens.text),
+          const SizedBox(width: 10),
+          // 텍스트 영역
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 제목 + 날짜 한 줄로 굵게
+                RichText(
+                  text: TextSpan(
+                    children: [
+                      const TextSpan(
+                        text: '첫 이체일: ',
+                        style: TextStyle(
+                          color: TossTokens.text,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                      TextSpan(
+                        text: _fmtK(firstDate),
+                        style: const TextStyle(
+                          color: TossTokens.textStrong,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                // 보조 설명은 얇게
+                Text(
+                  isThisMonth ? '이번달 납입' : '다음달 납입',
+                  style:
+                      const TextStyle(color: TossTokens.textWeak, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          // 배지: 다음달이면 파란톤 강조
+          _Badge(isThisMonth ? '이번달' : '다음달', primary: !isThisMonth),
+        ],
+      ),
+    );
+  }
+}
+
+/// ======================
+/// 납입 기간 (슬라이더 + 인풋)
+/// ======================
 class PeriodSection extends StatefulWidget {
   const PeriodSection({
     super.key,
@@ -493,7 +714,6 @@ class _PeriodSectionState extends State<PeriodSection> {
   @override
   void didUpdateWidget(covariant PeriodSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 외부 value가 변경되었고, 필드가 포커스 중이 아닐 때만 동기화
     if (oldWidget.value != widget.value && !_focus.hasFocus) {
       _controller.text = widget.value.toString();
     }
@@ -514,60 +734,45 @@ class _PeriodSectionState extends State<PeriodSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Slider(
-            padding: EdgeInsets.symmetric(vertical: 20, horizontal: 8),
-            value: widget.value.toDouble(),
-            min: widget.min.toDouble(),
-            max: widget.max.toDouble(),
-            divisions: widget.divisions ?? (widget.max - widget.min),
-            label: '${widget.value}개월',
-            inactiveColor: Colors.black12,
-            onChanged: (v) => widget.onChanged(v.round()),
+          // Slider는 컬러만 토스톤
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: TossTokens.primary,
+              inactiveTrackColor: TossTokens.border,
+              thumbColor: TossTokens.primary,
+              overlayColor: TossTokens.primary.withOpacity(0.1),
+            ),
+            child: Slider(
+              value: widget.value.toDouble(),
+              min: widget.min.toDouble(),
+              max: widget.max.toDouble(),
+              divisions: widget.divisions ?? (widget.max - widget.min),
+              label: '${widget.value}개월',
+              onChanged: (v) => widget.onChanged(v.round()),
+            ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
-                child: SizedBox(
-                  height: 48,
-                  child: TextFormField(
-                    focusNode: _focus,
-                    controller: _controller,
-                    decoration: InputDecoration(
-                      labelText: '개월 수 직접입력',
-                      labelStyle: TextStyle(color: Colors.grey[500]),
-                      isDense: true,
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Colors.black12),
-                      ),
-                      errorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Colors.black12),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Colors.black),
-                      ),
-                      focusedErrorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Colors.black),
-                      ),
-                    ),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    onChanged: (v) {
-                      final n = int.tryParse(v);
-                      if (n != null && n >= widget.min && n <= widget.max) {
-                        // 부모로만 알리고, 컨트롤러 text는 부모 값 반영 시(didUpdateWidget) 동기화
-                        widget.onChanged(n);
-                      }
-                    },
+                child: TextFormField(
+                  focusNode: _focus,
+                  controller: _controller,
+                  decoration: const InputDecoration(
+                    hintText: '개월 수 직접입력',
                   ),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onChanged: (v) {
+                    final n = int.tryParse(v);
+                    if (n != null && n >= widget.min && n <= widget.max) {
+                      widget.onChanged(n);
+                    }
+                  },
                 ),
               ),
               const SizedBox(width: 8),
-              const Text('개월'),
+              const Text('개월', style: TextStyle(color: TossTokens.text)),
             ],
           ),
         ],
@@ -576,8 +781,9 @@ class _PeriodSectionState extends State<PeriodSection> {
   }
 }
 
-
-// 납입 금액 섹션
+/// ======================
+/// 납입 금액
+/// ======================
 class AmountSection extends StatefulWidget {
   const AmountSection({
     super.key,
@@ -588,7 +794,7 @@ class AmountSection extends StatefulWidget {
     this.divisions,
   });
 
-  final int value;  // 만원 단위
+  final int value; // 만원
   final int min;
   final int max;
   final int? divisions;
@@ -632,60 +838,40 @@ class _AmountSectionState extends State<AmountSection> {
       child: Row(
         children: [
           Expanded(
-            child: SizedBox(
-              height: 48,
-              child: TextFormField(
-                focusNode: _focus,
-                controller: _controller,
-                decoration: InputDecoration(
-                  hintText: '월 납입 금액(만원)',
-                  hintStyle: TextStyle(color: Colors.grey[500]),
-                  isDense: true,
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Colors.black12),
-                  ),
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Colors.black12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Colors.black),
-                  ),
-                  focusedErrorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Colors.black),
-                  ),
-                ),
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                onChanged: (v) {
-                  final n = int.tryParse(v);
-                  if (n != null && n >= widget.min && n <= widget.max) {
-                    widget.onChanged(n);
-                  }
-                },
+            child: TextFormField(
+              focusNode: _focus,
+              controller: _controller,
+              decoration: const InputDecoration(
+                hintText: '월 납입 금액(만원)',
               ),
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              onChanged: (v) {
+                final n = int.tryParse(v);
+                if (n != null && n >= widget.min && n <= widget.max) {
+                  widget.onChanged(n);
+                }
+              },
             ),
           ),
           const SizedBox(width: 8),
-          const Text('만원'),
+          const Text('만원', style: TextStyle(color: TossTokens.text)),
         ],
       ),
     );
   }
 }
 
-
-// 납입 일정 섹션
+/// ======================
+/// 납입 일정(휠/시트)
+/// ======================
 const int kLastDay = 99; // '말일' 표시용
 
 class CupertinoMonthlyWheel extends StatefulWidget {
   const CupertinoMonthlyWheel({
     super.key,
     this.onChanged,
-    this.useAllDays31 = false, // true면 1~31, false면 1~28 + 말일
+    this.useAllDays31 = false,
   });
 
   final void Function(DateTime firstDebitDate, int anchor)? onChanged;
@@ -702,6 +888,7 @@ class _CupertinoMonthlyWheelState extends State<CupertinoMonthlyWheel> {
   DateTime get _today {
     final now = DateTime.now();
     return DateTime(now.year, now.month, now.day);
+    // 실제 서비스에서는 서버시간 사용 권장
   }
 
   int _lastDayOfMonth(int y, int m) => DateTime(y, m + 1, 0).day;
@@ -730,16 +917,10 @@ class _CupertinoMonthlyWheelState extends State<CupertinoMonthlyWheel> {
     if (widget.useAllDays31) {
       return List.generate(31, (i) => _WheelItem(i + 1, '${i + 1}일'));
     }
-    // 정책 기본: 1~28 + 말일
     return [
       ...List.generate(28, (i) => _WheelItem(i + 1, '${i + 1}일')),
       const _WheelItem(kLastDay, '말일'),
     ];
-  }
-
-  String _fmt(DateTime d) {
-    const wk = ['월','화','수','목','금','토','일'];
-    return '${d.year}.${d.month}.${d.day}(${wk[d.weekday - 1]})';
   }
 
   Future<void> _openWheel() async {
@@ -753,9 +934,13 @@ class _CupertinoMonthlyWheelState extends State<CupertinoMonthlyWheel> {
 
     await showModalBottomSheet<void>(
       context: context,
-      showDragHandle: true,
+      showDragHandle: false,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: TossTokens.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius:
+            BorderRadius.vertical(top: Radius.circular(TossTokens.r12)),
+      ),
       builder: (ctx) {
         int tempAnchor = items[tempIndex].value;
         DateTime tempFirst = _computeFirst(tempAnchor);
@@ -769,55 +954,82 @@ class _CupertinoMonthlyWheelState extends State<CupertinoMonthlyWheel> {
 
           return SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 12, // ✅ 핸들바 제거 → 여백만 유지
+                bottom: 16 + MediaQuery.of(ctx).padding.bottom,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('이체일 선택', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  // ✅ 핸들바/Divider 제거됨
+                  const Text(
+                    '이체일 선택',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: TossTokens.textStrong,
+                    ),
+                  ),
                   const SizedBox(height: 8),
+                  const Text(
+                    '1~28일 또는 말일 중에서 선택하세요',
+                    style: TextStyle(color: TossTokens.textWeak, fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+
                   SizedBox(
                     height: 200,
                     child: CupertinoPicker(
-                      itemExtent: 40,
-                      scrollController: FixedExtentScrollController(initialItem: initialIndex),
-                      onSelectedItemChanged: (i) { tempIndex = i; recompute(); },
-                      children: items.map((e) => Center(child: Text(e.label, style: const TextStyle(fontSize: 16)))).toList(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // 미리보기
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xfff2f4f6),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(children: [
-                        const Icon(Icons.event_available_outlined, size: 20),
-                        const SizedBox(width: 8),
-                        Text('첫 이체일: ${_fmt(tempFirst)}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                      ]),
-                      const SizedBox(height: 6),
-                      Text(
-                        (tempFirst.month == _today.month) ? '이번달 납입' : '다음달 납입',
-                        style: TextStyle(color: Colors.grey[700]),
+                      itemExtent: 44,
+                      scrollController: FixedExtentScrollController(
+                        initialItem: initialIndex,
                       ),
-                    ]),
+                      onSelectedItemChanged: (i) {
+                        tempIndex = i;
+                        recompute();
+                      },
+                      children: items
+                          .map((e) => Center(
+                                child: Text(
+                                  e.label,
+                                  style: const TextStyle(fontSize: 16),
+                                ),
+                              ))
+                          .toList(),
+                    ),
                   ),
                   const SizedBox(height: 12),
+
+                  // ✅ 깔끔한 미리보기 카드
+                  _DebitPreviewCard(
+                    firstDate: tempFirst,
+                    isThisMonth: (tempFirst.month == _today.month &&
+                        tempFirst.year == _today.year),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // 하단 버튼 - 텍스트/강조
                   Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
+                        child: TextButton(
                           onPressed: () => Navigator.pop(ctx),
+                          style: TextButton.styleFrom(
+                            foregroundColor: TossTokens.text,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(TossTokens.r10),
+                            ),
+                          ),
                           child: const Text('취소'),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: FilledButton(
+                        child: ElevatedButton(
                           onPressed: () {
                             final anchor = items[tempIndex].value;
                             final first = _computeFirst(anchor);
@@ -828,7 +1040,18 @@ class _CupertinoMonthlyWheelState extends State<CupertinoMonthlyWheel> {
                             widget.onChanged?.call(first, anchor);
                             Navigator.pop(ctx);
                           },
-                          child: const Text('확인'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: TossTokens.primary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius:
+                                  BorderRadius.circular(TossTokens.r10),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            elevation: 0,
+                          ),
+                          child: const Text('확인',
+                              style: TextStyle(fontWeight: FontWeight.w800)),
                         ),
                       ),
                     ],
@@ -847,27 +1070,35 @@ class _CupertinoMonthlyWheelState extends State<CupertinoMonthlyWheel> {
     return SectionCard(
       title: '납입 일정',
       subtitle: '이체일만 고르면, 규칙에 따라 이번달/다음달이 자동 결정돼요',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(children: [
-            const Icon(Icons.event_available_outlined),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                _firstDebitDate == null
-                    ? '날짜를 선택해주세요.'
-                    : '${_fmt(_firstDebitDate!)} • ${(_firstDebitDate!.month == _today.month) ? '이번달' : '다음달'} 납입',
-                style: const TextStyle(fontWeight: FontWeight.w700),
+          const Icon(Icons.event_available_outlined, color: TossTokens.text),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _firstDebitDate == null
+                  ? '날짜를 선택해주세요.'
+                  : '${_fmtK(_firstDebitDate!)} • ${(_firstDebitDate!.month == _today.month && _firstDebitDate!.year == _today.year) ? '이번달' : '다음달'} 납입',
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                color: TossTokens.textStrong,
               ),
             ),
-            const SizedBox(width: 8),
-            FilledButton.tonal(
-              onPressed: _openWheel,
-              style: FilledButton.styleFrom(backgroundColor: Colors.black),
-              child: const Text('선택', style: TextStyle(color: Colors.white)),
+          ),
+          const SizedBox(width: 8),
+          // 선택 버튼: 보더 약하게, 캡슐
+          OutlinedButton(
+            onPressed: _openWheel,
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: TossTokens.border),
+              foregroundColor: TossTokens.text,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(TossTokens.r12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             ),
-          ]),
+            child: const Text('선택'),
+          ),
         ],
       ),
     );
@@ -880,9 +1111,15 @@ class _WheelItem {
   const _WheelItem(this.value, this.label);
 }
 
-// 모임 이름 섹션
+/// ======================
+/// 모임 이름
+/// ======================
 class GroupNameSection extends StatefulWidget {
-  const GroupNameSection({super.key, required this.value, required this.onChanged});
+  const GroupNameSection({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
   final String value;
   final ValueChanged<String> onChanged;
 
@@ -906,22 +1143,9 @@ class _GroupNameSectionState extends State<GroupNameSection> {
       child: TextFormField(
         controller: controller,
         maxLength: 20,
-        decoration: InputDecoration(
+        decoration: const InputDecoration(
           hintText: '예) 제주도 여행 모임',
-          hintStyle: TextStyle(color: Colors.grey[500]),
-          isDense: true,
-          enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.black12)),
-          errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.black12)),
-          focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.black)),
-          focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.black)),
+          counterText: '', // 카운터 숨김 (토스 느낌)
         ),
         onChanged: widget.onChanged,
       ),
@@ -929,7 +1153,9 @@ class _GroupNameSectionState extends State<GroupNameSection> {
   }
 }
 
-// 모임 구분 섹션
+/// ======================
+/// 모임 구분 (칩: 캡슐형)
+/// ======================
 class GroupTypeSection extends StatefulWidget {
   const GroupTypeSection({
     super.key,
@@ -937,7 +1163,7 @@ class GroupTypeSection extends StatefulWidget {
     required this.onChanged,
   });
 
-  final String? selectedCode;       // 'CLUB' | 'DATE' | ... | 'ETC' | null
+  final String? selectedCode;
   final void Function(String code, String label) onChanged;
 
   @override
@@ -957,42 +1183,44 @@ class _GroupTypeSectionState extends State<GroupTypeSection> {
     return SectionCard(
       title: '모임 구분',
       subtitle: '목적에 맞는 구분을 선택하세요',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: groupType.entries.map((e) {
-              final code = e.key;
-              final label = e.value;
-              final selected = _code == code;
-
-              return RawChip(
-                label: Text(label),
-                selected: selected,
-                onSelected: (_) => _select(code, label),
-                showCheckmark: false,
-                labelPadding: const EdgeInsets.all(8),
-                labelStyle: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: selected ? Colors.white : Colors.black,
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: groupType.entries.map((e) {
+          final code = e.key;
+          final label = e.value;
+          final selected = _code == code;
+          return InkWell(
+            borderRadius: BorderRadius.circular(999),
+            onTap: () => _select(code, label),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: selected ? TossTokens.primary : TossTokens.fieldFill,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: selected ? TossTokens.primary : TossTokens.border,
                 ),
-                backgroundColor: Colors.grey[100],
-                selectedColor: primaryColor,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
-              );
-            }).toList(),
-          ),
-        ],
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? Colors.white : TossTokens.textStrong,
+                ),
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
 }
 
-// 계좌 선택 섹션
+/// ======================
+/// 계좌 선택
+/// ======================
 class AccountPickerSection extends StatelessWidget {
   const AccountPickerSection({
     super.key,
@@ -1011,20 +1239,49 @@ class AccountPickerSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return SectionCard(
       title: title,
-      child: ListTile(
-        contentPadding: EdgeInsets.zero,
-        title: Text(subtitle),
-        subtitle: Text(
-          selectedId ?? '선택해주세요',
-          style: TextStyle(color: selectedId == null ? Colors.grey[600] : Colors.black),
-        ),
-        trailing: const Icon(Icons.chevron_right),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(TossTokens.r12),
         onTap: onPick,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(subtitle,
+                        style: const TextStyle(
+                          color: TossTokens.textWeak,
+                          fontSize: 13,
+                        )),
+                    const SizedBox(height: 4),
+                    Text(
+                      selectedId ?? '선택해주세요',
+                      style: TextStyle(
+                        color: selectedId == null
+                            ? TossTokens.textWeak
+                            : TossTokens.textStrong,
+                        fontWeight: selectedId == null
+                            ? FontWeight.w400
+                            : FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: TossTokens.textWeak),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
+/// ======================
+/// TERMLIST 선택 (세그먼트 느낌)
+/// ======================
 class TermListSection extends StatelessWidget {
   const TermListSection({
     super.key,
@@ -1042,25 +1299,30 @@ class TermListSection extends StatelessWidget {
     return SectionCard(
       title: '납입 기간',
       subtitle: '아래 기간 중 하나를 선택하세요',
-      child: Column(
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
         children: options.map((m) {
+          final selected = value == m;
           return InkWell(
+            borderRadius: BorderRadius.circular(999),
             onTap: () => onChanged(m),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Radio<int>(
-                  value: m,
-                  groupValue: value,         // 현재 선택된 값
-                  onChanged: (v) {
-                    if (v != null) onChanged(v);
-                  },
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: selected ? TossTokens.primary : TossTokens.fieldFill,
+                border: Border.all(
+                  color: selected ? TossTokens.primary : TossTokens.border,
                 ),
-                const SizedBox(width: 6),
-                Text("$m개월"),
-              ],
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '$m개월',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: selected ? Colors.white : TossTokens.textStrong,
+                ),
+              ),
             ),
           );
         }).toList(),

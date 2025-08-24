@@ -1,5 +1,8 @@
+// input_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:app_links/app_links.dart';
 
 import '../models/types.dart';
@@ -15,35 +18,45 @@ class InputPage extends StatefulWidget {
 }
 
 class _InputPageState extends State<InputPage> {
+  // ===== 텍스트 컨트롤러 =====
   final nameController = TextEditingController();
-  final yearController = TextEditingController();
-  final monthController = TextEditingController();
-  final dayController = TextEditingController();
+
+  // ✅ 생년월일 숫자 상태(라벨에만 보이고, 탭하면 모달에서 변경)
+  int _year = 2000;
+  int _month = 1;
+  int _day = 1;
 
   String gender = "남";
-  bool isAgreed = true; // ✅ 3) 기본값 체크 On
+
+  // ✅ 기본값 체크 On (중복 선언 제거)
+  bool isAgreed = true;
+
   String? invitedBy;
 
   late final AppLinks _appLinks;
   StreamSubscription<Uri>? _linkSub;
-  String? _lastHandled; // 같은 URI 중복 처리 방지
+  String? _lastHandled;
+
+  // 방문 기록 중복 방지 키(초대코드별 1회만)
+  String? _inviteRecordedFor;
 
   // ==== 타이핑 효과 ====
   static const String _fullTitle = '정보를 입력해주세요';
   String _typedTitle = '';
   Timer? _typeTimer;
 
+  // ===== 범위 =====
+  static const int _minYear = 1900;
+  final int _maxYear = DateTime.now().year;
+
   @override
   void initState() {
     super.initState();
     _initAuthAndLinks();
-
-    // 시작 지연 후 타이핑 시작 (300ms 지연)
     Future.delayed(const Duration(milliseconds: 300), _startTyping);
   }
 
   void _startTyping() {
-    // 타이핑 속도: 글자당 90ms
     _typeTimer = Timer.periodic(const Duration(milliseconds: 90), (t) {
       if (!mounted) {
         t.cancel();
@@ -53,9 +66,8 @@ class _InputPageState extends State<InputPage> {
         t.cancel();
         return;
       }
-      setState(() {
-        _typedTitle = _fullTitle.substring(0, _typedTitle.length + 1);
-      });
+      setState(
+          () => _typedTitle = _fullTitle.substring(0, _typedTitle.length + 1));
     });
   }
 
@@ -68,17 +80,15 @@ class _InputPageState extends State<InputPage> {
           (raw['inviter'] ?? raw['inviteCode'] ?? raw['code'])?.toString();
       if (v != null && v.isNotEmpty && invitedBy == null) {
         setState(() => invitedBy = v); // StartPage → InputPage 전달분 반영
+        _recordInviteVisitIfNeeded(v, source: 'route-arg');
       }
     }
   }
 
   Future<void> _initAuthAndLinks() async {
-    // 로그인 보장(UID 필요 시 null 방지)
     await FortuneAuthService.ensureSignedIn();
-
     _appLinks = AppLinks();
 
-    // 콜드스타트 링크
     try {
       final initial = await _appLinks.getInitialLink();
       _maybeCaptureInvite(initial, source: 'initial');
@@ -86,7 +96,6 @@ class _InputPageState extends State<InputPage> {
       debugPrint('⚠️ initial app link error: $e');
     }
 
-    // 런타임 링크
     _linkSub = _appLinks.uriLinkStream.listen(
       (uri) => _maybeCaptureInvite(uri, source: 'stream'),
       onError: (err) => debugPrint('⚠️ uri link stream error: $err'),
@@ -94,11 +103,11 @@ class _InputPageState extends State<InputPage> {
   }
 
   bool _isOurLink(Uri link) {
-    final isCustom = link.scheme == 'abcd1234' && link.host == 'fortune';
+    final isCustom = link.scheme == 'bnk-app-push';
     final isHttps = link.scheme == 'https' &&
-        link.host == 'abc123-2580c.web.app' &&
+        link.host == 'bnk-app-push.web.app' &&
         link.pathSegments.isNotEmpty &&
-        link.pathSegments.first == 'fortune'; // /fortune/...
+        link.pathSegments.first == 'fortune';
     return isCustom || isHttps;
   }
 
@@ -107,7 +116,7 @@ class _InputPageState extends State<InputPage> {
     if (!_isOurLink(link)) return;
 
     final key = link.toString();
-    if (_lastHandled == key) return; // 같은 링크 두 번 방지
+    if (_lastHandled == key) return;
     _lastHandled = key;
 
     final invite = link.queryParameters['inviteCode'] ??
@@ -115,8 +124,36 @@ class _InputPageState extends State<InputPage> {
         link.queryParameters['code'];
 
     if (invite != null && invite.isNotEmpty) {
-      setState(() => invitedBy = invite); // 내부적으로만 저장, 화면엔 노출 X
+      if (invitedBy != invite) {
+        setState(() => invitedBy = invite); // 내부 저장 (중복 setState 제거)
+      }
       debugPrint('📩 invitedBy captured($source): $invitedBy | $link');
+      _recordInviteVisitIfNeeded(invite, source: source ?? 'link');
+    }
+  }
+
+  // ====== 초대 방문 기록(클레임/정산 없이 "방문만" 저장) ======
+  Future<void> _recordInviteVisitIfNeeded(String inviter,
+      {String? source}) async {
+    if (_inviteRecordedFor == inviter) return; // 동일 초대자 중복 기록 방지
+
+    try {
+      await FortuneAuthService.ensureSignedIn();
+      final invitee = FortuneAuthService.getCurrentUid();
+      if (invitee == null) return;
+
+      await FortuneFirestoreService.rewardInviteOnce(
+        inviterUid: inviter,
+        inviteeUid: invitee,
+        source: source,
+        debugAllowSelf: true, // ✅ 같은 사람이 초대돼도 카운트 증가(테스트)
+      );
+
+      _inviteRecordedFor = inviter;
+      debugPrint('✅ visit recorded for inviter=$inviter by invitee=$invitee');
+    } catch (e, st) {
+      debugPrint('⚠️ visit record failed: $e\n$st');
+      // 방문 기록 실패는 UX 영향 최소화: 알림 없이 지나감
     }
   }
 
@@ -125,33 +162,34 @@ class _InputPageState extends State<InputPage> {
     _linkSub?.cancel();
     _typeTimer?.cancel();
     nameController.dispose();
-    yearController.dispose();
-    monthController.dispose();
-    dayController.dispose();
     super.dispose();
   }
 
+  // ===== 날짜 유틸 =====
+  int _daysInMonth(int year, int month) {
+    if (month == 12) return 31;
+    final firstOfNext = DateTime(year, month + 1, 1);
+    return firstOfNext.subtract(const Duration(days: 1)).day;
+  }
+
   String _composeBirth() {
-    final y = yearController.text.trim();
-    final m = monthController.text.trim().padLeft(2, '0');
-    final d = dayController.text.trim().padLeft(2, '0');
+    final y = _year.toString().padLeft(4, '0');
+    final m = _month.toString().padLeft(2, '0');
+    final d = _day.toString().padLeft(2, '0');
     return '$y$m$d';
   }
 
   bool _validateInputs() {
     final name = nameController.text.trim();
-    final y = yearController.text.trim();
-    final m = monthController.text.trim();
-    final d = dayController.text.trim();
-
     if (name.isEmpty) return _fail('이름을 입력해주세요.');
-    if (y.length != 4 || int.tryParse(y) == null) {
-      return _fail('생년(4자리 숫자)을 입력해주세요.');
-    }
-    final mi = int.tryParse(m);
-    final di = int.tryParse(d);
-    if (mi == null || mi < 1 || mi > 12) return _fail('월은 1~12 사이여야 해요.');
-    if (di == null || di < 1 || di > 31) return _fail('일은 1~31 사이여야 해요.');
+
+    final selected = DateTime(_year, _month, _day);
+    final minDate = DateTime(_minYear, 1, 1);
+    final maxDate = DateTime.now();
+
+    if (selected.isBefore(minDate))
+      return _fail('생년월일은 $_minYear-01-01 이후여야 해요.');
+    if (selected.isAfter(maxDate)) return _fail('미래 날짜는 선택할 수 없어요.');
     return true;
   }
 
@@ -163,31 +201,44 @@ class _InputPageState extends State<InputPage> {
   Future<void> _onStart() async {
     if (!_validateInputs()) return;
 
+    // ✅ 익명 로그인 보장 (UID 즉시 확보)
     await FortuneAuthService.ensureSignedIn();
 
     final name = nameController.text.trim();
     final birth = _composeBirth();
 
-    try {
-      if (isAgreed) {
+    // ✅ 동의 저장은 '베스트 에포트' — 실패해도 흐름을 멈추지 않음
+    if (isAgreed) {
+      try {
         await FortuneFirestoreService.saveOrUpdateUserConsent(
           isAgreed: true,
           name: name,
           birth: birth,
           gender: gender,
         );
+      } catch (e, stack) {
+        debugPrint('⚠️ 동의 저장 실패(무시하고 진행): $e');
+        debugPrint(stack.toString());
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('동의 저장에 실패했지만 테스트는 계속 진행합니다.')),
+          );
+        }
       }
+    }
 
-      if (!mounted) return;
+    if (!mounted) return;
 
-      final FortuneFlowArgs args = (
-        isAgreed: isAgreed,
-        name: isAgreed ? name : null,
-        birthDate: isAgreed ? birth : null,
-        gender: isAgreed ? gender : null,
-        invitedBy: invitedBy, // 내부 전달만, 화면 노출 없음
-      );
+    // 화면 이동은 한 번만 수행
+    final FortuneFlowArgs args = (
+      isAgreed: isAgreed,
+      name: isAgreed ? name : null,
+      birthDate: isAgreed ? birth : null,
+      gender: isAgreed ? gender : null,
+      invitedBy: invitedBy, // 내부 전달만, 화면 노출 없음
+    );
 
+    try {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => LoadingPage(args: args)),
@@ -196,12 +247,12 @@ class _InputPageState extends State<InputPage> {
       debugPrint('🔥 저장/이동 중 오류: $e');
       debugPrint(stack.toString());
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('문제가 발생했어요. 다시 시도해주세요.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('문제가 발생했어요. 다시 시도해주세요.')),
+      );
     }
   }
 
-  // 공통 스타일 (StartPage와 톤 맞춤)
   InputDecoration _decor(String label, {String? hint}) {
     return InputDecoration(
       labelText: label,
@@ -209,30 +260,235 @@ class _InputPageState extends State<InputPage> {
       filled: true,
       fillColor: Colors.white,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: Colors.grey.shade300),
       ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.black87, width: 1.2),
+      focusedBorder: const OutlineInputBorder(
+        borderSide: BorderSide(color: Colors.black87, width: 1.2),
       ),
+    );
+  }
+
+  // ====== 초대코드 미니 배지 ======
+  Widget _inviteBadge() {
+    if (invitedBy == null || invitedBy!.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 14),
+      child: Row(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Row(
+              children: [
+                const Icon(Icons.link, size: 14, color: Color(0xFF6B7280)),
+                const SizedBox(width: 6),
+                Text(
+                  '초대코드: ${invitedBy!}',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: Color(0xFF374151),
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                GestureDetector(
+                  onTap: () async {
+                    await Clipboard.setData(ClipboardData(text: invitedBy!));
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('초대코드를 복사했어요.')),
+                    );
+                  },
+                  child: const Icon(Icons.copy_rounded,
+                      size: 14, color: Color(0xFF6B7280)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// === 모달 다이얼로그(숫자 휠) 열기 ===
+  Future<void> _openBirthPickerModal() async {
+    // 현재 값을 임시 저장 (완료 시에만 반영)
+    int tempYear = _year;
+    int tempMonth = _month;
+    int tempDay = _day;
+
+    final years =
+        List<int>.generate(_maxYear - _minYear + 1, (i) => _minYear + i);
+    final months = List<int>.generate(12, (i) => i + 1);
+
+    int yearIndex = years.indexOf(tempYear);
+    int monthIndex = tempMonth - 1;
+    int dayMax = _daysInMonth(tempYear, tempMonth);
+    List<int> days = List<int>.generate(dayMax, (i) => i + 1);
+    int dayIndex = (tempDay - 1).clamp(0, dayMax - 1);
+
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        final primary = const Color(0xFF2962FF);
+        return Dialog(
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: StatefulBuilder(
+            builder: (context, setSB) {
+              // 모달 내부 전용 setState
+              return ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 헤더
+                    Container(
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(16)),
+                        border: Border(
+                            bottom: BorderSide(color: Colors.grey.shade300)),
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 12),
+                          const Text('생년월일 선택',
+                              style: TextStyle(fontWeight: FontWeight.w700)),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context), // 취소
+                            child: const Text('취소'),
+                          ),
+                          const SizedBox(width: 8),
+                          FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: primary,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _year = tempYear;
+                                _month = tempMonth;
+                                _day = tempDay;
+                              });
+                              Navigator.pop(context);
+                            },
+                            child: const Text('완료'),
+                          ),
+                          const SizedBox(width: 12),
+                        ],
+                      ),
+                    ),
+
+                    // 본문: 3열 숫자 휠
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                      child: SizedBox(
+                        height: 220,
+                        child: Row(
+                          children: [
+                            // 연
+                            Expanded(
+                              child: CupertinoPicker(
+                                itemExtent: 36,
+                                scrollController: FixedExtentScrollController(
+                                    initialItem: yearIndex),
+                                onSelectedItemChanged: (i) {
+                                  tempYear = years[i];
+                                  final newMax =
+                                      _daysInMonth(tempYear, tempMonth);
+                                  if (tempDay > newMax) tempDay = newMax;
+                                  dayMax = newMax;
+                                  days =
+                                      List<int>.generate(newMax, (k) => k + 1);
+                                  dayIndex = (tempDay - 1).clamp(0, newMax - 1);
+                                  setSB(() {}); // 일 리스트 갱신
+                                },
+                                children: years
+                                    .map((y) => Center(child: Text('$y')))
+                                    .toList(),
+                              ),
+                            ),
+                            // 월
+                            Expanded(
+                              child: CupertinoPicker(
+                                itemExtent: 36,
+                                scrollController: FixedExtentScrollController(
+                                    initialItem: monthIndex),
+                                onSelectedItemChanged: (i) {
+                                  tempMonth = months[i];
+                                  final newMax =
+                                      _daysInMonth(tempYear, tempMonth);
+                                  if (tempDay > newMax) tempDay = newMax;
+                                  dayMax = newMax;
+                                  days =
+                                      List<int>.generate(newMax, (k) => k + 1);
+                                  dayIndex = (tempDay - 1).clamp(0, newMax - 1);
+                                  setSB(() {}); // 일 리스트 갱신
+                                },
+                                children: months
+                                    .map((m) => Center(child: Text('$m')))
+                                    .toList(),
+                              ),
+                            ),
+                            // 일
+                            Expanded(
+                              child: CupertinoPicker(
+                                itemExtent: 36,
+                                scrollController: FixedExtentScrollController(
+                                    initialItem: dayIndex),
+                                onSelectedItemChanged: (i) => tempDay = days[i],
+                                children: days
+                                    .map((d) => Center(child: Text('$d')))
+                                    .toList(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final birthLabel = '$_year년 $_month월 $_day일';
+
     return Scaffold(
       appBar: AppBar(
-        // 제목은 타이핑 텍스트로 대체하므로 AppBar 타이틀 없음
         centerTitle: true,
         elevation: 0.5,
       ),
 
-      // ✅ 하단 고정 버튼 (StartPage와 동일한 위치/느낌)
+      // ✅ 하단 고정 버튼
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.only(bottom: 20, left: 24, right: 24),
@@ -257,10 +513,9 @@ class _InputPageState extends State<InputPage> {
 
       body: SafeArea(
         child: ListView(
-          // ✅ 1) 상단 여백 늘려서 전체 섹션을 '아래로' 살짝 내림
           padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
           children: [
-            // 상단 타이틀(지연 시작 + 타이핑, 커서 없음)
+            // 상단 타이틀(타이핑)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
@@ -274,6 +529,9 @@ class _InputPageState extends State<InputPage> {
               ),
             ),
 
+            // ✅ 초대코드 배지(감지된 경우에만)
+            _inviteBadge(),
+            const SizedBox(height: 6),
             const SizedBox(height: 20),
 
             // 이름
@@ -285,19 +543,16 @@ class _InputPageState extends State<InputPage> {
             const SizedBox(height: 22),
 
             // 성별
-            const Text(
-              "성별",
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-            ),
+            const Text('성별',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
-
             Row(
               children: [
                 Expanded(
                   child: GestureDetector(
                     onTap: () => setState(() => gender = "남"),
                     child: Container(
-                      height: 52, // ✅ 생년월일 입력칸과 동일한 높이
+                      height: 52,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: gender == "남"
@@ -323,7 +578,7 @@ class _InputPageState extends State<InputPage> {
                   child: GestureDetector(
                     onTap: () => setState(() => gender = "여"),
                     child: Container(
-                      height: 52, // 동일 높이
+                      height: 52,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: gender == "여"
@@ -348,46 +603,41 @@ class _InputPageState extends State<InputPage> {
             ),
             const SizedBox(height: 22),
 
-            // 생년월일
-            const Text(
-              "생년월일",
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-            ),
+            // === 생년월일 (탭 → 모달 숫자 휠) ===
+            const Text('생년월일',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: yearController,
-                    keyboardType: TextInputType.number,
-                    decoration: _decor('년', hint: '2025'),
-                    textInputAction: TextInputAction.next,
-                  ),
+            InkWell(
+              onTap: () async {
+                await _openBirthPickerModal();
+                setState(() {}); // 라벨 갱신 보장
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextField(
-                    controller: monthController,
-                    keyboardType: TextInputType.number,
-                    decoration: _decor('월', hint: '12'),
-                    textInputAction: TextInputAction.next,
-                  ),
+                child: Row(
+                  children: [
+                    Text(
+                      birthLabel,
+                      style: const TextStyle(
+                          fontSize: 15.5, fontWeight: FontWeight.w600),
+                    ),
+                    const Spacer(),
+                    const Icon(Icons.calendar_month_outlined),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextField(
-                    controller: dayController,
-                    keyboardType: TextInputType.number,
-                    decoration: _decor('일', hint: '31'),
-                    textInputAction: TextInputAction.done,
-                  ),
-                ),
-              ],
+              ),
             ),
 
             const SizedBox(height: 24),
 
-            // 개인정보 동의 영역
+            // 개인정보 동의
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -398,8 +648,7 @@ class _InputPageState extends State<InputPage> {
                       value: isAgreed,
                       onChanged: (v) => setState(() => isAgreed = v ?? false),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
+                          borderRadius: BorderRadius.circular(4)),
                     ),
                     const SizedBox(width: 4),
                     const Expanded(
@@ -415,23 +664,19 @@ class _InputPageState extends State<InputPage> {
                   ],
                 ),
 
-                // ✅ 체크박스 밑 필수 안내 문구
+                // 안내 문구
                 const Padding(
                   padding: EdgeInsets.only(left: 12, right: 8, bottom: 4),
                   child: Text(
-                    '동의 시 이름·생년월일·성별을 서버에 저장합니다.\n'
-                    '동의하지 않으면 결과 페이지에서만 일시적으로 사용됩니다.',
+                    '동의 시 이름·생년월일·성별을 서버에 저장합니다.\n동의하지 않으면 결과 페이지에서만 일시적으로 사용됩니다.',
                     style: TextStyle(
-                      fontSize: 12.5,
-                      height: 1.4,
-                      color: Colors.black54,
-                    ),
+                        fontSize: 12.5, height: 1.4, color: Colors.black54),
                   ),
                 ),
               ],
             ),
 
-            const SizedBox(height: 40), // ✅ 1) 전체를 더 아래로 내려 보이도록 하단 여백 추가
+            const SizedBox(height: 40),
           ],
         ),
       ),

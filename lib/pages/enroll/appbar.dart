@@ -8,7 +8,10 @@ AppBar buildAppBar(BuildContext context) {
       TextButton(
         onPressed: () => Navigator.of(context)
             .popUntil(ModalRoute.withName('/deposit/detail')),
-        child: const Text('나가기'),
+        child: const Text(
+          '나가기',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+        ),
       ),
     ],
   );

@@ -23,6 +23,29 @@ class _CouponsScreenState extends State<CouponsScreen> {
   void initState() {
     super.initState();
     _uid = FortuneAuthService.getCurrentUid();
+    // ✅ 초대한 사람(=현재 로그인 사용자)의 미정산 방문 정산 시도
+    _applyInviteRewards();
+  }
+
+  Future<void> _applyInviteRewards() async {
+    final uid = _uid;
+    if (uid == null) return;
+    try {
+      // 규칙상 inviter 본인만 자신의 invites 하위를 list/update 가능
+      final n = await FortuneFirestoreService
+          .claimPendingInvitesAndIssueRewards(inviterUid: uid, batchSize: 20);
+      if (n > 0) {
+        debugPrint('✅ invite rewards claimed: $n for inviter=$uid');
+        if (!mounted) return;
+        // 살짝 피드백(선택)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('초대 방문 $n건이 정산되었습니다.')),
+        );
+      }
+    } catch (e) {
+      debugPrint('⚠️ invite reward apply failed (inviter view): $e');
+      // 권한 오류가 나면, 실제로 inviter가 아닌 계정일 가능성. UI는 계속 노출.
+    }
   }
 
   @override
@@ -35,7 +58,7 @@ class _CouponsScreenState extends State<CouponsScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('내 쿠폰/스탬프')), // ← 제목 단일화
+      appBar: AppBar(title: const Text('내 쿠폰/스탬프')),
       body: StreamBuilder<int>(
         stream: FortuneFirestoreService.streamStampCount(uid),
         builder: (context, stampSnap) {

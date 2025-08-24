@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:reframe/constants/api_constants.dart';
+import 'package:reframe/event/pages/coupons_screen.dart';
 import 'package:reframe/pages/my_service_test_page.dart';
 
 // FAQ
@@ -14,7 +15,7 @@ import 'package:reframe/pages/customer/qna/qna_api_service.dart';
 import 'package:reframe/pages/customer/qna/qna_list_page.dart';
 
 import 'package:reframe/pages/my_reviews_page.dart';
-import 'package:reframe/event/pages/my_coupons_page.dart';
+//import 'package:reframe/event/pages/coupons_screen.dart';
 
 /* 섹션 타입: 섹션별 팔레트 분리용 */
 enum _SectionKind { myServices, customer }
@@ -122,7 +123,7 @@ class MorePage extends StatelessWidget {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const MyCouponsPage()),
+                      MaterialPageRoute(builder: (_) => const CouponsScreen()),
                     );
                   },
                 ),

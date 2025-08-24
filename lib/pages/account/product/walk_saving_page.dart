@@ -480,7 +480,10 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                           style: const TextStyle(color: _textWeak),
                         ),
                         const SizedBox(height: 12),
-                        LinearProgressIndicator(value: step.ratio, minHeight: 10, backgroundColor: _line),
+                        AnimatedStepBar(
+                          total: step.total,
+                          target: step.target,
+                        ),
                       ],
                     ),
                   ),
@@ -785,3 +788,76 @@ class _TossSheet extends StatelessWidget {
 }
 
 String _pct(num? v) => '${(v ?? 0).toStringAsFixed(2)}%';
+
+class AnimatedStepBar extends StatefulWidget {
+  final int total;   // 현재 걸음
+  final int target;  // 목표 걸음
+  final Duration duration;
+  final Curve curve;
+
+  const AnimatedStepBar({
+    super.key,
+    required this.total,
+    required this.target,
+    this.duration = const Duration(milliseconds: 700),
+    this.curve = Curves.easeOutCubic,
+  });
+
+  @override
+  State<AnimatedStepBar> createState() => _AnimatedStepBarState();
+}
+
+class _AnimatedStepBarState extends State<AnimatedStepBar> {
+  double _prevRatio = 0.0;
+
+  @override
+  void didUpdateWidget(covariant AnimatedStepBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 목표는 동일하지만 total 값이 갱신된 경우 이전 ratio 기억
+    if (oldWidget.total != widget.total || oldWidget.target != widget.target) {
+      _prevRatio = (oldWidget.total / (oldWidget.target == 0 ? 1 : oldWidget.target))
+          .clamp(0.0, 1.0);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final targetRatio = (widget.total / (widget.target == 0 ? 1 : widget.target))
+        .clamp(0.0, 1.0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: _prevRatio, end: targetRatio),
+            duration: widget.duration,
+            curve: widget.curve,
+            onEnd: () => _prevRatio = targetRatio,
+            builder: (context, value, _) {
+              return LinearProgressIndicator(
+                value: value,
+                minHeight: 10,
+                backgroundColor: Colors.grey.withOpacity(0.15),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 6),
+        TweenAnimationBuilder<double>(
+          tween: Tween(begin: _prevRatio, end: targetRatio),
+          duration: widget.duration,
+          curve: widget.curve,
+          builder: (context, value, _) {
+            final curr = (value * widget.target).round();
+            return Text(
+              '$curr / ${widget.target} 보',
+              style: Theme.of(context).textTheme.bodySmall,
+            );
+          },
+        ),
+      ],
+    );
+  }
+}

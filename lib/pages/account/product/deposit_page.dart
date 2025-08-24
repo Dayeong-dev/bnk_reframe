@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -87,7 +88,21 @@ class _DepositPageState extends State<DepositPage> {
                 const SizedBox(height: 16),
 
                 _SectionGroup(children: [
-                  _RowKV('현재까지 이자(세전)',  _won.format(projectedInterestNow)),
+                  _RowKV.withWidget(
+                    '현재까지 이자(세전)',
+                    LiveInterestTicker(
+                      principal: principal,
+                      annualRatePercent: rateEffective, // 적용 금리(연)
+                      start: start,                     // 가입일
+                      end: close,                       // 만기(없으면 null)
+                      // 원 단위 표시(기본):
+                      // formatter: NumberFormat.currency(locale: 'ko_KR', symbol: '₩', decimalDigits: 0),
+
+                      // 소수점 둘째자리까지 보고 싶다면 아래처럼 사용
+                      formatter: NumberFormat.currency(locale: 'ko_KR', symbol: '₩', decimalDigits: 3),
+                    ),
+                  ),
+
                   if (maturityAmountProjected != null)
                     _RowKV('만기 예상 수령액(세전)', _won.format(maturityAmountProjected)),
                 ]),
@@ -479,5 +494,116 @@ class _RollingNumberTextState extends State<RollingNumberText> {
         );
       }),
     );
+  }
+}
+
+/// 실시간 이자(세전) 틱업 위젯
+/// - ACT/365 단순이자 가정
+/// - 만기(end) 도달 시 자동 정지
+class LiveInterestTicker extends StatefulWidget {
+  final num principal;                 // 납입(원금)
+  final double annualRatePercent;      // 연이율(%)
+  final DateTime? start;               // 이자 발생 시작 시점
+  final DateTime? end;                 // 만기(없으면 null)
+  final NumberFormat formatter;        // 표시 포맷 (소수점 2자리 원하면 decimalDigits: 2)
+  final Duration tick;                 // 갱신 주기
+  final bool animateOnFirstBuild;      // 첫 진입 롤링 여부
+
+  const LiveInterestTicker({
+    super.key,
+    required this.principal,
+    required this.annualRatePercent,
+    required this.formatter,
+    this.start,
+    this.end,
+    this.tick = const Duration(milliseconds: 250),
+    this.animateOnFirstBuild = true,
+  });
+
+  @override
+  State<LiveInterestTicker> createState() => _LiveInterestTickerState();
+}
+
+class _LiveInterestTickerState extends State<LiveInterestTicker> {
+  Timer? _timer;
+  num _value = 0;
+
+  static const _secondsPerYear = 365 * 24 * 60 * 60; // ACT/365
+
+  num _interestAt(DateTime now) {
+    if (widget.start == null) return 0;
+    final end = (widget.end != null && now.isAfter(widget.end!)) ? widget.end! : now;
+    if (end.isBefore(widget.start!)) return 0;
+
+    final elapsedSec = end.difference(widget.start!).inSeconds;
+    final rate = widget.annualRatePercent / 100.0;
+
+    final raw = widget.principal.toDouble() * rate * (elapsedSec / _secondsPerYear);
+    // 표시 자리수에 맞춰 반올림 (원 단위면 정수, 2자리면 소수)
+    final decimals = widget.formatter.decimalDigits ?? 0;
+    final factor = MathPow.pow(10, decimals).toDouble();
+    return (raw * factor).round() / factor;
+  }
+
+  void _tick() {
+    final now = DateTime.now();
+    final newVal = _interestAt(now);
+    if (!mounted) return;
+    setState(() => _value = newVal);
+
+    // 만기 도달 시 타이머 종료
+    if (widget.end != null && now.isAfter(widget.end!)) {
+      _timer?.cancel();
+      _timer = null;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _value = _interestAt(DateTime.now());
+    _timer = Timer.periodic(widget.tick, (_) => _tick());
+  }
+
+  @override
+  void didUpdateWidget(covariant LiveInterestTicker old) {
+    super.didUpdateWidget(old);
+    // 입력 값이 바뀌면 즉시 재계산
+    _value = _interestAt(DateTime.now());
+    _timer?.cancel();
+    _timer = Timer.periodic(widget.tick, (_) => _tick());
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 자리별 롤링 이미 있으니 그대로 활용
+    return RollingNumberText(
+      value: _value,
+      formatter: widget.formatter,
+      animateOnFirstBuild: widget.animateOnFirstBuild,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+        fontWeight: FontWeight.w800,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+    );
+  }
+}
+
+/// 간단 pow (dart:math 없이 정수 거듭제곱용)
+class MathPow {
+  static num pow(num base, int exponent) {
+    num result = 1;
+    for (int i = 0; i < exponent; i++) {
+      result *= base;
+    }
+    return result;
   }
 }

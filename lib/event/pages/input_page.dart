@@ -1,6 +1,7 @@
 // input_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:app_links/app_links.dart';
 
 import '../models/types.dart';
@@ -28,6 +29,9 @@ class _InputPageState extends State<InputPage> {
   late final AppLinks _appLinks;
   StreamSubscription<Uri>? _linkSub;
   String? _lastHandled; // 같은 URI 중복 처리 방지
+
+  // 방문 기록 중복 방지 키(초대코드별 1회만)
+  String? _inviteRecordedFor;
 
   // ==== 타이핑 효과 ====
   static const String _fullTitle = '정보를 입력해주세요';
@@ -69,6 +73,7 @@ class _InputPageState extends State<InputPage> {
       (raw['inviter'] ?? raw['inviteCode'] ?? raw['code'])?.toString();
       if (v != null && v.isNotEmpty && invitedBy == null) {
         setState(() => invitedBy = v); // StartPage → InputPage 전달분 반영
+        _recordInviteVisitIfNeeded(v, source: 'route-arg');
       }
     }
   }
@@ -95,9 +100,9 @@ class _InputPageState extends State<InputPage> {
   }
 
   bool _isOurLink(Uri link) {
-    final isCustom = link.scheme == 'abcd1234' && link.host == 'fortune';
+    final isCustom = link.scheme == 'bnk-app-push';
     final isHttps = link.scheme == 'https' &&
-        link.host == 'abc123-2580c.web.app' &&
+        link.host == 'bnk-app-push.web.app' &&
         link.pathSegments.isNotEmpty &&
         link.pathSegments.first == 'fortune'; // /fortune/...
     return isCustom || isHttps;
@@ -116,8 +121,33 @@ class _InputPageState extends State<InputPage> {
         link.queryParameters['code'];
 
     if (invite != null && invite.isNotEmpty) {
-      setState(() => invitedBy = invite); // 내부적으로만 저장, 화면엔 노출 X
+      setState(() => invitedBy = invite); // 내부적으로만 저장
       debugPrint('📩 invitedBy captured($source): $invitedBy | $link');
+      _recordInviteVisitIfNeeded(invite, source: source ?? 'link');
+    }
+  }
+
+  // ====== 초대 방문 기록(클레임/정산 없이 "방문만" 저장) ======
+  Future<void> _recordInviteVisitIfNeeded(String inviter, {String? source}) async {
+    if (_inviteRecordedFor == inviter) return; // 동일 초대자 중복 기록 방지
+
+    try {
+      await FortuneAuthService.ensureSignedIn();
+      final invitee = FortuneAuthService.getCurrentUid();
+      if (invitee == null) return;
+
+      await FortuneFirestoreService.rewardInviteOnce(
+        inviterUid: inviter,
+        inviteeUid: invitee,
+        source: source,
+        debugAllowSelf: true, // ✅ 같은 사람이 초대돼도 카운트 증가(테스트)
+      );
+
+      _inviteRecordedFor = inviter;
+      debugPrint('✅ visit recorded for inviter=$inviter by invitee=$invitee');
+    } catch (e, st) {
+      debugPrint('⚠️ visit record failed: $e\n$st');
+      // 방문 기록 실패는 UX 영향 최소화: 알림만 없이 지나감
     }
   }
 
@@ -228,6 +258,53 @@ class _InputPageState extends State<InputPage> {
     );
   }
 
+  // ====== 초대코드 미니 배지 ======
+  Widget _inviteBadge() {
+    if (invitedBy == null || invitedBy!.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 14),
+      child: Row(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Row(
+              children: [
+                const Icon(Icons.link, size: 14, color: Color(0xFF6B7280)),
+                const SizedBox(width: 6),
+                Text(
+                  '초대코드: ${invitedBy!}',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: Color(0xFF374151),
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                GestureDetector(
+                  onTap: () async {
+                    await Clipboard.setData(ClipboardData(text: invitedBy!));
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('초대코드를 복사했어요.')),
+                    );
+                  },
+                  child: const Icon(Icons.copy_rounded,
+                      size: 14, color: Color(0xFF6B7280)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -278,7 +355,10 @@ class _InputPageState extends State<InputPage> {
               ),
             ),
 
-            const SizedBox(height: 20),
+            // ✅ 초대코드 배지(감지된 경우에만)
+            _inviteBadge(),
+
+            const SizedBox(height: 6),
 
             // 이름
             TextField(

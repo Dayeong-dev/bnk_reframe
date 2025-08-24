@@ -32,6 +32,15 @@ class ReviewService {
     );
   }
 
+  static Future<List<MyReview>> fetchMyReviews() async {
+    final res = await dio.get('/mobile/reviews/me');
+    final data = res.data;
+    if (data is List) {
+      return data.map((e) => MyReview.fromJson(Map<String, dynamic>.from(e))).toList();
+    }
+    return <MyReview>[];
+  }
+
   // ★ 내 리뷰 수정
   static Future<void> updateReview({
     required int reviewId,

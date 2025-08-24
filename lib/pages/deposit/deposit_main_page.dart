@@ -171,7 +171,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
     );
   }
 
-  /// 배너에서 직접 ID로 이동 (요청: 69, 70, 73)
+  /// 배너에서 직접 ID로 이동
   void goToDetailById(int productId) {
     Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(
@@ -190,7 +190,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
     final double rate = product.maxRate;
     int interestResult = 0;
 
-    String formatCurrency(int v) => NumberFormat("#,###").format(v);
+    String formatCurrencyLocal(int v) => NumberFormat("#,###").format(v);
 
     void calculate(StateSetter s) {
       final amount =
@@ -467,7 +467,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
                                           padding: const EdgeInsets.symmetric(
                                               vertical: 6),
                                           child: Text(
-                                            "${formatCurrency(value)} 원",
+                                            "${formatCurrencyLocal(value)} 원",
                                             textAlign: TextAlign.center,
                                             style: const TextStyle(
                                                 fontSize: 28,
@@ -480,10 +480,12 @@ class _DepositMainPageState extends State<DepositMainPage> {
                                   ),
                                 ),
                                 const Divider(height: 16),
-                                resultRow("예치금", "${formatCurrency(amount)} 원"),
+                                resultRow(
+                                    "예치금", "${formatCurrencyLocal(amount)} 원"),
                                 resultRow("이자수익",
-                                    "${formatCurrency(interestResult)} 원"),
-                                resultRow("총 수령액", "${formatCurrency(total)} 원",
+                                    "${formatCurrencyLocal(interestResult)} 원"),
+                                resultRow(
+                                    "총 수령액", "${formatCurrencyLocal(total)} 원",
                                     highlight: true),
                               ],
                             ),
@@ -550,16 +552,13 @@ class _DepositMainPageState extends State<DepositMainPage> {
               );
             },
           ),
+          // (요청 2) "크게보기/기본보기" — 배경/뱃지 제거, 텍스트만
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: TextButton(
               style: TextButton.styleFrom(
-                backgroundColor: _simpleMode
-                    ? _accent.withOpacity(0.12)
-                    : Colors.grey.shade200,
-                shape: const StadiumBorder(),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                foregroundColor: _simpleMode ? _accent : Colors.black87,
               ),
               onPressed: () async {
                 setState(() => _simpleMode = !_simpleMode);
@@ -573,10 +572,8 @@ class _DepositMainPageState extends State<DepositMainPage> {
               },
               child: Text(
                 _simpleMode ? '기본보기' : '크게보기',
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: _simpleMode ? _accent : Colors.black87),
+                style:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               ),
             ),
           ),
@@ -700,7 +697,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
 
       SizedBox(height: _vGap),
 
-      // ✅ 상단 2타일: 살짝 축소 + 간격 통일
+      // ✅ (요청 1) 동일 스타일의 “맞춤 추천/영업점 위치확인” 카드 2개
       shortcutRow(context, dense: true),
 
       SizedBox(height: _vGap),
@@ -717,128 +714,22 @@ class _DepositMainPageState extends State<DepositMainPage> {
     ];
   }
 
-  // === 심플 모드 === (예전 심플 UI로 복원 + 라우팅 유지)
+  // === 심플 모드 ===
   List<Widget> _buildSimpleModeSection() {
     return [
       const SizedBox(height: 12),
 
-      // 카테고리 바로가기 — 예전처럼 BigPrimaryButton(테두리) 3개
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: [
-            Expanded(
-              child: Container(
-                decoration: neoDecoration(),
-                child: _BigPrimaryButton(
-                  label: "예금",
-                  icon: Icons.savings,
-                  accent: _accent,
-                  showIcon: false,
-                  filled: false, // 테두리 버튼
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            const DepositListPage(initialCategory: '예금'),
-                        settings: const RouteSettings(name: '/depositList'),
-                      ),
-                    );
-                  },
-                  horizontalPadding: 8,
-                  verticalPadding: 12,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Container(
-                decoration: neoDecoration(),
-                child: _BigPrimaryButton(
-                  label: "적금",
-                  icon: Icons.account_balance_wallet,
-                  accent: _accent,
-                  showIcon: false,
-                  filled: false,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            const DepositListPage(initialCategory: '적금'),
-                        settings: const RouteSettings(name: '/depositList'),
-                      ),
-                    );
-                  },
-                  horizontalPadding: 8,
-                  verticalPadding: 12,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Container(
-                decoration: neoDecoration(),
-                child: _BigPrimaryButton(
-                  label: "입출금",
-                  icon: Icons.money,
-                  accent: _accent,
-                  showIcon: false,
-                  filled: false,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            const DepositListPage(initialCategory: '입출금'),
-                        settings: const RouteSettings(name: '/depositList'),
-                      ),
-                    );
-                  },
-                  horizontalPadding: 8,
-                  verticalPadding: 12,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+      // 카테고리 바로가기 (예금/적금/입출금) — 그대로 유지
+      categorySection(context),
 
       const SizedBox(height: 16),
 
-      // 🔙 예전 심플 UI의 "빠른 기능" 영역 (두 개의 큰 버튼)
-      // ✅ 라우팅 유지: 내 추천 → /savings/start, 근처 지점 → /map
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: [
-            Expanded(
-              child: _BigPrimaryButton(
-                label: "맞춤 상품 추천",
-                icon: Icons.recommend,
-                accent: _accent,
-                filled: false, // 꽉 찬 버튼(예전 스타일)
-                onTap: () => pushNamedRoot(context, '/savings/start'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _BigPrimaryButton(
-                label: "근처 지점 위치",
-                icon: Icons.location_on,
-                accent: Colors.green,
-                filled: false, // 테두리 버튼
-                onTap: () => pushNamedRoot(context, '/map'),
-              ),
-            ),
-          ],
-        ),
-      ),
+      // (요청 1) 동일 스타일 버튼으로 교체
+      shortcutRow(context, dense: true),
 
       const SizedBox(height: 20),
 
-      // 추천 리스트 (예전 심플 카드)
+      // 추천 리스트 (심플 카드)
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Text(
@@ -900,7 +791,6 @@ class _DepositMainPageState extends State<DepositMainPage> {
       [const Color(0xFFF3EEFF), const Color(0xFFE8E1FF)],
     ];
 
-    // 전체 높이 = 카드 높이 + 바깥 여백 약간
     return SizedBox(
       height: _recoCardH + 26,
       child: ListView.builder(
@@ -930,7 +820,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
                 hashtag: hashtag,
                 rateText: "최고 ${p.maxRate.toStringAsFixed(2)}%",
                 cornerIcon: bigIcon,
-                showCornerIcon: false, // 우상단 아이콘 숨김 → 더 가벼움
+                showCornerIcon: false,
                 titleFontSize: 16.5,
                 hashtagFontSize: 12.5,
                 bottomLeftFontSize: 13.5,
@@ -945,6 +835,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
     );
   }
 
+  // (요청 2) 인기 리스트의 금리 ‘배지’를 제거하고 텍스트만 표시
   Widget productList(List<DepositProduct> products) {
     return Column(
       children: products.map((p) {
@@ -984,18 +875,14 @@ class _DepositMainPageState extends State<DepositMainPage> {
                     ],
                   ),
                 ),
-                // 중: 금리 배지
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                      color: Colors.indigo.shade50,
-                      borderRadius: BorderRadius.circular(20)),
+                // 중: 금리 — 배지 제거, 텍스트만
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Text(
                     "최고 ${p.maxRate.toStringAsFixed(2)}%",
                     style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.indigo.shade500),
+                        fontWeight: FontWeight.w800,
+                        color: Colors.indigo.shade600),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1024,89 +911,98 @@ class _DepositMainPageState extends State<DepositMainPage> {
     );
   }
 
-  Widget categorySection(BuildContext context) {
-    final items = [
-      {
-        'label': '예금',
-        'display': '목돈굴리기',
-        'icon': Icons.savings,
-        'bg1': const Color(0xFF304FFE),
-        'bg2': const Color(0xFF8C9EFF),
-      },
-      {
-        'label': '적금',
-        'display': '목돈만들기',
-        'icon': Icons.account_balance_wallet,
-        'bg1': const Color(0xFF10B981),
-        'bg2': const Color(0xFF34D399),
-      },
-      {
-        'label': '입출금',
-        'display': '입출금',
-        'icon': Icons.money,
-        'bg1': const Color(0xFFFF8A00),
-        'bg2': const Color(0xFFFFC046),
-      },
-    ];
+  // ===== (요청 1) 재사용 가능한 카테고리형 버튼 =====
+  Widget _categoryCardButton({
+    required String label, // 표시 텍스트 (한 줄)
+    required IconData icon,
+    required Color bg1,
+    required Color bg2,
+    required VoidCallback onTap,
+  }) {
+    return _TapScale(
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 88),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: neoDecoration(),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [bg1, bg2],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Icon(icon, color: Colors.white),
+            ),
+            const SizedBox(height: 6),
+            Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
 
-    // ✅ shortcutRow와 동일한 좌우 패딩(16) + Expanded로 같은 폭 보장
+  // 카테고리 3개 (예금/적금/입출금)
+  Widget categorySection(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          for (int i = 0; i < items.length; i++) ...[
-            Expanded(
-              child: _TapScale(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => DepositListPage(
-                          initialCategory: items[i]['label'] as String),
-                      settings: const RouteSettings(name: '/depositList'),
-                    ),
-                  );
-                },
-                child: Container(
-                  // ✅ 높이 통일 → 세로선 시작/끝 정렬
-                  constraints: const BoxConstraints(minHeight: 88),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: neoDecoration(),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // 원형 그라데이션 캡슐
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: [
-                              items[i]['bg1'] as Color,
-                              items[i]['bg2'] as Color
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                        child: Icon(items[i]['icon'] as IconData,
-                            color: Colors.white),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        items[i]['display'] as String,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
+          Expanded(
+            child: _categoryCardButton(
+              label: '목돈굴리기',
+              icon: Icons.savings,
+              bg1: const Color(0xFF304FFE), // 인디고
+              bg2: const Color(0xFF8C9EFF),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const DepositListPage(initialCategory: '예금'),
+                  settings: const RouteSettings(name: '/depositList'),
                 ),
               ),
             ),
-            if (i != items.length - 1)
-              const SizedBox(width: 12), // ✅ 카드 간 간격 통일
-          ],
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _categoryCardButton(
+              label: '목돈만들기',
+              icon: Icons.account_balance_wallet,
+              bg1: const Color(0xFF00C6AE), // 청록
+              bg2: const Color(0xFF4ADEDE),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const DepositListPage(initialCategory: '적금'),
+                  settings: const RouteSettings(name: '/depositList'),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _categoryCardButton(
+              label: '입출금',
+              icon: Icons.money,
+              bg1: const Color(0xFFFF6F61), // 레드오렌지
+              bg2: const Color(0xFFFFA177),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const DepositListPage(initialCategory: '입출금'),
+                  settings: const RouteSettings(name: '/depositList'),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1169,9 +1065,10 @@ Widget resultRow(String label, String value, {bool highlight = false}) {
         Text(
           value,
           style: TextStyle(
-              fontSize: 15,
-              fontWeight: highlight ? FontWeight.bold : FontWeight.normal,
-              color: highlight ? Colors.indigo : Colors.black),
+            fontSize: 15,
+            fontWeight: highlight ? FontWeight.bold : FontWeight.normal,
+            color: highlight ? Colors.indigo : Colors.black,
+          ),
         ),
       ],
     ),
@@ -1188,9 +1085,10 @@ Widget _infoLine(String label, String value, {bool highlight = false}) {
         Text(
           value,
           style: TextStyle(
-              fontSize: 16,
-              fontWeight: highlight ? FontWeight.bold : FontWeight.normal,
-              color: highlight ? Colors.indigo : Colors.black),
+            fontSize: 16,
+            fontWeight: highlight ? FontWeight.bold : FontWeight.normal,
+            color: highlight ? Colors.indigo : Colors.black,
+          ),
         ),
       ],
     ),
@@ -1281,7 +1179,7 @@ class _PastelServiceCard extends StatelessWidget {
             BoxShadow(
                 color: Colors.black.withOpacity(0.05),
                 blurRadius: 12,
-                offset: const Offset(0, 6))
+                offset: const Offset(0, 6)),
           ],
         ),
         child: Stack(
@@ -1365,7 +1263,7 @@ class _PastelServiceCard extends StatelessWidget {
                             Shadow(
                                 color: accent.withOpacity(0.18),
                                 blurRadius: 6,
-                                offset: const Offset(0, 1))
+                                offset: const Offset(0, 1)),
                           ],
                         ),
                       ),
@@ -1400,7 +1298,7 @@ class _PastelServiceCard extends StatelessWidget {
   }
 }
 
-// ===== 금리 배지 (우하단 강조) =====
+// ===== 금리 배지 (우하단 강조) — (현재 미사용 상태지만 남겨둠)
 class _RateBadge extends StatelessWidget {
   final String text;
   const _RateBadge({required this.text});
@@ -1508,92 +1406,94 @@ class _BigPrimaryButton extends StatelessWidget {
   }
 }
 
-/// ✅ 공통 쇼트컷 카드: 추천 상품(/savings/start), 영업점/ATM(/map)
-/// dense=true → 살짝 축소(패딩/아이콘/폰트), 세로 간격 _vGap 과 통일
+/// ✅ (요청 1) 공통 카테고리 스타일로 만든 “맞춤 추천 / 영업점 위치확인”
 Widget shortcutRow(BuildContext context, {bool dense = false}) {
-  final baseColor = Colors.white;
-  final borderRadius = BorderRadius.circular(20);
-
-  BoxDecoration neoBox() => BoxDecoration(
-        color: baseColor,
-        borderRadius: borderRadius,
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 12,
-              offset: const Offset(8, 8)),
-          BoxShadow(
-              color: Colors.white.withOpacity(0.9),
-              blurRadius: 12,
-              offset: const Offset(-6, -6)),
-        ],
-      );
-
-  final pad = dense ? 14.0 : 20.0;
-  final iconSize = dense ? 30.0 : 36.0;
-  final titleFs = dense ? 16.0 : 17.0;
-  final subFs = dense ? 12.0 : 13.0;
-
   return Padding(
     padding: const EdgeInsets.symmetric(horizontal: 16),
     child: Row(
       children: [
         Expanded(
-          child: InkWell(
-            borderRadius: borderRadius,
+          child: _ShortcutAsCategoryCard(
+            label: "맞춤 상품 추천",
+            icon: Icons.recommend,
+            bg1: const Color(0xFF7C4DFF), // 퍼플
+            bg2: const Color(0xFFB388FF),
             onTap: () => pushNamedRoot(context, '/savings/start'),
-            child: Container(
-              padding: EdgeInsets.all(pad),
-              margin: const EdgeInsets.only(right: 8),
-              decoration: neoBox(),
-              child: Column(
-                children: [
-                  Icon(Icons.recommend, size: iconSize, color: Colors.indigo),
-                  const SizedBox(height: 8),
-                  Text("저축 성향 테스트",
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: titleFs,
-                          color: Colors.indigo)),
-                  const SizedBox(height: 2),
-                  Text("맞춤 상품 추천",
-                      style: TextStyle(fontSize: subFs, color: Colors.indigo)),
-                ],
-              ),
-            ),
           ),
         ),
+        const SizedBox(width: 12),
         Expanded(
-          child: InkWell(
-            borderRadius: borderRadius,
+          child: _ShortcutAsCategoryCard(
+            label: "영업점 위치확인",
+            icon: Icons.location_on,
+            bg1: const Color(0xFF009688), // 틸
+            bg2: const Color(0xFF4DB6AC),
             onTap: () => pushNamedRoot(context, '/map'),
-            child: Container(
-              padding: EdgeInsets.all(pad),
-              margin: const EdgeInsets.only(left: 8),
-              decoration: neoBox().copyWith(color: Colors.green.shade50),
-              child: Column(
-                children: [
-                  Icon(Icons.location_on, size: iconSize, color: Colors.green),
-                  const SizedBox(height: 8),
-                  Text("영업점, ATM",
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: titleFs,
-                          color: Colors.black)),
-                  const SizedBox(height: 2),
-                  Text("위치확인",
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: subFs,
-                          color: Colors.green)),
-                ],
-              ),
-            ),
           ),
         ),
       ],
     ),
   );
+}
+
+// 카테고리 버튼과 동일한 UI를 쓰는 쇼트컷 카드
+class _ShortcutAsCategoryCard extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color bg1;
+  final Color bg2;
+  final VoidCallback onTap;
+  const _ShortcutAsCategoryCard({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.bg1,
+    required this.bg2,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _TapScale(
+      onTap: onTap,
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 88),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.06),
+                blurRadius: 18,
+                offset: const Offset(8, 8)),
+            const BoxShadow(
+                color: Colors.white, blurRadius: 14, offset: Offset(-8, -8)),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                    colors: [bg1, bg2],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight),
+              ),
+              child: Icon(icon, color: Colors.white),
+            ),
+            const SizedBox(height: 6),
+            Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _SimpleProductCard extends StatelessWidget {
@@ -1635,19 +1535,12 @@ class _SimpleProductCard extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                    color: accent.withOpacity(0.10),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: accent.withOpacity(0.24))),
-                child: Text("최고 ${p.maxRate.toStringAsFixed(2)}%",
-                    style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: accent)),
-              ),
+              // 심플 카드 금리 — 배지 유지(심플 느낌) 원하면 여기서도 텍스트만으로 바꿀 수 있음
+              Text("최고 ${p.maxRate.toStringAsFixed(2)}%",
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: accent)),
               const SizedBox(width: 12),
               const Text("기간 ",
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),

@@ -49,31 +49,29 @@ class StartScreen extends StatelessWidget {
                 right: 24,
               ),
               child: SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  style: ButtonStyle(
-                    backgroundColor: MaterialStateProperty.all(Colors.grey[600]),
-                    padding: MaterialStateProperty.all(
-                      const EdgeInsets.symmetric(vertical: 18),
-                    ),
-                    shape: MaterialStateProperty.all(
-                      RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  width: double.infinity,
+                  child: FilledButton(
+                    style: ButtonStyle(
+                      padding: MaterialStateProperty.all(
+                        const EdgeInsets.symmetric(vertical: 18),
+                      ),
+                      shape: MaterialStateProperty.all(
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
-                  ),
-                  onPressed: () => Navigator.pushNamed(context, '/savings/question'),
-                  child: const Text(
-                    '시작하기',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                    onPressed: () =>
+                        Navigator.pushNamed(context, '/savings/question'),
+                    child: const Text(
+                      '시작하기',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
-                )
-
-              ),
+                  )),
             ),
           ],
         ),

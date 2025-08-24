@@ -220,7 +220,7 @@ class _QnaFormPageState extends State<QnaFormPage> {
                 onPressed: _submitting ? null : _submit,
                 style: ElevatedButton.styleFrom(
                   foregroundColor: Colors.white,
-                  backgroundColor: Colors.black,
+                  backgroundColor: Color(0xFF2962FF),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -289,8 +289,8 @@ class _SegmentGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     const bg = Color(0xFFF5F6F8);
     const border = Color(0xFFE5E7EB);
-    const selBorder = Colors.black87;
-    const selText = Colors.black;
+    const selBorder = Color(0xFF2962FF);
+    const selText = Color(0xFF2962FF);
     const text = Color(0xFF9CA3AF);
 
     return LayoutBuilder(

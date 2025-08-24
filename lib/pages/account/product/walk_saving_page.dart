@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:dio/dio.dart';
 
+import '../../../constants/text_animation.dart';
 import '../../../core/interceptors/http.dart';
 import '../../../model/deposit_payment_log.dart';
 import '../../../model/common.dart';
@@ -299,13 +300,15 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                         const SizedBox(height: 14),
                         const Text('현재 잔액', style: TextStyle(fontSize: 13, color: _textWeak)),
                         const SizedBox(height: 6),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 200),
-                          transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
-                          child: Text(
-                            _won.format(principal),
-                            key: ValueKey(principal),
-                            style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800, height: 1.1, color: _textStrong),
+                        DiffHighlight(
+                          marker: principal,
+                          highlightOnFirstBuild: true,
+                          child: MoneyCountUp(
+                            value: principal,
+                            formatter: _won,
+                            animateOnFirstBuild: true,                 // 첫 진입에도 촤라락
+                            duration: const Duration(milliseconds: 650),
+                            style: Theme.of(context).textTheme.headlineSmall, // (원하면 더 크게)
                           ),
                         ),
                         const SizedBox(height: 12),

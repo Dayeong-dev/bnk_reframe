@@ -14,6 +14,8 @@ class ProductApplication {
   final double? effectiveRateAnnual;    // 현재 적용 연이율 (지금은 기본과 동일)
   final int? termMonthsAtEnroll;
 
+  final int? walkThresholdSteps;
+
   ProductApplication({
     required this.id,
     required this.product, 
@@ -23,6 +25,7 @@ class ProductApplication {
     this.baseRateAtEnroll,
     this.effectiveRateAnnual,
     this.termMonthsAtEnroll,
+    this.walkThresholdSteps,
   });
 
   factory ProductApplication.fromJson(Map<String, dynamic> json) {
@@ -35,6 +38,7 @@ class ProductApplication {
       baseRateAtEnroll: parseDouble(json['baseRateAtEnroll']),
       effectiveRateAnnual: parseDouble(json['effectiveRateAnnual']),
       termMonthsAtEnroll: parseInt(json['termMonthsAtEnroll']),
+      walkThresholdSteps: json['walkThresholdSteps'] as int?,
     );
   }
 
@@ -47,5 +51,6 @@ class ProductApplication {
     'baseRateAtEnroll': baseRateAtEnroll,
     'effectiveRateAnnual': effectiveRateAnnual,
     'termMonthsAtEnroll': termMonthsAtEnroll,
+    'walkThresholdSteps': walkThresholdSteps,
   };
 }

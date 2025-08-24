@@ -58,16 +58,46 @@ class WalkSavingPage extends StatefulWidget {
 
 class _WalkSavingPageState extends State<WalkSavingPage> {
   late Future<ProductAccountDetail> _future;
+  ProductAccountDetail? _detailCache;
+
   bool _paying = false;
   int _stepsToday = 0;
 
   final Health _health = Health();
   String _healthStatus = '걸음 연동 준비됨';
 
+  int? _stepsMonthOverride;    // 서버 동기화 응답의 이번 달 누적 걸음
+  int? _thresholdOverride;     // 월 목표(예: 100000)
+  double? _effRateOverride;    // 적용 금리(동기화로 변경되면 반영)
+
   @override
   void initState() {
     super.initState();
     _future = fetchAccountDetail(widget.accountId);
+
+    // 상세가 로드되면 앱ID를 얻어 요약 조회
+    _future.then((detail) async {
+      if (!mounted) return;
+      _detailCache ??= detail;
+      _loadSummaryOnce(detail.application.id);
+    });
+  }
+
+  Future<void> _loadSummaryOnce(int appId) async {
+    try {
+      final r = await fetchWalkSummary(appId);
+      if (!mounted) return;
+      setState(() {
+        _stepsMonthOverride = r.stepsThisMonth;
+        _thresholdOverride  = r.threshold;
+        _effRateOverride    = r.effectiveRate;
+        _stepsToday         = r.todaySteps;
+        _healthStatus = r.lastSyncDate != null
+            ? '최근 동기화: ${r.lastSyncDate!.year}.${_pad2(r.lastSyncDate!.month)}.${_pad2(r.lastSyncDate!.day)} '
+            '${_pad2(r.lastSyncDate!.hour)}:${_pad2(r.lastSyncDate!.minute)}'
+            : '걸음 연동 준비됨';
+      });
+    } catch (_) {}
   }
 
   // --- 걸음수 측정 메서드 ---
@@ -105,10 +135,12 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
   }
 
   // --- 가입 상품 정보 데이터 메서드 ---
-  Future<void> _refresh() async {
-    final f = fetchAccountDetail(widget.accountId);
-    setState(() => _future = f);
-    await f;
+  Future<void> _softRefresh() async {
+    try {
+      final d = await fetchAccountDetail(widget.accountId);
+      if (!mounted) return;
+      setState(() => _detailCache = d); // 화면 유지 + 내용만 업데이트
+    } catch (_) {}
   }
 
   Future<void> _onPressPay(ProductAccountDetail detail) async {
@@ -131,7 +163,7 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('다음 회차 납입이 완료되었습니다.')),
       );
-      await _refresh();
+      await _softRefresh();
     } catch (e) {
       if (!mounted) return;
       final msg = _errorMessage(e);
@@ -183,14 +215,13 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
   }
 
   _StepProgress _calcMonthlyProgress(ProductAccountDetail detail) {
-    const target = 100000; // 월 목표 걸음
     final app = detail.application;
-    if (app.startAt == null) return const _StepProgress(0, target);
+    final target = app.walkThresholdSteps ?? 100000;
 
+    if (app.startAt == null) return _StepProgress(0, target);
     final now = DateTime.now();
     final roundNow = _currentMonthlyRound(app.startAt!, now);
 
-    // 현재 회차 로그 찾기
     DepositPaymentLog? curLog;
     for (final e in detail.depositPaymentLogList) {
       if (e.round == roundNow) { curLog = e; break; }
@@ -227,14 +258,19 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
     // WalkSyncService.sync(appId, stepsTodayTotal) 에 맞춘 엔드포인트가 있다면 아래처럼 호출
     try {
       final appId = detail.application.id;
-      await fetchWalkSync(appId, steps);
+      final r = await fetchWalkSync(appId, steps); // ← 응답 받기
 
       if (!mounted) return;
+      setState(() {
+        _stepsMonthOverride = r.stepsThisMonth;
+        _thresholdOverride  = r.threshold;
+        _effRateOverride    = r.effectiveRate;
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('걸음 동기화 완료')),
       );
-      // 금리/진행도 갱신 위해 새로고침
-      await _refresh();
+
     } catch (e) {
       if (!mounted) return;
       final msg = _errorMessage(e);
@@ -338,13 +374,17 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
         bottom: true,
         child: RefreshIndicator(
           color: _blue,
-          onRefresh: _refresh,
+          onRefresh: _softRefresh,
           child: FutureBuilder<ProductAccountDetail>(
             future: _future,
+            initialData: _detailCache,
             builder: (context, snap) {
-              if (snap.connectionState != ConnectionState.done) {
+              final detail = _detailCache ?? snap.data;
+
+              if (detail == null) {
                 return const Center(child: CircularProgressIndicator());
               }
+
               if (snap.hasError || !snap.hasData) {
                 return ListView(children: const [
                   SizedBox(height: 140),
@@ -352,7 +392,6 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                 ]);
               }
 
-              final detail = snap.data!;
               final acc = detail.account;
               final app = detail.application;
               final principal = (acc?.balance ?? 0);
@@ -368,11 +407,30 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
 
               final step = _calcMonthlyProgress(detail);
 
+              // 응답이 있으면 그걸 우선 사용
+              final totalForUI  = _stepsMonthOverride ?? step.total;
+              final targetForUI = _thresholdOverride  ?? step.target;
+              final effRateForUI = _effRateOverride ?? (app.effectiveRateAnnual ?? app.baseRateAtEnroll);
+
               final nextUnpaid = _findNextUnpaid(detail);
               final startAt = app.startAt ?? DateTime.now();
               final nextDue = (nextUnpaid == null) ? null : _computeDueDate(startAt, nextUnpaid.round);
               final today = DateTime.now();
+
+              DateTime _onlyDate(DateTime d) => DateTime(d.year, d.month, d.day);
+              final DateTime todayOnly = _onlyDate(DateTime.now());
+
               final canPayToday = nextDue != null && fmtYmd(nextDue) == fmtYmd(today);
+              final bool canPayNow =
+                  nextUnpaid != null &&
+                      nextDue != null &&
+                      !todayOnly.isBefore(_onlyDate(nextDue)); // 오늘 >= 예정일
+
+              final dueText = nextDue == null
+                  ? '-'
+                  : ( _onlyDate(today).isBefore(_onlyDate(nextDue))
+                  ? '예정일 ${fmtYmd(nextDue)}'
+                  : '연체: ${fmtYmd(nextDue)}부터' );
 
               return ListView(
                 padding: const EdgeInsets.only(bottom: 24),
@@ -417,12 +475,14 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                           runSpacing: 8,
                           children: [
                             _TossChip(text: '기본 ${_pct(app.baseRateAtEnroll)}', icon: CupertinoIcons.percent),
-                            _TossChip(text: '적용 ${_pct(app.effectiveRateAnnual ?? app.baseRateAtEnroll)}', icon: Icons.trending_up),
+                            _TossChip(text: '적용 ${_pct(effRateForUI)}', icon: Icons.trending_up),
                             if (nextDue != null)
                               _TossChip(
-                                text: canPayToday ? '오늘 납입 가능' : '예정일 ${fmtYmd(nextDue)}',
-                                icon: canPayToday ? CupertinoIcons.calendar : CupertinoIcons.calendar,
-                                tone: canPayToday ? _ChipTone.success : _ChipTone.neutral,
+                                text: dueText,
+                                icon: CupertinoIcons.calendar,
+                                tone: (nextDue != null && !_onlyDate(today).isBefore(_onlyDate(nextDue)))
+                                    ? _ChipTone.warning    // 연체면 경고 톤
+                                    : _ChipTone.neutral,
                               ),
                           ],
                         ),
@@ -471,7 +531,7 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                         const _SectionTitle('이번 회차 (가입일 기준 월)'),
                         const SizedBox(height: 8),
                         Text(
-                          '${NumberFormat('#,###').format(step.total)} / ${NumberFormat('#,###').format(step.target)} 보',
+                          '${NumberFormat('#,###').format(totalForUI)} / ${NumberFormat('#,###').format(targetForUI)} 보',
                           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _textStrong),
                         ),
                         const SizedBox(height: 6),
@@ -480,10 +540,8 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                           style: const TextStyle(color: _textWeak),
                         ),
                         const SizedBox(height: 12),
-                        AnimatedStepBar(
-                          total: step.total,
-                          target: step.target,
-                        ),
+                        AnimatedStepBar(total: totalForUI, target: targetForUI),
+
                       ],
                     ),
                   ),
@@ -845,17 +903,20 @@ class _AnimatedStepBarState extends State<AnimatedStepBar> {
           ),
         ),
         const SizedBox(height: 6),
-        TweenAnimationBuilder<double>(
-          tween: Tween(begin: _prevRatio, end: targetRatio),
-          duration: widget.duration,
-          curve: widget.curve,
-          builder: (context, value, _) {
-            final curr = (value * widget.target).round();
-            return Text(
-              '$curr / ${widget.target} 보',
-              style: Theme.of(context).textTheme.bodySmall,
-            );
-          },
+        Align(
+          alignment: Alignment.centerRight,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: _prevRatio, end: targetRatio),
+            duration: widget.duration,
+            curve: widget.curve,
+            builder: (context, value, _) {
+              final curr = (value * widget.target).round();
+              return Text(
+                '$curr / ${widget.target} 보',
+                style: Theme.of(context).textTheme.bodySmall,
+              );
+            },
+          ),
         ),
       ],
     );

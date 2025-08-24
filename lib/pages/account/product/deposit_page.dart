@@ -99,7 +99,7 @@ class _DepositPageState extends State<DepositPage> {
                       // formatter: NumberFormat.currency(locale: 'ko_KR', symbol: '₩', decimalDigits: 0),
 
                       // 소수점 둘째자리까지 보고 싶다면 아래처럼 사용
-                      formatter: NumberFormat.currency(locale: 'ko_KR', symbol: '₩', decimalDigits: 3),
+                      formatter: NumberFormat.currency(locale: 'ko_KR', symbol: '₩', decimalDigits: 2),
                     ),
                   ),
 

@@ -1,3 +1,7 @@
+import 'dart:io';
+import 'package:health/health.dart';
+import 'package:permission_handler/permission_handler.dart';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,7 +12,9 @@ import '../../../constants/text_animation.dart';
 import '../../../model/deposit_payment_log.dart';
 import '../../../model/common.dart';
 import '../../../model/product_account_detail.dart';
-import 'package:reframe/service/account_service.dart'; // dio, commonUrl
+import 'package:reframe/service/account_service.dart';
+
+import '../../../service/walk_service.dart'; // dio, commonUrl
 
 // ===== 토스 스타일 색/타이포 =====
 const _bgCanvas = Color(0xFFF7F8FA);          // 화면 배경
@@ -55,12 +61,50 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
   bool _paying = false;
   int _stepsToday = 0;
 
+  final Health _health = Health();
+  String _healthStatus = '걸음 연동 준비됨';
+
   @override
   void initState() {
     super.initState();
     _future = fetchAccountDetail(widget.accountId);
   }
 
+  // --- 걸음수 측정 메서드 ---
+  Future<bool> _ensureHealthPermissions() async {
+    if (Platform.isAndroid) {
+      final ar = await Permission.activityRecognition.status;
+      if (ar.isDenied || ar.isRestricted) {
+        final r = await Permission.activityRecognition.request();
+        if (!r.isGranted) {
+          setState(() => _healthStatus = '❌ 활동 인식 권한 거부됨');
+          return false;
+        }
+      }
+    }
+    // 읽기 권한
+    final types = [HealthDataType.STEPS];
+    final access = [HealthDataAccess.READ];
+
+    final has = await _health.hasPermissions(types, permissions: access) ?? false;
+    if (!has) {
+      final ok = await _health.requestAuthorization(types, permissions: access);
+      if (!ok) {
+        setState(() => _healthStatus = '❌ Health 권한 없음(Health Connect/HealthKit)');
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Future<int> _fetchTodaySteps() async {
+    final now = DateTime.now();
+    final midnight = DateTime(now.year, now.month, now.day);
+    final steps = await _health.getTotalStepsInInterval(midnight, now);
+    return steps ?? 0;
+  }
+
+  // --- 가입 상품 정보 데이터 메서드 ---
   Future<void> _refresh() async {
     final f = fetchAccountDetail(widget.accountId);
     setState(() => _future = f);
@@ -131,7 +175,7 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
     return lo; // now ∈ [due(lo), due(lo+1))
   }
 
-// r회차의 집계 기간 [start, end] (end는 inclusive로 1초 뺌)
+  // r회차의 집계 기간 [start, end] (end는 inclusive로 1초 뺌)
   Period _monthCycleBounds(DateTime startAt, int round) {
     final s = _computeDueDate(startAt, round);
     final e = _computeDueDate(startAt, round + 1).subtract(const Duration(seconds: 1));
@@ -165,40 +209,41 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
     return '알 수 없는 오류';
   }
 
-  Future<void> _inputSteps() async {
-    // 여기 걸음 수 연동 예정
+  Future<void> _syncStepsAuto(ProductAccountDetail detail) async {
+    setState(() => _healthStatus = '권한 확인 중...');
+    final ok = await _ensureHealthPermissions();
+    if (!ok) return;
 
-    final c = TextEditingController(text: _stepsToday > 0 ? '$_stepsToday' : '');
-    final v = await showDialog<int>(
-      context: context,
-      builder: (ctx) => _TossSheet(
-        title: '오늘 걸음 입력',
-        primary: _TossPrimaryButton(
-          label: '확인',
-          onPressed: () {
-            final n = int.tryParse(c.text.trim());
-            Navigator.pop(ctx, n);
-          },
-        ),
-        secondary: _TossTextButton(
-          label: '취소',
-          onPressed: () => Navigator.pop(ctx),
-        ),
-        child: TextField(
-          controller: c,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            hintText: '예: 8000',
-            border: InputBorder.none,
-          ),
-        ),
-      ),
-    );
-    if (v != null) {
-      HapticFeedback.selectionClick();
-      setState(() => _stepsToday = v);
+    setState(() => _healthStatus = '오늘 걸음 집계 중...');
+    final steps = await _fetchTodaySteps();
+
+    if (!mounted) return;
+    setState(() {
+      _stepsToday = steps;
+      _healthStatus = '오늘 걸음: $steps 보';
+    });
+
+    // (선택) 서버에 오늘 "누적 걸음수" 전달하여 회차 누적/보너스 확정/금리 업데이트
+    // WalkSyncService.sync(appId, stepsTodayTotal) 에 맞춘 엔드포인트가 있다면 아래처럼 호출
+    try {
+      final appId = detail.application.id;
+      await fetchWalkSync(appId, steps);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('걸음 동기화 완료')),
+      );
+      // 금리/진행도 갱신 위해 새로고침
+      await _refresh();
+    } catch (e) {
+      if (!mounted) return;
+      final msg = _errorMessage(e);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('동기화 실패: $msg')),
+      );
     }
   }
+
 
   Future<bool> _confirmPayDialog(int round, int amount) async {
     final formatted = NumberFormat('#,###').format(amount);
@@ -403,11 +448,19 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                                   style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: _textStrong),
                                 ),
                               ),
+                              const SizedBox(height: 6),
+                              Text(
+                                _healthStatus,
+                                style: const TextStyle(fontSize: 12, color: _textWeak),
+                              ),
                             ],
                           ),
                         ),
                         const SizedBox(width: 12),
-                        _TossOutlineButton(label: '걸음 입력', onPressed: _inputSteps),
+                        _TossOutlineButton(
+                          label: '걸음 동기화',
+                          onPressed: () => _syncStepsAuto(detail),
+                        ),
                       ],
                     ),
                   ),

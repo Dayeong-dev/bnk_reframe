@@ -33,3 +33,30 @@ class Review {
     );
   }
 }
+
+class MyReview {
+  final int id;
+  final int productId;
+  final String productName;
+  final String content;
+  final int? rating;
+  final dynamic createdAt; // String/epoch/DateTime 허용
+
+  MyReview({
+    required this.id,
+    required this.productId,
+    required this.productName,
+    required this.content,
+    this.rating,
+    this.createdAt,
+  });
+
+  factory MyReview.fromJson(Map<String, dynamic> j) => MyReview(
+    id: j['id'] as int,
+    productId: j['productId'] as int,
+    productName: (j['productName'] ?? '') as String,
+    content: (j['content'] ?? '') as String,
+    rating: (j['rating'] as num?)?.toInt(),
+    createdAt: j['createdAt'],
+  );
+}

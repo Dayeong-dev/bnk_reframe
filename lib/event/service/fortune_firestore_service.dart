@@ -8,6 +8,52 @@ class FortuneFirestoreService {
   // 쿠폰 임계값(테스트 2, 운영 10로 변경)
   static const int kCouponThreshold = 2;
 
+  // ===== 공용 재시도 유틸 =====
+
+  /// 지수 백오프 + 지터
+  static Future<void> _backoff(int attempt) async {
+    if (attempt <= 0) return;
+    final base = 300 * pow(2, attempt - 1); // ms: 300, 600, 1200 ...
+    final jitter = Random().nextInt(120); // 0~119ms
+    final delayMs = base.toInt() + jitter;
+    await Future.delayed(Duration(milliseconds: delayMs));
+  }
+
+  /// 일반 비트랜잭션 쓰기/읽기 재시도
+  static Future<T> _retry<T>(Future<T> Function() fn,
+      {int maxAttempts = 4}) async {
+    Exception? lastErr;
+    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      if (attempt > 0) await _backoff(attempt);
+      try {
+        return await fn();
+      } catch (e) {
+        lastErr = e is Exception ? e : Exception(e.toString());
+        // UNAVAILABLE 등 네트워크 일시장애는 재시도
+        // 그 외에도 베스트 에포트로 동일하게 재시도
+      }
+    }
+    // 마지막 실패 던짐
+    throw lastErr ?? Exception('Unknown Firestore error');
+  }
+
+  /// 트랜잭션 재시도
+  static Future<T> _retryTx<T>(
+      Future<T> Function(Transaction tx) body, {
+        int maxAttempts = 4,
+      }) async {
+    Exception? lastErr;
+    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      if (attempt > 0) await _backoff(attempt);
+      try {
+        return await _db.runTransaction((tx) => body(tx));
+      } catch (e) {
+        lastErr = e is Exception ? e : Exception(e.toString());
+      }
+    }
+    throw lastErr ?? Exception('Unknown Firestore transaction error');
+  }
+
   // ===== 실시간 스트림 =====
   static Stream<DocumentSnapshot<Map<String, dynamic>>> streamUserDoc(String uid) {
     return _db.collection('users').doc(uid).snapshots();
@@ -44,18 +90,20 @@ class FortuneFirestoreService {
   }
 
   // ✅ 쿠폰 사용 처리
-  static Future<void> redeemCoupon(String couponId) async {
+  static Future<void> redeemCoupon(String couponId) {
     final ref = _db.collection('coupons').doc(couponId);
-    await ref.set({
-      'status': 'REDEEMED',
-      'redeemedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    return _retry(() async {
+      await ref.set({
+        'status': 'REDEEMED',
+        'redeemedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    });
   }
 
   // ✅ (신규) 쿠폰 코드가 없으면 생성해서 저장하고 반환
-  static Future<String> ensureCouponCode(String couponId) async {
+  static Future<String> ensureCouponCode(String couponId) {
     final ref = _db.collection('coupons').doc(couponId);
-    return _db.runTransaction((tx) async {
+    return _retryTx<String>((tx) async {
       final snap = await tx.get(ref);
       if (!snap.exists) {
         final code = _genHyphenatedCouponCode();
@@ -87,22 +135,24 @@ class FortuneFirestoreService {
     if (uid == null) return;
 
     final ref = _db.collection('users').doc(uid);
-    final snap = await ref.get();
-    if (!snap.exists) {
-      await ref.set({
-        'name': name,
-        'birth': birth,
-        'gender': gender,
-        'stampCount': 0, // 기본값 0
-        'lastDrawDate': null,
-        'consent': {
-          'isAgreed': true,
-          'agreedAt': FieldValue.serverTimestamp(),
-        },
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    }
+    await _retry(() async {
+      final snap = await ref.get();
+      if (!snap.exists) {
+        await ref.set({
+          'name': name,
+          'birth': birth,
+          'gender': gender,
+          'stampCount': 0, // 기본값 0
+          'lastDrawDate': null,
+          'consent': {
+            'isAgreed': true,
+            'agreedAt': FieldValue.serverTimestamp(),
+          },
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    });
   }
 
   static Future<void> saveOrUpdateUserConsent({
@@ -115,7 +165,8 @@ class FortuneFirestoreService {
     if (uid == null) return;
 
     final ref = _db.collection('users').doc(uid);
-    await _db.runTransaction((tx) async {
+
+    await _retryTx((tx) async {
       final snap = await tx.get(ref);
       final now = FieldValue.serverTimestamp();
 
@@ -164,7 +215,7 @@ class FortuneFirestoreService {
         .doc(inviterUid)
         .collection('visitors');
 
-    await _db.runTransaction((tx) async {
+    await _retryTx((tx) async {
       final newDoc = visitorsCol.doc();
       tx.set(newDoc, {
         'inviterUid': inviterUid,
@@ -194,20 +245,21 @@ class FortuneFirestoreService {
     required String inviterUid,
     int batchSize = 10, // 한 번에 처리할 문서 수(이건 바꾸지 마세요)
   }) async {
-    final q = await _db
+    // 첫 조회는 실패 가능성 낮으니 일반 재시도
+    final q = await _retry(() => _db
         .collection('invites')
         .doc(inviterUid)
         .collection('visitors')
         .where('claimed', isEqualTo: false)
         .orderBy('createdAt', descending: false)
         .limit(batchSize)
-        .get();
+        .get());
 
     if (q.docs.isEmpty) return 0;
     var claimedCount = 0;
 
     for (final doc in q.docs) {
-      await _db.runTransaction((tx) async {
+      await _retryTx((tx) async {
         final vRef = doc.reference;
         final fresh = await tx.get(vRef);
         if (!fresh.exists) return;
@@ -242,10 +294,10 @@ class FortuneFirestoreService {
           'claimedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
 
-        tx.update(inviterRef, {
+        tx.set(inviterRef, {
           'stampCount': next,
           'updatedAt': FieldValue.serverTimestamp(),
-        });
+        }, SetOptions(merge: true));
 
         // ✅ 임계값마다 쿠폰 발급
         if (next % kCouponThreshold == 0) {
@@ -260,7 +312,7 @@ class FortuneFirestoreService {
           });
 
           // 발급 후 도장 리셋(정책 유지)
-          tx.update(inviterRef, {'stampCount': 0});
+          tx.set(inviterRef, {'stampCount': 0}, SetOptions(merge: true));
         }
 
         claimedCount += 1;
@@ -280,7 +332,8 @@ class FortuneFirestoreService {
         "${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}";
 
     final ref = _db.collection('users').doc(uid);
-    await _db.runTransaction((tx) async {
+
+    await _retryTx((tx) async {
       final snap = await tx.get(ref);
       final data = snap.data() as Map<String, dynamic>?;
 

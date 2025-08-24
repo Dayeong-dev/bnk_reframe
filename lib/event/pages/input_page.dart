@@ -1,3 +1,4 @@
+// input_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:app_links/app_links.dart';
@@ -21,7 +22,7 @@ class _InputPageState extends State<InputPage> {
   final dayController = TextEditingController();
 
   String gender = "남";
-  bool isAgreed = true; // ✅ 3) 기본값 체크 On
+  bool isAgreed = true; // ✅ 기본값 체크 On
   String? invitedBy;
 
   late final AppLinks _appLinks;
@@ -65,7 +66,7 @@ class _InputPageState extends State<InputPage> {
     final raw = ModalRoute.of(context)?.settings.arguments;
     if (raw is Map) {
       final v =
-          (raw['inviter'] ?? raw['inviteCode'] ?? raw['code'])?.toString();
+      (raw['inviter'] ?? raw['inviteCode'] ?? raw['code'])?.toString();
       if (v != null && v.isNotEmpty && invitedBy == null) {
         setState(() => invitedBy = v); // StartPage → InputPage 전달분 반영
       }
@@ -88,7 +89,7 @@ class _InputPageState extends State<InputPage> {
 
     // 런타임 링크
     _linkSub = _appLinks.uriLinkStream.listen(
-      (uri) => _maybeCaptureInvite(uri, source: 'stream'),
+          (uri) => _maybeCaptureInvite(uri, source: 'stream'),
       onError: (err) => debugPrint('⚠️ uri link stream error: $err'),
     );
   }
@@ -163,42 +164,47 @@ class _InputPageState extends State<InputPage> {
   Future<void> _onStart() async {
     if (!_validateInputs()) return;
 
+    // ✅ 익명 로그인 보장 (UID 즉시 확보)
     await FortuneAuthService.ensureSignedIn();
 
     final name = nameController.text.trim();
     final birth = _composeBirth();
 
-    try {
-      if (isAgreed) {
+    // ✅ 동의 저장은 '베스트 에포트' — 실패해도 흐름을 멈추지 않음
+    if (isAgreed) {
+      try {
         await FortuneFirestoreService.saveOrUpdateUserConsent(
           isAgreed: true,
           name: name,
           birth: birth,
           gender: gender,
         );
+      } catch (e, stack) {
+        debugPrint('⚠️ 동의 저장 실패(무시하고 진행): $e');
+        debugPrint(stack.toString());
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('동의 저장에 실패했지만 테스트는 계속 진행합니다.')),
+          );
+        }
       }
-
-      if (!mounted) return;
-
-      final FortuneFlowArgs args = (
-        isAgreed: isAgreed,
-        name: isAgreed ? name : null,
-        birthDate: isAgreed ? birth : null,
-        gender: isAgreed ? gender : null,
-        invitedBy: invitedBy, // 내부 전달만, 화면 노출 없음
-      );
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => LoadingPage(args: args)),
-      );
-    } catch (e, stack) {
-      debugPrint('🔥 저장/이동 중 오류: $e');
-      debugPrint(stack.toString());
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('문제가 발생했어요. 다시 시도해주세요.')));
     }
+
+    if (!mounted) return;
+
+    final FortuneFlowArgs args = (
+    isAgreed: isAgreed,
+    name: isAgreed ? name : null,
+    birthDate: isAgreed ? birth : null,
+    gender: isAgreed ? gender : null,
+    invitedBy: invitedBy, // 내부 전달만, 화면 노출 없음
+    );
+
+    // ✅ 항상 결과 로딩으로 진행
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => LoadingPage(args: args)),
+    );
   }
 
   // 공통 스타일 (StartPage와 톤 맞춤)
@@ -216,9 +222,8 @@ class _InputPageState extends State<InputPage> {
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: Colors.grey.shade300),
       ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Colors.black87, width: 1.2),
+      focusedBorder: const OutlineInputBorder(
+        borderSide: BorderSide(color: Colors.black87, width: 1.2),
       ),
     );
   }
@@ -232,7 +237,7 @@ class _InputPageState extends State<InputPage> {
         elevation: 0.5,
       ),
 
-      // ✅ 하단 고정 버튼 (StartPage와 동일한 위치/느낌)
+      // ✅ 하단 고정 버튼
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.only(bottom: 20, left: 24, right: 24),
@@ -257,10 +262,9 @@ class _InputPageState extends State<InputPage> {
 
       body: SafeArea(
         child: ListView(
-          // ✅ 1) 상단 여백 늘려서 전체 섹션을 '아래로' 살짝 내림
           padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
           children: [
-            // 상단 타이틀(지연 시작 + 타이핑, 커서 없음)
+            // 상단 타이틀(타이핑)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
@@ -297,7 +301,7 @@ class _InputPageState extends State<InputPage> {
                   child: GestureDetector(
                     onTap: () => setState(() => gender = "남"),
                     child: Container(
-                      height: 52, // ✅ 생년월일 입력칸과 동일한 높이
+                      height: 52,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: gender == "남"
@@ -310,9 +314,9 @@ class _InputPageState extends State<InputPage> {
                         "남",
                         style: TextStyle(
                           color:
-                              gender == "남" ? Colors.black87 : Colors.black54,
+                          gender == "남" ? Colors.black87 : Colors.black54,
                           fontWeight:
-                              gender == "남" ? FontWeight.w600 : FontWeight.w400,
+                          gender == "남" ? FontWeight.w600 : FontWeight.w400,
                         ),
                       ),
                     ),
@@ -323,7 +327,7 @@ class _InputPageState extends State<InputPage> {
                   child: GestureDetector(
                     onTap: () => setState(() => gender = "여"),
                     child: Container(
-                      height: 52, // 동일 높이
+                      height: 52,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: gender == "여"
@@ -336,9 +340,9 @@ class _InputPageState extends State<InputPage> {
                         "여",
                         style: TextStyle(
                           color:
-                              gender == "여" ? Colors.black87 : Colors.black54,
+                          gender == "여" ? Colors.black87 : Colors.black54,
                           fontWeight:
-                              gender == "여" ? FontWeight.w600 : FontWeight.w400,
+                          gender == "여" ? FontWeight.w600 : FontWeight.w400,
                         ),
                       ),
                     ),
@@ -415,12 +419,12 @@ class _InputPageState extends State<InputPage> {
                   ],
                 ),
 
-                // ✅ 체크박스 밑 필수 안내 문구
+                // 안내 문구
                 const Padding(
                   padding: EdgeInsets.only(left: 12, right: 8, bottom: 4),
                   child: Text(
                     '동의 시 이름·생년월일·성별을 서버에 저장합니다.\n'
-                    '동의하지 않으면 결과 페이지에서만 일시적으로 사용됩니다.',
+                        '동의하지 않으면 결과 페이지에서만 일시적으로 사용됩니다.',
                     style: TextStyle(
                       fontSize: 12.5,
                       height: 1.4,
@@ -431,7 +435,7 @@ class _InputPageState extends State<InputPage> {
               ],
             ),
 
-            const SizedBox(height: 40), // ✅ 1) 전체를 더 아래로 내려 보이도록 하단 여백 추가
+            const SizedBox(height: 40),
           ],
         ),
       ),

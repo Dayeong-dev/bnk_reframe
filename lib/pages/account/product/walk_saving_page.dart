@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,7 +5,6 @@ import 'package:intl/intl.dart';
 import 'package:dio/dio.dart';
 
 import '../../../constants/text_animation.dart';
-import '../../../core/interceptors/http.dart';
 import '../../../model/deposit_payment_log.dart';
 import '../../../model/common.dart';
 import '../../../model/product_account_detail.dart';
@@ -31,6 +29,19 @@ String fmtYmdE(DateTime d) {
   return '${fmtYmd(d)} ($w)';
 }
 
+class _StepProgress {
+  final int total;   // 이번 회차 총 걸음
+  final int target;  // 목표 (예: 100000)
+  double get ratio => (total / target).clamp(0.0, 1.0);
+  const _StepProgress(this.total, this.target);
+}
+
+class Period {
+  final DateTime start;
+  final DateTime end;
+  const Period(this.start, this.end);
+}
+
 class WalkSavingPage extends StatefulWidget {
   final int accountId;
   const WalkSavingPage({super.key, required this.accountId});
@@ -47,17 +58,11 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
   @override
   void initState() {
     super.initState();
-    _future = _fetchDetail();
-  }
-
-  Future<ProductAccountDetail> _fetchDetail() async {
-    final Response res = await dio.get('$commonUrl/detail/${widget.accountId}');
-    final data = res.data is String ? jsonDecode(res.data) : res.data;
-    return ProductAccountDetail.fromJson(data as Map<String, dynamic>);
+    _future = fetchAccountDetail(widget.accountId);
   }
 
   Future<void> _refresh() async {
-    final f = _fetchDetail();
+    final f = fetchAccountDetail(widget.accountId);
     setState(() => _future = f);
     await f;
   }
@@ -110,6 +115,45 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
     final last = DateTime(m.year, m.month + 1, 0).day;
     final dom = targetDom > last ? last : targetDom;
     return DateTime(m.year, m.month, dom);
+  }
+
+  // now가 어느 회차(가입일 기준 '월' 구간)에 속하는지 찾기
+  int _currentMonthlyRound(DateTime startAt, DateTime now) {
+    int lo = 1, hi = 600; // 넉넉한 상한
+    while (lo < hi) {
+      final next = _computeDueDate(startAt, ((lo + hi) >> 1) + 1);
+      if (now.isBefore(next)) {
+        hi = (lo + hi) >> 1;
+      } else {
+        lo = ((lo + hi) >> 1) + 1;
+      }
+    }
+    return lo; // now ∈ [due(lo), due(lo+1))
+  }
+
+// r회차의 집계 기간 [start, end] (end는 inclusive로 1초 뺌)
+  Period _monthCycleBounds(DateTime startAt, int round) {
+    final s = _computeDueDate(startAt, round);
+    final e = _computeDueDate(startAt, round + 1).subtract(const Duration(seconds: 1));
+    return Period(s, e);
+  }
+
+  _StepProgress _calcMonthlyProgress(ProductAccountDetail detail) {
+    const target = 100000; // 월 목표 걸음
+    final app = detail.application;
+    if (app.startAt == null) return const _StepProgress(0, target);
+
+    final now = DateTime.now();
+    final roundNow = _currentMonthlyRound(app.startAt!, now);
+
+    // 현재 회차 로그 찾기
+    DepositPaymentLog? curLog;
+    for (final e in detail.depositPaymentLogList) {
+      if (e.round == roundNow) { curLog = e; break; }
+    }
+
+    final total = curLog?.walkStepsTotal ?? 0;
+    return _StepProgress(total, target);
   }
 
   String _errorMessage(Object e) {
@@ -172,7 +216,7 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
             Navigator.pop(ctx, true);
           },
         ),
-        secondary: _TossTextButton(
+        secondary: _TossOutlineButton(
           label: '취소',
           onPressed: () => Navigator.pop(ctx, false),
         ),
@@ -268,6 +312,17 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
               final app = detail.application;
               final principal = (acc?.balance ?? 0);
 
+              final now = DateTime.now();
+              final roundNow = (app.startAt == null) ? 1 : _currentMonthlyRound(app.startAt!, now);
+              final Period bounds = (app.startAt == null)
+                  ? Period(
+                DateTime(now.year, now.month, 1),
+                DateTime(now.year, now.month + 1, 1).subtract(const Duration(seconds: 1)),
+              )
+                  : _monthCycleBounds(app.startAt!, roundNow);
+
+              final step = _calcMonthlyProgress(detail);
+
               final nextUnpaid = _findNextUnpaid(detail);
               final startAt = app.startAt ?? DateTime.now();
               final nextDue = (nextUnpaid == null) ? null : _computeDueDate(startAt, nextUnpaid.round);
@@ -294,7 +349,7 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: _textStrong),
                             ),
                             const Spacer(),
-                            Text(acc!.accountNumber, style: const TextStyle(color: _textWeak)),
+                            Text(acc?.accountNumber ?? '-', style: const TextStyle(color: _textWeak)),
                           ],
                         ),
                         const SizedBox(height: 14),
@@ -321,7 +376,7 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                             if (nextDue != null)
                               _TossChip(
                                 text: canPayToday ? '오늘 납입 가능' : '예정일 ${fmtYmd(nextDue)}',
-                                icon: canPayToday ? CupertinoIcons.calendar_badge_plus : CupertinoIcons.calendar,
+                                icon: canPayToday ? CupertinoIcons.calendar : CupertinoIcons.calendar,
                                 tone: canPayToday ? _ChipTone.success : _ChipTone.neutral,
                               ),
                           ],
@@ -356,7 +411,26 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                       ],
                     ),
                   ),
-
+                  _Section(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const _SectionTitle('이번 회차 (가입일 기준 월)'),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${NumberFormat('#,###').format(step.total)} / ${NumberFormat('#,###').format(step.target)} 보',
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _textStrong),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '기간: ${fmtYmd(bounds.start)} ~ ${fmtYmd(bounds.end)}',
+                          style: const TextStyle(color: _textWeak),
+                        ),
+                        const SizedBox(height: 12),
+                        LinearProgressIndicator(value: step.ratio, minHeight: 10, backgroundColor: _line),
+                      ],
+                    ),
+                  ),
                   // 다음 납입 + CTA
                   _Section(
                     child: Column(
@@ -585,15 +659,18 @@ class _TossOutlineButton extends StatelessWidget {
   const _TossOutlineButton({required this.label, required this.onPressed});
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: _textStrong,
-        side: const BorderSide(color: _line),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    return SizedBox(
+      height: 52,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: _textStrong,
+          side: const BorderSide(color: _line),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        ),
+        child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
       ),
-      child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
     );
   }
 }

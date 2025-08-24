@@ -23,7 +23,7 @@ class _DepositPageState extends State<DepositPage> {
   @override
   void initState() {
     super.initState();
-    _future = fetchAccountDetailModel(widget.accountId);
+    _future = fetchAccountDetail(widget.accountId);
   }
 
   @override
@@ -33,7 +33,7 @@ class _DepositPageState extends State<DepositPage> {
     return SafeArea(
       child: RefreshIndicator(
         onRefresh: () async => setState(() {
-          _future = fetchAccountDetailModel(widget.accountId);
+          _future = fetchAccountDetail(widget.accountId);
         }),
         child: FutureBuilder<ProductAccountDetail>(
           future: _future,

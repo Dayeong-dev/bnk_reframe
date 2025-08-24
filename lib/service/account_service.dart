@@ -46,15 +46,6 @@ Future<ProductAccountDetail> fetchAccountDetail(int accountId) async {
   }
 }
 
-Future<ProductAccountDetail> fetchAccountDetailModel(int accountId) async {
-  final res = await dio.get('$commonUrl/detail/$accountId');
-  if (res.statusCode == 200) {
-    final data = res.data is String ? jsonDecode(res.data) : res.data;
-    return ProductAccountDetail.fromJson(data as Map<String, dynamic>);
-  }
-  throw Exception('서버 오류: ${res.statusCode}');
-}
-
 Future<PagedTx> fetchAccountTransactions(int accountId, {int page = 0, int size = 30}) async {
     try {
         final res = await dio.get('/mobile/account/$accountId/transactions',

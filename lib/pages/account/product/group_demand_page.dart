@@ -190,7 +190,7 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
   @override
   void initState() {
     super.initState();
-    _detailFuture = fetchAccountDetailModel(widget.accountId);
+    _detailFuture = fetchAccountDetail(widget.accountId);
     _loadMoreTx(); // 첫 페이지
     _scroll.addListener(_onScroll);
   }
@@ -261,7 +261,7 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
 
   Future<void> _refreshAll() async {
     setState(() {
-      _detailFuture = fetchAccountDetailModel(widget.accountId);
+      _detailFuture = fetchAccountDetail(widget.accountId);
       _tx.clear();
       _txHasMore = true;
       _nextPage = 0;

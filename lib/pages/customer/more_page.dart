@@ -13,6 +13,9 @@ import 'package:reframe/pages/customer/faq/faq_list_page.dart';
 import 'package:reframe/pages/customer/qna/qna_api_service.dart';
 import 'package:reframe/pages/customer/qna/qna_list_page.dart';
 
+import 'package:reframe/pages/my_reviews_page.dart';
+import 'package:reframe/event/pages/my_coupons_page.dart';
+
 /* 섹션 타입: 섹션별 팔레트 분리용 */
 enum _SectionKind { myServices, customer }
 
@@ -117,7 +120,10 @@ class MorePage extends StatelessWidget {
                   title: '내 쿠폰함',
                   trailingInfo: '다운로드 · 사용내역',
                   onTap: () {
-                    // TODO: /benefit/coupons
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MyCouponsPage()),
+                    );
                   },
                 ),
                 _ServiceTile(
@@ -141,7 +147,10 @@ class MorePage extends StatelessWidget {
                   title: '내 리뷰보기',
                   trailingInfo: '작성 · 수정 · 삭제',
                   onTap: () {
-                    // TODO: /review/my
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MyReviewsPage()),
+                    );
                   },
                 ),
                 _ServiceTile(

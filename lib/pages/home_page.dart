@@ -8,6 +8,7 @@ import 'package:reframe/constants/number_format.dart';
 // 필요 페이지들 직접 import (위젯 push용)
 import 'package:reframe/model/account.dart';
 import 'package:reframe/pages/account/account_detail_page.dart';
+import 'package:reframe/pages/account/product/deposit_page.dart';
 import 'package:reframe/pages/chat/bnk_chat_page.dart';
 import 'package:reframe/pages/deposit/deposit_list_page.dart';
 import 'package:reframe/pages/deposit/deposit_main_page.dart';

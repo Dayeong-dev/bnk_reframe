@@ -680,7 +680,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
               style: TextButton.styleFrom(
                 padding:
                     EdgeInsets.symmetric(horizontal: 8, vertical: 6 * _scale),
-                foregroundColor: accent,
+                foregroundColor: Colors.black,
               ),
               onPressed: () async {
                 setState(() => _simpleMode = !_simpleMode);
@@ -692,8 +692,8 @@ class _DepositMainPageState extends State<DepositMainPage> {
               child: Text(_simpleMode ? '기본보기' : '크게보기',
                   maxLines: 1,
                   style: TextStyle(
-                      fontSize: _simpleMode ? 12.0 : 13 * _scale,
-                      fontWeight: FontWeight.bold)),
+                      fontSize: _simpleMode ? 16.0 : 16 * _scale,
+                      fontWeight: FontWeight.w700)),
             ),
           ),
         ],

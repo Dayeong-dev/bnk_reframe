@@ -271,7 +271,8 @@ class _ReviewPageState extends State<ReviewPage> {
           }
 
           if (type == 'review_created') {
-            final snippet = _normalizeSnippet((msg['contentSnippet'] as String?) ?? '');
+            final snippet =
+                _normalizeSnippet((msg['contentSnippet'] as String?) ?? '');
             final rating = (msg['rating'] as num?)?.toInt() ?? 0;
 
             // 내가 방금 쓴 리뷰면 목록 갱신 스킵(토스트도 이 화면에선 안 띄움)
@@ -371,7 +372,7 @@ class _ReviewPageState extends State<ReviewPage> {
             mainAxisSize: MainAxisSize.min,
             children: List.generate(
               5,
-                  (_) => Icon(
+              (_) => Icon(
                 Icons.star_border_rounded,
                 size: size,
                 color: Colors.white.withOpacity(.7),
@@ -387,8 +388,8 @@ class _ReviewPageState extends State<ReviewPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: List.generate(
                   5,
-                      (_) =>
-                  const Icon(Icons.star_rounded, size: 20, color: Colors.amber),
+                  (_) => const Icon(Icons.star_rounded,
+                      size: 20, color: Colors.amber),
                 ),
               ),
             ),
@@ -613,7 +614,7 @@ class _ReviewPageState extends State<ReviewPage> {
                         const SizedBox(height: 2),
                         Text('$localRating점',
                             style:
-                            const TextStyle(fontWeight: FontWeight.w800)),
+                                const TextStyle(fontWeight: FontWeight.w800)),
                         const SizedBox(height: 8),
                         // ⭐ 별점 선택
                         Row(
@@ -623,7 +624,7 @@ class _ReviewPageState extends State<ReviewPage> {
                             final active = idx <= localRating;
                             return Padding(
                               padding:
-                              const EdgeInsets.symmetric(horizontal: 3),
+                                  const EdgeInsets.symmetric(horizontal: 3),
                               child: InkResponse(
                                 onTap: () =>
                                     setModalState(() => localRating = idx),
@@ -666,9 +667,9 @@ class _ReviewPageState extends State<ReviewPage> {
                             onPressed: _submitting
                                 ? null
                                 : () async {
-                              setState(() => _rating = localRating);
-                              await _submit();
-                            },
+                                    setState(() => _rating = localRating);
+                                    await _submit();
+                                  },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _brand,
                               foregroundColor: Colors.white,
@@ -678,11 +679,11 @@ class _ReviewPageState extends State<ReviewPage> {
                             ),
                             child: _submitting
                                 ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2),
-                            )
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  )
                                 : const Text('등록'),
                           ),
                         ),
@@ -768,7 +769,7 @@ class _ReviewPageState extends State<ReviewPage> {
                         const SizedBox(height: 2),
                         Text('$localRating점',
                             style:
-                            const TextStyle(fontWeight: FontWeight.w800)),
+                                const TextStyle(fontWeight: FontWeight.w800)),
                         const SizedBox(height: 8),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -777,7 +778,7 @@ class _ReviewPageState extends State<ReviewPage> {
                             final active = idx <= localRating;
                             return Padding(
                               padding:
-                              const EdgeInsets.symmetric(horizontal: 3),
+                                  const EdgeInsets.symmetric(horizontal: 3),
                               child: InkResponse(
                                 onTap: () =>
                                     setModalState(() => localRating = idx),
@@ -827,11 +828,11 @@ class _ReviewPageState extends State<ReviewPage> {
                             ),
                             child: submitting
                                 ? const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2),
-                            )
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2),
+                                  )
                                 : const Text('수정 완료'),
                           ),
                         ),
@@ -1025,22 +1026,22 @@ class _ReviewPageState extends State<ReviewPage> {
               child: _loading
                   ? const Center(child: SizedBox())
                   : (_visibleSorted.isEmpty
-                  ? ListView(
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: ClampingScrollPhysics(),
-                ),
-                children: const [
-                  SizedBox(height: 160),
-                  Center(child: Text('아직 리뷰가 없습니다')),
-                ],
-              )
-                  : ListView.builder(
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: ClampingScrollPhysics(),
-                ),
-                itemCount: _visibleSorted.length,
-                itemBuilder: (_, i) => _reviewItem(_visibleSorted[i]),
-              )),
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(
+                            parent: ClampingScrollPhysics(),
+                          ),
+                          children: const [
+                            SizedBox(height: 160),
+                            Center(child: Text('아직 리뷰가 없습니다')),
+                          ],
+                        )
+                      : ListView.builder(
+                          physics: const AlwaysScrollableScrollPhysics(
+                            parent: ClampingScrollPhysics(),
+                          ),
+                          itemCount: _visibleSorted.length,
+                          itemBuilder: (_, i) => _reviewItem(_visibleSorted[i]),
+                        )),
             ),
           ),
         ],

@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'number_format.dart';
+
 class DiffHighlight extends StatefulWidget {
   final Object marker;
   final Widget child;

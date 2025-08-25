@@ -21,7 +21,6 @@ Future<void> addApplication(int productId, EnrollForm enrollFormData, BuildConte
             (route) => removed++ >= 3,
       );
     } else {
-      print(response.data.toString());
       throw Exception('서버 오류: ${response.statusCode}');
     }
   } catch (e) {

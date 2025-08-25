@@ -1,10 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
+import 'package:reframe/model/realname_verification.dart';
+import 'package:reframe/pages/auth/realname_verification_page.dart';
 import 'package:reframe/pages/enroll/enroll_first.dart';
+import 'package:reframe/service/verification_service.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 
@@ -703,13 +707,37 @@ class _DepositDetailPageState extends State<DepositDetailPage>
               child: ElevatedButton(
                 onPressed: () async {
                   await _logDetailCta('apply');
-                  if (!mounted) return;
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => FirstStepPage(product: product!),
-                    ),
-                  );
+
+                  RealnameVerification? rv;
+                  try {
+                    rv = await checkStatus();
+                    if (!mounted) return;
+
+                    if (rv == null) {
+                      // 로그인 필요(401) or 실명인증 필요/만료(428/500-메시지)
+                      final result = await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const RealnameVerificationPage()),
+                      );
+
+                      if(result) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => FirstStepPage(product: product!)),
+                        );
+                      }
+                    } else {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => FirstStepPage(product: product!)),
+                      );
+                    }
+                  } on DioException catch (_) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('네트워크 오류가 발생했어요. 잠시 후 다시 시도해주세요.')),
+                    );
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _brand,

@@ -9,6 +9,12 @@ enum AccountStatus {
   suspended // 정지
 }
 
+enum ProductType {
+  deposit,
+  savings,
+  demand_free
+}
+
 DateTime? _parseDate(dynamic v) {
   if (v == null) return null;
   if (v is String && v.isNotEmpty)
@@ -28,6 +34,7 @@ class Account {
   final int isDefault;
   final AccountStatus status;
   final DateTime? createAt;
+  final ProductType? productType;
 
   Account(
       {required this.id,
@@ -38,7 +45,8 @@ class Account {
       this.accountName,
       required this.isDefault,
       required this.status,
-      this.createAt});
+      this.createAt,
+      this.productType});
 
   factory Account.fromJson(Map<String, dynamic> json) => Account(
         id: json['id'] as int,
@@ -52,6 +60,7 @@ class Account {
         status: AccountStatus.values
             .byName(json['status'].toString().toLowerCase()),
         createAt: _parseDate(json['createAt']),
+        productType: json['productType'] != null ? ProductType.values.byName(json['productType'].toString().toLowerCase()) : null
       );
 
   Map<String, dynamic> toJson() => {
@@ -63,6 +72,7 @@ class Account {
         "accountName": accountName,
         "isDefault": isDefault,
         "status": status,
-        "createAt": createAt
+        "createAt": createAt,
+        "productType": productType
       };
 }

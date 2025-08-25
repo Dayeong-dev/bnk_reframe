@@ -52,7 +52,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("BNK Reframe", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-        actions: const [Padding(padding: EdgeInsets.only(right: 12), child: Icon(Icons.settings_outlined, size: 20))],
+        actions: const [Padding(padding: EdgeInsets.only(right: 12), child: Icon(Icons.settings, size: 20))],
       ),
       body: SafeArea(
         child: FutureBuilder<List<Account>>(
@@ -138,6 +138,7 @@ class _HomePageState extends State<HomePage> {
                       title: a.accountName ?? 'BNK 부산은행 계좌',
                       subtitle: a.accountNumber ?? '-',
                       balanceText: '${money.format(a.balance ?? 0)} 원',
+                      leading: _productBadgeIcon(a), // ← 추가
                       onTap: () {
                         if (a.accountType == AccountType.product) {
                           Navigator.push(
@@ -183,97 +184,102 @@ class _HeaderCard extends StatelessWidget {
       balanceText.replaceAll(RegExp(r'[^0-9]'), ''),
     ) ?? 0;
 
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(28),
-      clipBehavior: Clip.antiAlias,
-      elevation: 0,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(18, 24, 18, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              accountSubtitle,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6B7280)),
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                MoneyCountUp(
-                  value: _balanceValue,           // or: defaultAcc.balance ?? 0
-                  formatter: money,               // 너가 쓰는 NumberFormat
-                  duration: const Duration(milliseconds: 700),
-                  curve: Curves.easeOutCubic,
-                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                  animateOnFirstBuild: true,      // 첫 진입 애니메이션 ON
-                  initialFrom: 0,                 // 0부터 시작
+    return Container(
+      padding: const EdgeInsets.all(24),
+      // decoration: BoxDecoration(
+      //   color: Colors.white,
+      //   borderRadius: BorderRadius.circular(20),
+      //   boxShadow: [
+      //     BoxShadow(
+      //       color: Colors.grey.shade300,
+      //       blurRadius: 10,
+      //       offset: Offset(0, 0), // changes position of shadow
+      //     ),
+      //   ],
+      // ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            accountSubtitle,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey.shade400),
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              MoneyCountUp(
+                value: _balanceValue,           // or: defaultAcc.balance ?? 0
+                formatter: money,               // 너가 쓰는 NumberFormat
+                duration: const Duration(milliseconds: 700),
+                curve: Curves.easeOutCubic,
+                style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  '원',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: 130,
-              height: 44,
-              child: OutlinedButton(
-                onPressed: onDeposit,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.black54,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  side: BorderSide(color: Colors.grey.shade500),
-                  padding: EdgeInsets.symmetric(horizontal: 8),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Icon(Icons.add_rounded),
-                    SizedBox(width: 2),
-                    Text(
-                        "예적금 만들기",
-                        style: TextStyle(fontWeight: FontWeight.bold)
-                    )
-                  ],
-                ),
+                animateOnFirstBuild: true,      // 첫 진입 애니메이션 ON
+                initialFrom: 0,                 // 0부터 시작
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '원',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+          SizedBox(
+            width: 130,
+            height: 44,
+            child: OutlinedButton(
+              onPressed: onDeposit,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.black54,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                side: BorderSide(color: Colors.grey.shade500),
+                padding: EdgeInsets.symmetric(horizontal: 8),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Icon(Icons.add_rounded),
+                  SizedBox(width: 2),
+                  Text(
+                      "예적금 만들기",
+                      style: TextStyle(fontWeight: FontWeight.bold)
+                  )
+                ],
               ),
             ),
-            const SizedBox(height: 20),
+          ),
+          const SizedBox(height: 20),
 
-            Row(
-              children: [
-                const Icon(Icons.monetization_on_rounded, size: 16, color: Colors.black38),
-                const SizedBox(width: 4),
-                Text('자산 구성',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: Colors.grey.shade600,
-                    )),
-                const Spacer(),
-                Text('총 ${money.format(total)} 원',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w700,
-                    )),
-              ],
-            ),
-            const SizedBox(height: 8),
-            _AssetBreakdownBar(cash: cash, saving: saving),
-            const SizedBox(height: 10),
-            _AssetLegend(cash: cash, saving: saving),
-          ],
-        ),
+          Row(
+            children: [
+              const Icon(Icons.monetization_on_rounded, size: 16, color: Colors.black38),
+              const SizedBox(width: 4),
+              Text('자산 구성',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.grey.shade600,
+                  )),
+              const Spacer(),
+              Text('총 ${money.format(total)} 원',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w700,
+                  )),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _AssetBreakdownBar(cash: cash, saving: saving),
+          const SizedBox(height: 10),
+          _AssetLegend(cash: cash, saving: saving),
+        ],
       ),
     );
   }
@@ -394,6 +400,7 @@ class _AccountCard extends StatelessWidget {
   final String balanceText;
   final VoidCallback? onTap;
   final Widget? trailing;
+  final Widget? leading; // ← 추가
 
   const _AccountCard({
     required this.title,
@@ -401,65 +408,127 @@ class _AccountCard extends StatelessWidget {
     required this.balanceText,
     this.onTap,
     this.trailing,
+    this.leading, // ← 추가
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0.8,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
-          child: Row(
-            children: [
-              // 텍스트
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                        overflow: TextOverflow.ellipsis),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(.7)),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              // 금액 + 트레일링
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
+        child: Row(
+          children: [
+            if (leading != null) ...[
+              leading!,                // ← 아이콘 배지
+              const SizedBox(width: 12),
+            ],
+            // 텍스트
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                      overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 4),
                   Text(
-                    balanceText,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                      fontWeight: FontWeight.w700,
-                    ),
+                    subtitle,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(.7)),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  if (trailing != null) ...[
-                    const SizedBox(height: 4),
-                    trailing!,
-                  ],
                 ],
               ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 8),
+            // 금액 + 트레일링
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  balanceText,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (trailing != null) ...[
+                  const SizedBox(height: 4),
+                  trailing!,
+                ],
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 }
+
+class _IconMeta {
+  final IconData icon;
+  final Color color;
+  const _IconMeta(this.icon, this.color);
+}
+
+// 브랜드 컬러 재활용
+const _kBlue   = _kCashGradEnd;   // 파랑
+const _kRed    = _kSavingGradEnd; // 빨강 (#FE504F)
+const _kGreen  = Color(0xFF10B981);
+const _kIndigo = Color(0xFF4061F6);
+const _kGray   = Color(0xFF6B7280);
+
+_IconMeta _iconMetaForProduct(Account a) {
+  // productType이 있으면 우선 사용, 없으면 accountName/number에서 추론
+  final pt = (() {
+    try {
+      final v = a.productType; // 존재하면 사용
+      if (v == null) return '';
+      return v.toString();
+    } catch (_) { return ''; }
+  })();
+
+  final hint = '${pt} ${a.accountName ?? ''}'.toLowerCase();
+
+  // 걷기/헬스 기반 적금
+  if (hint.contains('walk') || hint.contains('step') || hint.contains('health') || hint.contains('걷') || hint.contains('헬스')) {
+    return _IconMeta(Icons.directions_walk_rounded, _kGreen);
+  }
+  // 적금(정기적금/자유적금)
+  if (hint.contains('savings') || hint.contains('installment') || hint.contains('적금')) {
+    return _IconMeta(Icons.savings_outlined, _kRed);
+  }
+  // 정기예금/예금
+  if (hint.contains('deposit') || hint.contains('예금') || hint.contains('정기')) {
+    return _IconMeta(Icons.account_balance_rounded, _kIndigo);
+  }
+  // 입출금/지급결제
+  if (a.accountType == AccountType.demand || hint.contains('입출금') || hint.contains('checking')) {
+    return _IconMeta(Icons.account_balance_wallet_outlined, _kBlue);
+  }
+  // 기본
+  return _IconMeta(Icons.account_balance_outlined, _kGray);
+}
+
+// 실제로 카드 왼쪽에 그릴 배지
+Widget _productBadgeIcon(Account a) {
+  final m = _iconMetaForProduct(a);
+  return Container(
+    width: 42,
+    height: 42,
+    decoration: BoxDecoration(
+      color: m.color.withOpacity(0.12),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    alignment: Alignment.center,
+    child: Icon(m.icon, color: m.color, size: 22),
+  );
+}
+
+
 
 // ===== 자산 구성 바 & 범례 (레드 톤) =====
 const _kCashGradStart = Color(0xFF8CD3FF);

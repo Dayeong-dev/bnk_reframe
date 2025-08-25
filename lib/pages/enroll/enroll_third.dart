@@ -109,12 +109,6 @@ class _ThirdStepPageState extends State<ThirdStepPage> {
             primary: TossTokens.primary,
             onPrimary: Colors.white,
           ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: TossTokens.card,
-        foregroundColor: TossTokens.textStrong,
-        elevation: 0,
-        centerTitle: true,
-      ),
       dividerColor: TossTokens.border,
     );
 
@@ -224,6 +218,8 @@ class _ThirdStepPageState extends State<ThirdStepPage> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(TossTokens.r12),
                         ),
+                        backgroundColor: TossTokens.primary,
+                        foregroundColor: TossTokens.card,
                       ),
                       child: const Text(
                         '네! 가입하겠습니다.',

@@ -16,27 +16,6 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import '../../service/enroll_service.dart'; // Analytics
 
 /// ======================
-/// Toss 스타일 토큰 (배경: 흰색 통일)
-/// ======================
-class TossTokens {
-  // 컬러
-  static const Color primary = Color(0xFF3182F6); // Toss 블루 톤
-  static const Color bg = Colors.white; // ✅ 화면 배경 = 흰색 통일
-  static const Color card = Colors.white; // 카드 배경
-  static const Color border = Color(0xFFE5E8EB); // 얇은 보더
-  static const Color textStrong = Color(0xFF111827);
-  static const Color text = Color(0xFF374151);
-  static const Color textWeak = Color(0xFF6B7280);
-  static const Color fieldFill = Color(0xFFF2F4F6); // 인풋/칩 기본 배경
-  static const Color disabled = Color(0xFFD1D5DB);
-
-  // 라운드 & 간격
-  static const double r8 = 8;
-  static const double r10 = 10;
-  static const double r12 = 12;
-}
-
-/// ======================
 /// SecondStep Page
 /// ======================
 class SecondStepPage extends StatefulWidget {
@@ -353,13 +332,7 @@ class _SecondStepPageState extends State<SecondStepPage> {
             primary: TossTokens.primary,
             onPrimary: Colors.white,
           ),
-      scaffoldBackgroundColor: TossTokens.bg, // ✅ 흰색
-      appBarTheme: const AppBarTheme(
-        backgroundColor: TossTokens.card,
-        foregroundColor: TossTokens.textStrong,
-        elevation: 0,
-        centerTitle: true,
-      ),
+      scaffoldBackgroundColor: TossTokens.bg,
       dividerColor: TossTokens.border,
       inputDecorationTheme: const InputDecorationTheme(
         filled: true,
@@ -532,6 +505,8 @@ class _BottomButton extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(TossTokens.r12),
               ),
+              backgroundColor: TossTokens.primary,
+              foregroundColor: TossTokens.card,
             ),
             child: const Text(
               '다음',

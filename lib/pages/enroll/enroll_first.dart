@@ -191,7 +191,7 @@ class _FirstStepPageState extends State<FirstStepPage> {
                   // index == 1 : PDF 전체 확인 마스터 타일
                   if (index == 1) {
                     return _ConsentTile(
-                      title: 'PDF 연동 문서 전체 확인',
+                      title: '필수 약관 전체 동의',
                       checked: _allPdfChecked,
                       trailingChevron: false,
                       onTap: () async {

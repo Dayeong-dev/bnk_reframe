@@ -3,6 +3,7 @@ import 'package:reframe/model/deposit_product.dart';
 import 'package:reframe/pages/deposit/deposit_detail_page.dart';
 import 'package:reframe/service/deposit_service.dart' as DepositService;
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:reframe/service/analytics_service.dart';
 
 /// 예적금 목록 (아이콘 자동 추천 + HOT 배지)
 class DepositListPage extends StatefulWidget {
@@ -67,23 +68,23 @@ class _DepositListPageState extends State<DepositListPage>
       parameters: {'q': query.trim(), 'category': categories[selectedIndex]},
     );
   }
-
-  Future<void> _logProductClick(
-    DepositProduct item,
-    int index, {
-    required String source,
-  }) async {
-    await _analytics.logEvent(
-      name: 'product_list_click',
-      parameters: {
-        'product_id': '${item.productId}',
-        'product_type': _productTypeOf(item),
-        'category': item.category ?? '',
-        'pos': index + 1,
-        'source': source,
-      },
-    );
-  }
+  // [beobjin] 20250825 17:36 -  AnalyticsService.logSelectProduct() 로 대체함. 
+  // Future<void> _logProductClick(
+  //   DepositProduct item,
+  //   int index, {
+  //   required String source,
+  // }) async {
+  //   await _analytics.logEvent(
+  //     name: 'product_list_click',
+  //     parameters: {
+  //       'product_id': '${item.productId}',
+  //       'product_type': _productTypeOf(item),
+  //       'category': item.category ?? '',
+  //       'pos': index + 1,
+  //       'source': source,
+  //     },
+  //   );
+  // }
 
   void _scheduleImpressionLog(List<DepositProduct> visible, int pageIndex) {
     final ids = visible.map((e) => e.productId).map((v) => '$v').join(',');
@@ -476,7 +477,14 @@ class _DepositListPageState extends State<DepositListPage>
 
     return InkWell(
       onTap: () async {
-        await _logProductClick(item, index, source: 'grid');
+      // [beobjin] 20250825 17:36 -  AnalyticsService.logSelectProduct() 로 대체함. 
+      //   await _logProductClick(item, index, source: 'grid');
+      await AnalyticsService.logSelectProduct(
+        productId: item.productId,
+        name: item.name,
+        category: item.category,
+        listName: 'deposit_list', 
+      );
         if (!mounted) return;
         Navigator.push(
           context,
@@ -486,6 +494,7 @@ class _DepositListPageState extends State<DepositListPage>
           ),
         );
       },
+      
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -619,7 +628,14 @@ class _DepositListPageState extends State<DepositListPage>
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () async {
-          await _logProductClick(item, index, source: 'list');
+          // [beobjin] 20250825 17:36 -  AnalyticsService.logSelectProduct() 로 대체함. 
+          // await _logProductClick(item, index, source: 'list');
+           await AnalyticsService.logSelectProduct(
+            productId: item.productId,
+            name: item.name,
+            category: item.category,
+            listName: 'deposit_list', // 필요시 리스트명 변경
+          );
           if (!mounted) return;
           Navigator.push(
             context,

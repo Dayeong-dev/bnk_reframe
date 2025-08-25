@@ -1,3 +1,4 @@
+// qna_detail_page.dart
 import 'package:flutter/material.dart';
 import 'qna_api_service.dart';
 import 'qna_model.dart';
@@ -16,6 +17,8 @@ class _QnaDetailPageState extends State<QnaDetailPage> {
   Qna? _qna;
   bool _loading = true;
   String? _error;
+
+  bool _deleting = false; // 삭제 진행 상태
 
   @override
   void initState() {
@@ -39,30 +42,51 @@ class _QnaDetailPageState extends State<QnaDetailPage> {
   }
 
   Future<void> _delete() async {
+    if (_deleting) return;
+
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         title: const Text('삭제'),
         content: const Text('이 문의를 삭제하시겠어요?'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('취소')),
+            // 상세 State의 context를 쓰지 말고 dialogCtx 사용!
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: const Text('취소'),
+          ),
           TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('삭제')),
+            onPressed: () => Navigator.of(dialogCtx).pop(true),
+            child: const Text('삭제'),
+          ),
         ],
       ),
     );
     if (ok != true) return;
+
+    if (!mounted) return; // 다이얼로그 닫히는 사이에 해제됐을 가능성 방어
+
+    setState(() => _deleting = true);
     try {
       await widget.api.delete(widget.qnaId);
-      if (mounted) Navigator.pop(context, true);
+
+      if (!mounted) return;
+      // 삭제 성공: 이전 화면으로 true 전달
+      Navigator.of(context).pop(true);
     } catch (e) {
+      // 서버 응답 message 우선 노출
+      String msg = '삭제 실패: $e';
+      try {
+        final m = (e as dynamic).response?.data?['message'];
+        if (m is String && m.isNotEmpty) msg = m;
+      } catch (_) {}
+
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('삭제 실패: $e')));
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        messenger?.showSnackBar(SnackBar(content: Text(msg)));
       }
+    } finally {
+      if (mounted) setState(() => _deleting = false);
     }
   }
 
@@ -101,7 +125,18 @@ class _QnaDetailPageState extends State<QnaDetailPage> {
                 if (saved == true) _load();
               },
             ),
-          IconButton(
+          _deleting
+              ? const Padding(
+            padding: EdgeInsets.only(right: 16),
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          )
+              : IconButton(
             tooltip: '삭제',
             icon: const Icon(Icons.delete_outline_rounded),
             onPressed: _delete,
@@ -112,44 +147,39 @@ class _QnaDetailPageState extends State<QnaDetailPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? _ErrorView(message: '오류: $_error', onRetry: _load)
-              : q == null
-                  ? const Center(child: Text('데이터 없음'))
-                  : RefreshIndicator(
-                      onRefresh: _load,
-                      child: ListView(
-                        padding: const EdgeInsets.only(bottom: 24),
-                        children: [
-                          // ── 상단 그라데이션 헤더 (FAQ/QnA 톤 일치)
-                          const _GradientHeader(
-                            title: '1:1 문의',
-                            subtitle: '등록하신 문의의 상세 내용을 확인하세요.',
-                          ),
-
-                          // ── 질문 카드
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: _QuestionCard(
-                              title: q.title,
-                              category: q.category,
-                              status: q.status,
-                              content: q.content,
-                            ),
-                          ),
-
-                          // ── 답변 카드
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                            child: _AnswerCard(
-                              answerText: q.answer?.trim().isNotEmpty == true
-                                  ? q.answer!.trim()
-                                  : null,
-                              answerAt: q.moddate,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+          ? _ErrorView(message: '오류: $_error', onRetry: _load)
+          : q == null
+          ? const Center(child: Text('데이터 없음'))
+          : RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          padding: const EdgeInsets.only(bottom: 24),
+          children: [
+            const _GradientHeader(
+              title: '1:1 문의',
+              subtitle: '등록하신 문의의 상세 내용을 확인하세요.',
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _QuestionCard(
+                title: q.title,
+                category: q.category,
+                status: q.status,
+                content: q.content,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: _AnswerCard(
+                answerText: q.answer?.trim().isNotEmpty == true
+                    ? q.answer!.trim()
+                    : null,
+                answerAt: q.moddate,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -175,19 +205,19 @@ class _GradientHeader extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+        children: const [
           Text(
-            title,
-            style: const TextStyle(
+            '1:1 문의',
+            style: TextStyle(
               color: Colors.white,
               fontSize: 22,
               fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           Text(
-            subtitle,
-            style: const TextStyle(
+            '등록하신 문의의 상세 내용을 확인하세요.',
+            style: TextStyle(
               color: Colors.white70,
               fontSize: 13,
               height: 1.3,
@@ -234,17 +264,14 @@ class _QuestionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 카테고리/상태 칩 (제목 위로 이동)
             Row(
-              children: [
-                _Chip(label: category, bg: _chipBg, fg: _chipText),
-                const SizedBox(width: 6),
-                _Chip(label: status, bg: _statusBg, fg: _statusText),
+              children: const [
+                _Chip(label: '카테고리', bg: _chipBg, fg: _chipText), // 자리표시자
+                SizedBox(width: 6),
+                _Chip(label: '상태', bg: _statusBg, fg: _statusText), // 자리표시자
               ],
             ),
             const SizedBox(height: 10),
-
-            // Q 아이콘 + 제목
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -277,10 +304,7 @@ class _QuestionCard extends StatelessWidget {
                 ),
               ],
             ),
-
             const SizedBox(height: 14),
-
-            // 질문 본문 (구분선 삭제 후 바로 표시)
             Text(
               content,
               style: const TextStyle(
@@ -323,7 +347,6 @@ class _AnswerCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // A 라벨
             const Text(
               'A',
               style: TextStyle(
@@ -333,8 +356,6 @@ class _AnswerCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-
-            // 말풍선
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -351,7 +372,6 @@ class _AnswerCard extends StatelessWidget {
                 ),
               ),
             ),
-
             if (hasAnswer && answerAt != null) ...[
               const SizedBox(height: 8),
               Text(
@@ -366,7 +386,6 @@ class _AnswerCard extends StatelessWidget {
   }
 
   static String _formatDate(DateTime dt) {
-    // 간단 표기: YYYY.MM.DD
     final y = dt.year.toString().padLeft(4, '0');
     final m = dt.month.toString().padLeft(2, '0');
     final d = dt.day.toString().padLeft(2, '0');

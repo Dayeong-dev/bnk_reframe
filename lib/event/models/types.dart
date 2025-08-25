@@ -2,18 +2,18 @@
 
 // ==== 간단 Flow 인자 ====
 typedef FortuneFlowArgs = ({
-bool isAgreed,
-String? name,
-String? birthDate, // yyyymmdd
-String? gender,    // "남" / "여"
-String? invitedBy,
+  bool isAgreed,
+  String? name,
+  String? birthDate, // yyyymmdd
+  String? gender, // "남" / "여"
+  String? invitedBy,
 });
 
 // ==== 요청 DTO ====
 class FortuneRequest {
   final String name;
   final String birthDate; // yyyymmdd
-  final String gender;    // "남"/"여"
+  final String gender; // "남"/"여"
   final DateTime date;
   final String? invitedBy;
 
@@ -26,12 +26,12 @@ class FortuneRequest {
   });
 
   Map<String, dynamic> toJson() => {
-    'name': name,
-    'birthDate': birthDate,
-    'gender': gender,
-    'date': date.toIso8601String(),
-    if (invitedBy != null) 'invitedBy': invitedBy,
-  };
+        'name': name,
+        'birthDate': birthDate,
+        'gender': gender,
+        'date': date.toIso8601String(),
+        if (invitedBy != null) 'invitedBy': invitedBy,
+      };
 }
 
 // ==== 응답 DTO ====
@@ -70,11 +70,11 @@ class FortuneResponse {
   }
 
   Map<String, dynamic> toJson() => {
-    'fortune': fortune,
-    'keyword': keyword,
-    if (content != null) 'content': content, // ✅ 추가
-    'products': products.map((e) => e.toJson()).toList(),
-  };
+        'fortune': fortune,
+        'keyword': keyword,
+        if (content != null) 'content': content, // ✅ 추가
+        'products': products.map((e) => e.toJson()).toList(),
+      };
 
   FortuneResponse copyWith({
     String? fortune,
@@ -106,16 +106,16 @@ class ProductBrief {
   });
 
   factory ProductBrief.fromJson(Map<String, dynamic> j) => ProductBrief(
-    productId: j['productId'] as int,
-    name: j['name'] as String,
-    category: j['category'] as String,
-    summary: j['summary'] as String?,
-  );
+        productId: j['productId'] as int,
+        name: j['name'] as String,
+        category: j['category'] as String,
+        summary: j['summary'] as String?,
+      );
 
   Map<String, dynamic> toJson() => {
-    'productId': productId,
-    'name': name,
-    'category': category,
-    if (summary != null) 'summary': summary,
-  };
+        'productId': productId,
+        'name': name,
+        'category': category,
+        if (summary != null) 'summary': summary,
+      };
 }

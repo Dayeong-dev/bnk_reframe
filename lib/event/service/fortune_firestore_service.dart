@@ -39,9 +39,9 @@ class FortuneFirestoreService {
 
   /// 트랜잭션 재시도
   static Future<T> _retryTx<T>(
-      Future<T> Function(Transaction tx) body, {
-        int maxAttempts = 4,
-      }) async {
+    Future<T> Function(Transaction tx) body, {
+    int maxAttempts = 4,
+  }) async {
     Exception? lastErr;
     for (var attempt = 0; attempt < maxAttempts; attempt++) {
       if (attempt > 0) await _backoff(attempt);
@@ -55,7 +55,8 @@ class FortuneFirestoreService {
   }
 
   // ===== 실시간 스트림 =====
-  static Stream<DocumentSnapshot<Map<String, dynamic>>> streamUserDoc(String uid) {
+  static Stream<DocumentSnapshot<Map<String, dynamic>>> streamUserDoc(
+      String uid) {
     return _db.collection('users').doc(uid).snapshots();
   }
 
@@ -71,7 +72,8 @@ class FortuneFirestoreService {
     }).distinct();
   }
 
-  static Stream<QuerySnapshot<Map<String, dynamic>>> streamLatestCoupon(String uid) {
+  static Stream<QuerySnapshot<Map<String, dynamic>>> streamLatestCoupon(
+      String uid) {
     return _db
         .collection('coupons')
         .where('ownerUid', isEqualTo: uid)
@@ -107,13 +109,16 @@ class FortuneFirestoreService {
       final snap = await tx.get(ref);
       if (!snap.exists) {
         final code = _genHyphenatedCouponCode();
-        tx.set(ref, {
-          'title': '[스타벅스] 아이스 아메리카노',
-          'ownerUid': FortuneAuthService.getCurrentUid(),
-          'issuedAt': FieldValue.serverTimestamp(),
-          'status': 'ISSUED',
-          'code': code,
-        }, SetOptions(merge: true));
+        tx.set(
+            ref,
+            {
+              'title': '[스타벅스] 아이스 아메리카노',
+              'ownerUid': FortuneAuthService.getCurrentUid(),
+              'issuedAt': FieldValue.serverTimestamp(),
+              'status': 'ISSUED',
+              'code': code,
+            },
+            SetOptions(merge: true));
         return code;
       }
       final data = snap.data() as Map<String, dynamic>;
@@ -210,10 +215,8 @@ class FortuneFirestoreService {
   }) async {
     if (!debugAllowSelf && inviterUid == inviteeUid) return;
 
-    final visitorsCol = _db
-        .collection('invites')
-        .doc(inviterUid)
-        .collection('visitors');
+    final visitorsCol =
+        _db.collection('invites').doc(inviterUid).collection('visitors');
 
     await _retryTx((tx) async {
       final newDoc = visitorsCol.doc();
@@ -273,31 +276,42 @@ class FortuneFirestoreService {
         int current = 0;
         if (inviterSnap.exists) {
           final raw = inviterSnap.data()?['stampCount'];
-          if (raw is int) current = raw;
-          else if (raw is num) current = raw.toInt();
+          if (raw is int)
+            current = raw;
+          else if (raw is num)
+            current = raw.toInt();
           else if (raw is String) current = int.tryParse(raw) ?? 0;
         } else {
           current = 0;
-          tx.set(inviterRef, {
-            'stampCount': current,
-            'createdAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true));
+          tx.set(
+              inviterRef,
+              {
+                'stampCount': current,
+                'createdAt': FieldValue.serverTimestamp(),
+                'updatedAt': FieldValue.serverTimestamp(),
+              },
+              SetOptions(merge: true));
         }
 
         final next = current + 1;
 
         // 방문 처리 + 도장 증가
-        tx.set(vRef, {
-          'claimed': true,
-          'claimedBy': inviterUid,
-          'claimedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        tx.set(
+            vRef,
+            {
+              'claimed': true,
+              'claimedBy': inviterUid,
+              'claimedAt': FieldValue.serverTimestamp(),
+            },
+            SetOptions(merge: true));
 
-        tx.set(inviterRef, {
-          'stampCount': next,
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        tx.set(
+            inviterRef,
+            {
+              'stampCount': next,
+              'updatedAt': FieldValue.serverTimestamp(),
+            },
+            SetOptions(merge: true));
 
         // ✅ 임계값마다 쿠폰 발급
         if (next % kCouponThreshold == 0) {

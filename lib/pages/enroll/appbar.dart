@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 AppBar buildAppBar(BuildContext context) {
   return AppBar(
-    centerTitle: true,
     title: const Text('상품 가입'),
     actions: [
       TextButton(

@@ -7,7 +7,8 @@ import 'package:reframe/service/account_service.dart';
 import '../../../constants/text_animation.dart';
 import '../../../model/product_account_detail.dart';
 
-final _won = NumberFormat.currency(locale: 'ko_KR', symbol: '₩', decimalDigits: 0);
+final _won =
+    NumberFormat.currency(locale: 'ko_KR', symbol: '₩', decimalDigits: 0);
 final _date = DateFormat('yyyy.MM.dd');
 
 class DepositPage extends StatefulWidget {
@@ -68,7 +69,8 @@ class _DepositPageState extends State<DepositPage> {
             }
 
             final projectedInterestNow = detail.projectedInterestNow ?? 0;
-            final maturityAmountProjected = detail.maturityAmountProjected; // null이면 만기 없음
+            final maturityAmountProjected =
+                detail.maturityAmountProjected; // null이면 만기 없음
             // final projectedNetInterest = (projectedInterestNow * 0.846).floor(); // 세후(15.4%)
 
             return ListView(
@@ -83,8 +85,7 @@ class _DepositPageState extends State<DepositPage> {
                         ? '만기 없음'
                         : (dday! >= 0 ? 'D-$dday' : '만기 지남'),
                     start: start,
-                    close: close
-                ),
+                    close: close),
                 const SizedBox(height: 16),
 
                 _SectionGroup(children: [
@@ -109,8 +110,11 @@ class _DepositPageState extends State<DepositPage> {
                 const SizedBox(height: 20),
                 _SectionGroup(children: [
                   _RowKV('만기일', close == null ? '만기 없음' : _date.format(close)),
-                  _RowKV('약정 개월수',
-                      app.termMonthsAtEnroll == null ? '-' : '${app.termMonthsAtEnroll}개월'),
+                  _RowKV(
+                      '약정 개월수',
+                      app.termMonthsAtEnroll == null
+                          ? '-'
+                          : '${app.termMonthsAtEnroll}개월'),
                   _RowKV('현재 적용금리', '${rateEffective.toStringAsFixed(2)}%'),
                 ]),
                 const SizedBox(height: 12),
@@ -119,6 +123,7 @@ class _DepositPageState extends State<DepositPage> {
                   _RowKV('만기일', close == null ? '-' : _date.format(close)),
                 ]),
                 const SizedBox(height: 12),
+
               ],
             );
           },
@@ -137,15 +142,16 @@ class _HeaderSummary extends StatelessWidget {
   DateTime? start;
   DateTime? close;
 
-  _HeaderSummary({
-    super.key,
-    required this.title,
-    required this.accountMasked,
-    required this.principal,
-    required this.ddayText,
-    this.start,
-    this.close,
-  });
+
+  _HeaderSummary(
+      {super.key,
+      required this.title,
+      required this.accountMasked,
+      required this.principalText,
+      required this.ddayText,
+      this.start,
+      this.close});
+
 
   @override
   Widget build(BuildContext context) {
@@ -166,8 +172,8 @@ class _HeaderSummary extends StatelessWidget {
               child: Text(
                 title,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                      fontWeight: FontWeight.w700,
+                    ),
               ),
             ),
             _Pill(ddayText),
@@ -177,16 +183,16 @@ class _HeaderSummary extends StatelessWidget {
         Text(
           accountMasked,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: Colors.grey[600],
-            letterSpacing: 0.2,
-          ),
+                color: Colors.grey[600],
+                letterSpacing: 0.2,
+              ),
         ),
         const SizedBox(height: 14),
         Text(
           '현재 잔액(원금)',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Colors.grey[600],
-          ),
+                color: Colors.grey[600],
+              ),
         ),
         const SizedBox(height: 4),
         // 큼직한 금액
@@ -202,7 +208,9 @@ class _HeaderSummary extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        (start != null && close != null ? CountdownBar(start: start, close: close) : SizedBox())
+        (start != null && close != null
+            ? CountdownBar(start: start, close: close)
+            : SizedBox())
       ]),
     );
   }
@@ -224,9 +232,9 @@ class _Pill extends StatelessWidget {
       child: Text(
         text,
         style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: cs.primary,
-          fontWeight: FontWeight.w700,
-        ),
+              color: cs.primary,
+              fontWeight: FontWeight.w700,
+            ),
       ),
     );
   }
@@ -238,7 +246,8 @@ class _SectionGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final border = Divider.createBorderSide(context, width: 0.4, color: Colors.grey.withOpacity(0.25));
+    final border = Divider.createBorderSide(context,
+        width: 0.4, color: Colors.grey.withOpacity(0.25));
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).brightness == Brightness.dark
@@ -270,9 +279,11 @@ class _RowKV extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = Theme.of(context).textTheme.bodyMedium?.copyWith(
-      color: Colors.grey[600],
-    );
-    final valueStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
+
+          color: Colors.grey[600],
+        );
+    final value = Theme.of(context).textTheme.bodyMedium?.copyWith(
+
       fontWeight: FontWeight.w700,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
@@ -351,6 +362,7 @@ class _CountdownBarState extends State<CountdownBar> {
     if (widget.start == null || widget.close == null) return const SizedBox.shrink();
 
     final today = DateTime.now();
+
     final total = widget.close!
         .difference(DateTime(widget.start!.year, widget.start!.month, widget.start!.day))
         .inDays;
@@ -358,6 +370,7 @@ class _CountdownBarState extends State<CountdownBar> {
         .difference(DateTime(today.year, today.month, today.day))
         .inDays
         .clamp(-1 << 31, 1 << 31); // 안전 클램프
+
     final done = (total - left).clamp(0, total);
     final target = total <= 0 ? 1.0 : (done / total);
 
@@ -382,6 +395,7 @@ class _CountdownBarState extends State<CountdownBar> {
           ),
         ),
         const SizedBox(height: 6),
+
         // 라벨 숫자도 같이 자연스럽게 증가
         TweenAnimationBuilder<double>(
           tween: Tween(begin: _prev, end: target),
@@ -395,6 +409,7 @@ class _CountdownBarState extends State<CountdownBar> {
             );
           },
         ),
+
       ],
     );
   }

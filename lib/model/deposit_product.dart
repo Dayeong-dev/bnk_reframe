@@ -37,7 +37,6 @@ class DepositProduct {
     required this.period,
     required this.viewCount,
     required this.imageUrl,
-
     this.term,
     this.manual,
     this.paymentCycle,
@@ -62,7 +61,6 @@ class DepositProduct {
       period: json['period'] ?? 0,
       viewCount: json['viewCount'] ?? 0,
       imageUrl: json['imageUrl'] ?? '',
-
       term: json['term'] == null ? null : Document.fromJson(json['term']),
       manual: json['manual'] == null ? null : Document.fromJson(json['manual']),
       paymentCycle: json['paymentCycle'] ?? '',

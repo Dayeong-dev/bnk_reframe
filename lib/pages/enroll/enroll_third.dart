@@ -184,12 +184,9 @@ class _ThirdStepPageState extends State<ThirdStepPage> {
                     child: ElevatedButton(
                       onPressed: _submit,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: TossTokens.primary,
-                        foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(TossTokens.r12),
                         ),
-                        elevation: 0,
                       ),
                       child: const Text(
                         '네! 가입하겠습니다.',

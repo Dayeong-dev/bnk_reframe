@@ -14,20 +14,20 @@ class Faq {
   });
 
   factory Faq.fromJson(Map<String, dynamic> json) => Faq(
-    faqId: json['faqId'] is int
-        ? json['faqId']
-        : int.parse(json['faqId'].toString()),
-    category: json['category'],
-    question: json['question'],
-    answer: json['answer'],
-    status: json['status'],
-  );
+        faqId: json['faqId'] is int
+            ? json['faqId']
+            : int.parse(json['faqId'].toString()),
+        category: json['category'],
+        question: json['question'],
+        answer: json['answer'],
+        status: json['status'],
+      );
 
   Map<String, dynamic> toJson() => {
-    'faqId': faqId,
-    'category': category,
-    'question': question,
-    'answer': answer,
-    'status': status,
-  };
+        'faqId': faqId,
+        'category': category,
+        'question': question,
+        'answer': answer,
+        'status': status,
+      };
 }

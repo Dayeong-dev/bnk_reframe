@@ -645,10 +645,8 @@ class _MapPageState extends State<MapPage> {
         },
         borderRadius: BorderRadius.circular(16),
         child: Card(
-          elevation: 3,
           margin: EdgeInsets.zero,
           color: Colors.white,
-          surfaceTintColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -782,7 +780,7 @@ class _MapPageState extends State<MapPage> {
       context: context,
       // showDragHandle: false,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),

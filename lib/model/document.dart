@@ -18,12 +18,12 @@ class Document {
   });
 
   factory Document.fromJson(Map<String, dynamic> json) => Document(
-    documentId: json['documentId'] as int,
-    title: json['title'] as String,
-    filename: json['filename'] as String,
-    productType: json['productType'] as String,
-    documentType: json['documentType'] as String?,
-    regDate: DateTime.parse(json['regDate'] as String),
-    modDate: DateTime.parse(json['modDate'] as String),
-  );
+        documentId: json['documentId'] as int,
+        title: json['title'] as String,
+        filename: json['filename'] as String,
+        productType: json['productType'] as String,
+        documentType: json['documentType'] as String?,
+        regDate: DateTime.parse(json['regDate'] as String),
+        modDate: DateTime.parse(json['modDate'] as String),
+      );
 }

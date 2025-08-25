@@ -26,12 +26,12 @@ class EnrollForm {
       ')';
 
   Map<String, dynamic> toJson() => {
-    'periodMonths': periodMonths,
-    'paymentAmount': paymentAmount,
-    'transferDate': transferDate,
-    'groupName': groupName,
-    'groupType': groupType,
-    'fromAccountId': fromAccountId,
-    'maturityAccountId': maturityAccountId
-  };
+        'periodMonths': periodMonths,
+        'paymentAmount': paymentAmount,
+        'transferDate': transferDate,
+        'groupName': groupName,
+        'groupType': groupType,
+        'fromAccountId': fromAccountId,
+        'maturityAccountId': maturityAccountId
+      };
 }

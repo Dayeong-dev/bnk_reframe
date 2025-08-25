@@ -511,9 +511,6 @@ class _BnkChatScreenState extends State<BnkChatScreen> {
       backgroundColor: Colors.white,
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0.6,
-        centerTitle: false,
         titleSpacing: 12,
         iconTheme: const IconThemeData(color: Colors.black),
         title: const Text(
@@ -634,7 +631,6 @@ class _BnkChatScreenState extends State<BnkChatScreen> {
                                     const EdgeInsets.symmetric(vertical: 12),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(10)),
-                                backgroundColor: _brandBlue,
                               ),
                               child: const Text('동의합니다',
                                   style: TextStyle(color: Colors.white)),

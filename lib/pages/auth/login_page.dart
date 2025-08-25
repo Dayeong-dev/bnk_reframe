@@ -22,7 +22,7 @@ class _LoginPageState extends State<LoginPage> {
   final FocusNode _idFocus = FocusNode();
   final FocusNode _pwFocus = FocusNode();
 
-  String? _error;   // 에러 텍스트
+  String? _error; // 에러 텍스트
   bool _isLoading = false;
   bool _isButtonEnabled = false;
 
@@ -33,16 +33,17 @@ class _LoginPageState extends State<LoginPage> {
     _passwordController.addListener(_checkInput);
   }
 
-                                                                                                                  void _checkInput() {
-    final hasInput = _usernameController.text.trim().isNotEmpty && _passwordController.text.trim().isNotEmpty;
+  void _checkInput() {
+    final hasInput = _usernameController.text.trim().isNotEmpty &&
+        _passwordController.text.trim().isNotEmpty;
 
-    if(_error != null) {
+    if (_error != null) {
       setState(() {
         _error = null;
       });
     }
 
-    if(_isButtonEnabled != hasInput) {
+    if (_isButtonEnabled != hasInput) {
       setState(() {
         _isButtonEnabled = hasInput;
       });
@@ -53,14 +54,14 @@ class _LoginPageState extends State<LoginPage> {
     final username = _usernameController.text.trim();
     final password = _passwordController.text.trim();
 
-    if(username.isEmpty) {
+    if (username.isEmpty) {
       setState(() {
         _error = '아이디를 입력해주세요.';
       });
       return;
     }
 
-    if(password.isEmpty) {
+    if (password.isEmpty) {
       setState(() {
         _error = '비밀번호를 입력해주세요.';
       });
@@ -72,15 +73,17 @@ class _LoginPageState extends State<LoginPage> {
 
       setState(() => _isLoading = true);
 
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'username': username,
-          'password': password,
-        }),
-      ).timeout(Duration(seconds: 8));   // 8초 제한
-      if(response.statusCode == 200) {
+      final response = await http
+          .post(
+            Uri.parse(url),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({
+              'username': username,
+              'password': password,
+            }),
+          )
+          .timeout(Duration(seconds: 8)); // 8초 제한
+      if (response.statusCode == 200) {
         final data = json.decode(response.body);
 
         final accessToken = data['accessToken'];
@@ -91,14 +94,13 @@ class _LoginPageState extends State<LoginPage> {
         // Secure Storage에 Refresh Token 저장
         await _secureStorage.write(key: "refreshToken", value: refreshToken);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("로그인 성공"))
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("로그인 성공")));
 
         if (!mounted) return;
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AppShell()));
-
-      } else if(response.statusCode == 401) {
+        Navigator.pushReplacement(
+            context, MaterialPageRoute(builder: (context) => AppShell()));
+      } else if (response.statusCode == 401) {
         if (!mounted) return;
         setState(() {
           _error = '아이디 또는 비밀번호가 잘못되었습니다.';
@@ -109,7 +111,7 @@ class _LoginPageState extends State<LoginPage> {
           _error = '로그인 오류';
         });
       }
-    } catch(e) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
         _error = '로그인 오류';
@@ -123,7 +125,8 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   @override
-  void dispose() {  // 현재 위젯이 화면에서 사라질 때 호출
+  void dispose() {
+    // 현재 위젯이 화면에서 사라질 때 호출
     _usernameController.dispose();
     _passwordController.dispose();
     _idFocus.dispose();
@@ -140,7 +143,10 @@ class _LoginPageState extends State<LoginPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset("assets/images/logo/logo_small.png", width: 200,),
+              Image.asset(
+                "assets/images/logo/logo_small.png",
+                width: 200,
+              ),
               const SizedBox(height: 16),
               _buildTextField(
                   controller: _usernameController,
@@ -159,14 +165,9 @@ class _LoginPageState extends State<LoginPage> {
                 constraints: BoxConstraints(minHeight: 20),
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: Text(
-                      _error != null ? 'ⓘ $_error' : '',
+                  child: Text(_error != null ? 'ⓘ $_error' : '',
                       style: TextStyle(
-                          color: Colors.red,
-                          fontSize: 12,
-                          height: 1.2
-                      )
-                  ),
+                          color: Colors.red, fontSize: 12, height: 1.2)),
                 ),
               ),
               const SizedBox(height: 16),
@@ -176,35 +177,32 @@ class _LoginPageState extends State<LoginPage> {
                 child: ElevatedButton(
                   onPressed: (_isButtonEnabled && !_isLoading) ? _login : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    )
-                  ),
-                  child: _isLoading ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  ) : const Text('로그인'),
+                      backgroundColor: Colors.black,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      )),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('로그인'),
                 ),
               ),
               TextButton(
                   onPressed: () {
                     Navigator.pushNamed(context, '/join');
                   },
-                  child: Text(
-                      "회원가입",
+                  child: Text("회원가입",
                       style: TextStyle(
                           color: Colors.black,
                           fontSize: 12,
-                          decoration: TextDecoration.underline
-                      )
-                  )
-              )
+                          decoration: TextDecoration.underline)))
             ],
           ),
         ),
@@ -212,13 +210,12 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String hintText,
-    FocusNode? focusNode,
-    bool obscureText = false,
-    void Function(String)? onFieldSubmitted}) {
-
+  Widget _buildTextField(
+      {required TextEditingController controller,
+      required String hintText,
+      FocusNode? focusNode,
+      bool obscureText = false,
+      void Function(String)? onFieldSubmitted}) {
     return SizedBox(
       height: 48,
       child: TextFormField(
@@ -232,20 +229,16 @@ class _LoginPageState extends State<LoginPage> {
           isDense: true,
           enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.black12)
-          ),
+              borderSide: BorderSide(color: Colors.black12)),
           errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.black12)
-          ),
+              borderSide: BorderSide(color: Colors.black12)),
           focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.black)
-          ),
+              borderSide: BorderSide(color: Colors.black)),
           focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.black)
-          ),
+              borderSide: BorderSide(color: Colors.black)),
         ),
       ),
     );

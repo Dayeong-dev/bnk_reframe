@@ -20,7 +20,8 @@ import '../firebase_options.dart';
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   // 필요 시 background 메시지 처리
-  debugPrint('📨 [BG] title=${message.notification?.title}, data=${message.data}');
+  debugPrint(
+      '📨 [BG] title=${message.notification?.title}, data=${message.data}');
 }
 
 /// ======================
@@ -211,7 +212,8 @@ class FirebaseService {
 
     // 수신 로그(옵션)
     FirebaseMessaging.onMessage.listen((RemoteMessage m) {
-      debugPrint('📩 [FCM] onMessage title=${m.notification?.title} data=${m.data}');
+      debugPrint(
+          '📩 [FCM] onMessage title=${m.notification?.title} data=${m.data}');
     });
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage m) {
       debugPrint('📬 [FCM] onMessageOpenedApp title=${m.notification?.title}');

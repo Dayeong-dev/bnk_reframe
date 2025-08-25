@@ -495,13 +495,9 @@ class _BottomButton extends StatelessWidget {
           child: ElevatedButton(
             onPressed: enabled ? onPressed : null,
             style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  enabled ? TossTokens.primary : TossTokens.disabled,
-              foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(TossTokens.r12),
               ),
-              elevation: 0,
             ),
             child: const Text(
               '다음',
@@ -1048,7 +1044,6 @@ class _CupertinoMonthlyWheelState extends State<CupertinoMonthlyWheel> {
                                   BorderRadius.circular(TossTokens.r10),
                             ),
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            elevation: 0,
                           ),
                           child: const Text('확인',
                               style: TextStyle(fontWeight: FontWeight.w800)),

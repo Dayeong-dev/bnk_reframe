@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ConsentInfo {
-  final bool isAgreed;       // 동의 여부
-  final DateTime? agreedAt;  // 동의한 시각(서버 기준)
+  final bool isAgreed; // 동의 여부
+  final DateTime? agreedAt; // 동의한 시각(서버 기준)
 
   const ConsentInfo({
     required this.isAgreed,
@@ -28,12 +28,12 @@ class ConsentInfo {
 }
 
 class UserData {
-  final String name;            // 저장: 동의 O일 때만
-  final String birth;           // yyyymmdd
-  final String gender;          // "남"/"여"
-  final int stampCount;         // 초대한 사람만 +1 누적
-  final String? lastDrawDate;   // yyyymmdd
-  final ConsentInfo? consent;   // 동의 정보
+  final String name; // 저장: 동의 O일 때만
+  final String birth; // yyyymmdd
+  final String gender; // "남"/"여"
+  final int stampCount; // 초대한 사람만 +1 누적
+  final String? lastDrawDate; // yyyymmdd
+  final ConsentInfo? consent; // 동의 정보
 
   const UserData({
     required this.name,

@@ -26,7 +26,9 @@ import 'event/service/deep_link_service.dart';
 import 'event/pages/start_page.dart';
 import 'event/pages/coupons_page.dart';
 
-// ── Savings 테스트 페이지 ────────────────────────────────────────────────
+
+// ── Savings 테스트 페이지 임포트 (기존 main.dart에 있던 것 유지) ─────────
+
 import 'package:reframe/pages/savings_test/screens/start_screen.dart';
 import 'package:reframe/pages/savings_test/screens/question_screen.dart';
 import 'package:reframe/pages/savings_test/screens/result_screen.dart';
@@ -40,16 +42,26 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+
+  // 1) 날짜 포맷 로케일 데이터 로드
   await initializeDateFormatting('ko_KR', null);
+
+  // 2) 네이버 지도 SDK 초기화
 
   await FlutterNaverMap().init(
     clientId: '1vyye633d9',
     onAuthFailed: (e) => debugPrint('❌ 지도 인증 실패: $e'),
   );
 
+
+  // 3) Firebase Core 초기화
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+
+  // 4) 운세 기능: 익명 로그인 보장
 
   try {
     await FortuneAuthService.ensureSignedIn();
@@ -58,7 +70,12 @@ Future<void> main() async {
     debugPrint('🔥 익명 로그인 실패: $e\n$st');
   }
 
-  final firebaseService = await FirebaseService.init(forceRefreshToken: true);
+
+  // 5) 기존 FirebaseService(Analytics 등) 초기화
+  final firebaseService = await FirebaseService.init(
+    forceRefreshToken: true,
+  );
+
 
   runApp(MyApp(firebaseService: firebaseService));
 
@@ -102,10 +119,14 @@ class MyApp extends StatelessWidget {
           '/savings/question': (_) => const QuestionScreen(),
           '/savings/result': (_) => const ResultScreen(),
 
-          // 운세 이벤트 라우트
+
+          // 운세 이벤트(선택) 네임드 라우트
+
           '/event/fortune': (_) => const StartPage(),
           '/event/coupons': (_) => const CouponsPage(stampCount: 0),
         },
+
+        // 👇👇 여기서 전역 AppBar 스타일 통일!
         theme: ThemeData(
           useMaterial3: true,
           scaffoldBackgroundColor: Colors.white,
@@ -113,13 +134,48 @@ class MyApp extends StatelessWidget {
             primary: primaryColor,
             surface: Colors.white,
             background: Colors.white,
+
           ),
+          textButtonTheme: TextButtonThemeData(
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.black,   // ← 모든 TextButton 기본 텍스트색
+              textStyle: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+              ),
+            ),
+          ),
+
+          // ✅ AppBar 전역 스타일
           appBarTheme: const AppBarTheme(
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black,
+            centerTitle: true,                     // 타이틀 중앙 정렬
+            backgroundColor: Colors.white,         // AppBar 배경
+            foregroundColor: Colors.black,         // ← 뒤로가기 아이콘 / 텍스트 전부 검정
             elevation: 0,
             surfaceTintColor: Colors.transparent,
+
+            // 타이틀 텍스트 통일: 무조건 볼드, 검정
+            titleTextStyle: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,         // 볼드
+              color: Colors.black,
+            ),
+
+            // 액션 버튼 텍스트/아이콘도 동일하게
+            toolbarTextStyle: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
+            ),
+            iconTheme: IconThemeData(
+              color: Colors.black,                 // 뒤로가기/메뉴 아이콘 색
+            ),
+            actionsIconTheme: IconThemeData(
+              color: Colors.black,                 // 오른쪽 액션 아이콘 색
+            ),
           ),
+
+
           bottomSheetTheme: const BottomSheetThemeData(
             surfaceTintColor: Colors.transparent,
             backgroundColor: Colors.white,

@@ -14,7 +14,11 @@ class StartPage extends StatefulWidget {
   State<StartPage> createState() => _StartPageState();
 }
 
-class _StartPageState extends State<StartPage> with SingleTickerProviderStateMixin {
+
+class _StartPageState extends State<StartPage>
+    with SingleTickerProviderStateMixin {
+  // ★ 테스트용: 하루 1회 제한을 우회하려면 true (운영 시 false)
+
   static const bool kBypassDailyLimitForTest = true;
 
   late final AnimationController _ctrl;
@@ -51,7 +55,8 @@ class _StartPageState extends State<StartPage> with SingleTickerProviderStateMix
     final uid = FortuneAuthService.getCurrentUid();
     if (uid == null) return true;
 
-    final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    final doc =
+        await FirebaseFirestore.instance.collection('users').doc(uid).get();
     if (!doc.exists) return true;
 
     final lastDrawDate = doc.data()?['lastDrawDate'];
@@ -82,11 +87,14 @@ class _StartPageState extends State<StartPage> with SingleTickerProviderStateMix
     final raw = ModalRoute.of(context)?.settings.arguments;
     String? inviter;
     if (raw is Map) {
-      inviter = (raw['inviter'] ?? raw['inviteCode'] ?? raw['code'])?.toString();
+      inviter =
+          (raw['inviter'] ?? raw['inviteCode'] ?? raw['code'])?.toString();
     }
 
+
     return Scaffold(
-      appBar: AppBar(centerTitle: true, elevation: 0.5),
+      appBar: AppBar(),
+
       body: SafeArea(
         child: AnimatedBuilder(
           animation: _ctrl,
@@ -119,7 +127,10 @@ class _StartPageState extends State<StartPage> with SingleTickerProviderStateMix
                 Expanded(
                   child: Center(
                     child: Opacity(
-                      opacity: 0.3 + 0.7 * Curves.easeOut.transform(t),
+
+                      opacity:
+                          0.3 + 0.7 * Curves.easeOut.transform(t), // 0.3→1.0
+
                       child: Transform.translate(
                         offset: Offset(_dxFor(t), 0),
                         child: Image.asset(
@@ -134,7 +145,8 @@ class _StartPageState extends State<StartPage> with SingleTickerProviderStateMix
 
                 // 하단 버튼
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 40, left: 24, right: 24),
+                  padding:
+                      const EdgeInsets.only(bottom: 40, left: 24, right: 24),
                   child: SizedBox(
                     width: double.infinity,
                     child: FilledButton(
@@ -159,7 +171,8 @@ class _StartPageState extends State<StartPage> with SingleTickerProviderStateMix
                       },
                       child: const Text(
                         '시작하기',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ),

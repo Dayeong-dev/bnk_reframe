@@ -164,6 +164,22 @@ class _FirstStepPageState extends State<FirstStepPage> {
     );
   }
 
+  Future<bool?> _openPdfAndConfirm(_ConsentItem item) async {
+    final confirmed = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PdfViewerPage(
+          title: item.title,
+          pdfUrl: item.pdfUrl ?? '',
+        ),
+      ),
+    );
+    if (confirmed == true) {
+      await _logStep(stepIndex: 1, stepName: '약관열람', stage: 'submit');
+    }
+    return confirmed;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -226,16 +242,35 @@ class _FirstStepPageState extends State<FirstStepPage> {
                   return _ConsentTile(
                     title: item.title,
                     checked: item.checked,
-                    onTap: () {
+                    onTap: () async {
                       HapticFeedback.selectionClick();
-                      setState(() => item.checked = !item.checked);
+                      if (item.kind == ConsentKind.pdf) {
+                        if (!item.checked) {
+                          final ok = await _openPdfAndConfirm(item);
+                          if (ok == true) setState(() => item.checked = true);
+                        } else {
+                          // 이미 동의된 PDF는 탭 시 해제만 허용 (원치 않으면 이 분기 제거)
+                          setState(() => item.checked = false);
+                        }
+                      } else {
+                        setState(() => item.checked = !item.checked);
+                      }
                     },
-                    onCheckboxTapped: () {
+                    onCheckboxTapped: () async {
                       HapticFeedback.selectionClick();
-                      setState(() => item.checked = !item.checked);
+                      if (item.kind == ConsentKind.pdf) {
+                        if (!item.checked) {
+                          final ok = await _openPdfAndConfirm(item);
+                          if (ok == true) setState(() => item.checked = true);
+                        } else {
+                          setState(() => item.checked = false);
+                        }
+                      } else {
+                        setState(() => item.checked = !item.checked);
+                      }
                     },
                     infoText: item.infoText,
-                    trailingChevron: false,
+                    trailingChevron: (item.kind == ConsentKind.pdf), // PDF는 화살표 아이콘 표시(선택)
                   );
                 },
               ),

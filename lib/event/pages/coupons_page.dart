@@ -1,3 +1,4 @@
+// coupons_page.dart
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart';
@@ -6,10 +7,8 @@ import '../config/share_links.dart';
 import 'my_coupons_page.dart';
 
 /// rootNavigator로 네비게이션(모달/탭 밖으로 밀기)
-void pushNamedRoot(BuildContext context, String routeName,
-    {Object? arguments}) {
-  Navigator.of(context, rootNavigator: true)
-      .pushNamed(routeName, arguments: arguments);
+void pushNamedRoot(BuildContext context, String routeName, {Object? arguments}) {
+  Navigator.of(context, rootNavigator: true).pushNamed(routeName, arguments: arguments);
 }
 
 /// 쿠폰 스탬프 페이지 (컨텐츠 전용)
@@ -27,8 +26,7 @@ class CouponsPage extends StatefulWidget {
   State<CouponsPage> createState() => _CouponsPageState();
 }
 
-class _CouponsPageState extends State<CouponsPage>
-    with TickerProviderStateMixin {
+class _CouponsPageState extends State<CouponsPage> with TickerProviderStateMixin {
   static const int total = 10;
 
   late final AnimationController _popCtrl;
@@ -51,13 +49,11 @@ class _CouponsPageState extends State<CouponsPage>
 
     _scale = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween(begin: 0.10, end: 1.22)
-            .chain(CurveTween(curve: Curves.easeOutCubic)),
+        tween: Tween(begin: 0.10, end: 1.22).chain(CurveTween(curve: Curves.easeOutCubic)),
         weight: 58,
       ),
       TweenSequenceItem(
-        tween: Tween(begin: 1.22, end: 1.0)
-            .chain(CurveTween(curve: Curves.easeOutBack)),
+        tween: Tween(begin: 1.22, end: 1.0).chain(CurveTween(curve: Curves.easeOutBack)),
         weight: 42,
       ),
     ]).animate(_popCtrl);
@@ -69,18 +65,15 @@ class _CouponsPageState extends State<CouponsPage>
 
     _rotate = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween(begin: -0.12, end: 0.06)
-            .chain(CurveTween(curve: Curves.easeOutCubic)),
+        tween: Tween(begin: -0.12, end: 0.06).chain(CurveTween(curve: Curves.easeOutCubic)),
         weight: 40,
       ),
       TweenSequenceItem(
-        tween: Tween(begin: 0.06, end: -0.02)
-            .chain(CurveTween(curve: Curves.easeOutCubic)),
+        tween: Tween(begin: 0.06, end: -0.02).chain(CurveTween(curve: Curves.easeOutCubic)),
         weight: 25,
       ),
       TweenSequenceItem(
-        tween: Tween(begin: -0.02, end: 0.0)
-            .chain(CurveTween(curve: Curves.easeOut)),
+        tween: Tween(begin: -0.02, end: 0.0).chain(CurveTween(curve: Curves.easeOut)),
         weight: 35,
       ),
     ]).animate(_popCtrl);
@@ -90,6 +83,7 @@ class _CouponsPageState extends State<CouponsPage>
       curve: const Interval(0.00, 0.42, curve: Curves.easeOut),
       reverseCurve: const Interval(0.30, 1.0, curve: Curves.easeIn),
     );
+
     _flashScale = Tween<double>(begin: 0.55, end: 1.60).animate(
       CurvedAnimation(
         parent: _popCtrl,
@@ -99,13 +93,11 @@ class _CouponsPageState extends State<CouponsPage>
 
     _nudgeY = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween(begin: -2.0, end: 6.0)
-            .chain(CurveTween(curve: Curves.easeOutCubic)),
+        tween: Tween(begin: -2.0, end: 6.0).chain(CurveTween(curve: Curves.easeOutCubic)),
         weight: 36,
       ),
       TweenSequenceItem(
-        tween: Tween(begin: 6.0, end: 0.0)
-            .chain(CurveTween(curve: Curves.easeOut)),
+        tween: Tween(begin: 6.0, end: 0.0).chain(CurveTween(curve: Curves.easeOut)),
         weight: 64,
       ),
     ]).animate(_popCtrl);
@@ -119,7 +111,7 @@ class _CouponsPageState extends State<CouponsPage>
     if (widget.stampCount >= total) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         widget.onFull?.call();
-        _showCongrats();
+        _showCongratsOnRoot(); // ✅ 루트 스캐폴드에 알림 표시(Start 페이지에서 보이도록)
       });
     }
   }
@@ -143,20 +135,31 @@ class _CouponsPageState extends State<CouponsPage>
       _popCtrl.forward(from: 0);
 
       if (widget.stampCount >= total) {
+        // 가득 찼을 때: 콜백 + 루트로 스낵바(뒤 화면/Start에서도 보이게)
         WidgetsBinding.instance.addPostFrameCallback((_) {
           widget.onFull?.call();
-          _showCongrats();
+          _showCongratsOnRoot();
         });
+      } else {
+        // 방금 도장이 늘어났을 때도 루트로 간단 안내를 주고 싶으면 여기에 추가
+        // _showIssuedOnRoot();
       }
     }
   }
 
-  void _showCongrats() {
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
-      const SnackBar(content: Text('축하합니다! 쿠폰이 발급되었습니다.')),
-    );
+  /// 현재 위젯 트리의 스캐폴드가 아닌, 루트 네비게이터의 ScaffoldMessenger로 띄운다.
+  /// 탭/모달/내비 중첩과 무관하게 상위(Start 등)에서 보임.
+  void _showCongratsOnRoot() {
+    // 약간 늦춰서 라우팅/빌드 경합 피함
+    Future.delayed(const Duration(milliseconds: 80), () {
+      if (!mounted) return;
+      final rootCtx = Navigator.of(context, rootNavigator: true).context;
+      final messenger = ScaffoldMessenger.of(rootCtx);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('축하합니다! 쿠폰이 발급되었습니다.')),
+      );
+    });
   }
 
   @override
@@ -226,7 +229,7 @@ class _CouponsPageState extends State<CouponsPage>
 
           const SizedBox(height: 5),
 
-          // 내 쿠폰함 보기 — TextButton(테두리 없음) + 라운드 통일
+          // 내 쿠폰함 보기
           SizedBox(
             height: 56,
             child: TextButton(
@@ -253,7 +256,7 @@ class _CouponsPageState extends State<CouponsPage>
 
           const SizedBox(height: 12),
 
-          // 공유 버튼 — 가시성을 위해 FilledButton 유지 (라운드 통일)
+          // 공유 버튼
           SizedBox(
             height: 56,
             child: FilledButton(
@@ -272,13 +275,13 @@ class _CouponsPageState extends State<CouponsPage>
 
           const SizedBox(height: 28),
 
-          // 하단 CTA: 기존 2개만 2열로 길고 넓게
+          // 하단 CTA
           GridView.count(
             physics: const NeverScrollableScrollPhysics(),
             shrinkWrap: true,
             crossAxisCount: 1,
             mainAxisSpacing: 12,
-            childAspectRatio: 5 / 2, // ↓값이 작을수록 세로로 "길게"
+            childAspectRatio: 5 / 2,
             children: [
               _CTAImageCard(
                 title: '나에게 딱 맞는\n예·적금 상품\n추천받기',
@@ -375,8 +378,7 @@ class _StampSlot extends StatelessWidget {
         FadeTransition(
           opacity: fade!,
           child: AnimatedBuilder(
-            animation: Listenable.merge(
-                [scale!, rotate!, if (nudgeY != null) nudgeY!]),
+            animation: Listenable.merge([scale!, rotate!, if (nudgeY != null) nudgeY!]),
             builder: (context, _) {
               return Transform.translate(
                 offset: Offset(0, nudgeY?.value ?? 0.0),

@@ -1,3 +1,4 @@
+// main.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 
@@ -18,44 +19,38 @@ import 'package:reframe/pages/chat/bnk_chat_page.dart';
 
 // ── 운세 이벤트: Firebase/딥링크/페이지들 ────────────────────────────────
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart'; // flutterfire configure가 만든 파일
-import 'package:cloud_firestore/cloud_firestore.dart'; // (간접 사용)
+import 'firebase_options.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'event/service/fortune_auth_service.dart';
 import 'event/service/deep_link_service.dart';
 import 'event/pages/start_page.dart';
 import 'event/pages/coupons_page.dart';
-// 필요 시: 입력/결과/로딩 페이지를 네임드 라우트로도 쓰고 싶다면 아래도 import
-// import 'event/pages/input_page.dart';
-// import 'event/pages/result_page.dart';
-// import 'event/pages/loading_page.dart';
-// ── Savings 테스트 페이지 임포트 (기존 main.dart에 있던 것 유지) ─────────
+
+// ── Savings 테스트 페이지 ────────────────────────────────────────────────
 import 'package:reframe/pages/savings_test/screens/start_screen.dart';
 import 'package:reframe/pages/savings_test/screens/question_screen.dart';
 import 'package:reframe/pages/savings_test/screens/result_screen.dart';
-import 'package:intl/date_symbol_data_local.dart'; // ← 이거 추가
+import 'package:intl/date_symbol_data_local.dart';
 
-// 전역 네비게이터 키 (기존 유지)
+import 'event/core/live_coupon_announcer.dart';
+
+// ✅ 기존 전역 네비게이터 키 (api_interceptor가 import함)
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1) 날짜 포맷 로케일 데이터 로드
-  await initializeDateFormatting ('ko_KR', null);
-  // (사용한다면) 다른 로케일도 추가로 호출 가능: await initializeDateFormatting('en_US');
+  await initializeDateFormatting('ko_KR', null);
 
-  // 1) 네이버 지도 SDK 초기화
   await FlutterNaverMap().init(
     clientId: '1vyye633d9',
     onAuthFailed: (e) => debugPrint('❌ 지도 인증 실패: $e'),
   );
 
-  // 2) Firebase Core 초기화 (운세/분석 모두 공통 기반)
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // 3) 운세 기능: 익명 로그인 보장
   try {
     await FortuneAuthService.ensureSignedIn();
     debugPrint('✅ 익명 로그인 보장 완료');
@@ -63,12 +58,18 @@ Future<void> main() async {
     debugPrint('🔥 익명 로그인 실패: $e\n$st');
   }
 
-  // 4) 기존 FirebaseService(Analytics 등) 초기화
-  final firebaseService = await FirebaseService.init(
-    forceRefreshToken: true,
-  );
+  final firebaseService = await FirebaseService.init(forceRefreshToken: true);
 
   runApp(MyApp(firebaseService: firebaseService));
+
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    try {
+      await LiveCouponAnnouncer.I.start();
+    } catch (e) {
+      debugPrint('⚠️ LiveCouponAnnouncer start failed: $e');
+    }
+  });
+
 }
 
 class MyApp extends StatelessWidget {
@@ -79,11 +80,10 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return DeepLinkBootstrapper(
       child: MaterialApp(
+        // ✅ 루트 네비게이터에 전역 키 장착 (api_interceptor가 여기 컨텍스트를 씀)
         navigatorKey: navigatorKey,
         title: "BNK 부산은행",
         debugShowCheckedModeBanner: false,
-
-        // ✅ 기존 + 보조 옵저버 그대로 연결
         navigatorObservers: firebaseService.observers,
 
         home: SplashPage(),
@@ -102,14 +102,9 @@ class MyApp extends StatelessWidget {
           '/savings/question': (_) => const QuestionScreen(),
           '/savings/result': (_) => const ResultScreen(),
 
-          // 운세 이벤트(선택) 네임드 라우트
-
+          // 운세 이벤트 라우트
           '/event/fortune': (_) => const StartPage(),
           '/event/coupons': (_) => const CouponsPage(stampCount: 0),
-          // 필요 시 추가:
-          // '/event/input': (_) => const InputPage(),
-          // '/event/result': (_) => ResultPage(args: (isAgreed:false, name:null, birthDate:null, gender:null, invitedBy:null)),
-          // '/event/loading': (_) => LoadingPage(args: (isAgreed:false, name:null, birthDate:null, gender:null, invitedBy:null)),
         },
         theme: ThemeData(
           useMaterial3: true,
@@ -153,16 +148,12 @@ class _DeepLinkBootstrapperState extends State<DeepLinkBootstrapper> {
     super.initState();
 
     _deepLinks.init((uri) async {
-      // 1) 딥링크 진입 시 로그인 보장
       final me = await FortuneAuthService.ensureSignedIn();
 
-      // 2) inviter/code 파라미터 통합
       final inviter = uri.queryParameters['inviter'];
-      final code =
-          uri.queryParameters['code'] ?? uri.queryParameters['inviteCode'];
+      final code = uri.queryParameters['code'] ?? uri.queryParameters['inviteCode'];
       final inviterOrCode = inviter ?? code;
 
-      // 3) 중복 네비 방지 후 네비게이션
       if (!_navigatedFromLink) {
         _navigatedFromLink = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {

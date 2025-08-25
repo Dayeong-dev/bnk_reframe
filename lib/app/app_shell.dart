@@ -17,12 +17,12 @@ class _AppShellState extends State<AppShell> {
   final _navigatorKeys = List.generate(4, (_) => GlobalKey<NavigatorState>());
 
   Widget _rootForIndex(int i) => switch (i) {
-        0 => const HomePage(),
-        1 => DepositMainPage(),
-        2 => const StartPage(),
-        3 => const MorePage(),
-        _ => const HomePage(),
-      };
+    0 => const HomePage(),
+    1 => DepositMainPage(),
+    2 => const StartPage(), // 이벤트 탭
+    3 => const MorePage(),
+    _ => const HomePage(),
+  };
 
   Widget _buildTabNavigator(int index) {
     return Offstage(
@@ -60,8 +60,8 @@ class _AppShellState extends State<AppShell> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        backgroundColor: backgroundColor, // 앱 공통 매우 연한 회색
-        extendBody: true, // 바 뒤로 바디 연장 → 페이지 위에 떠 보임
+        backgroundColor: backgroundColor,
+        extendBody: true,
         body: Stack(
           children: [
             _buildTabNavigator(0),
@@ -73,7 +73,6 @@ class _AppShellState extends State<AppShell> {
         bottomNavigationBar: SafeArea(
           top: false,
           child: MediaQuery(
-            // 하단바만 텍스트 스케일 고정(오버플로우 방지)
             data: MediaQuery.of(context).copyWith(
               textScaler: const TextScaler.linear(1.0),
             ),
@@ -91,7 +90,6 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
-/// 플로팅 스타일 하단바 (그림자/테두리 없음, 전체 라운드)
 class _FloatingBankBar extends StatelessWidget {
   const _FloatingBankBar({
     required this.selectedIndex,
@@ -102,8 +100,8 @@ class _FloatingBankBar extends StatelessWidget {
   final ValueChanged<int> onTap;
 
   static const Color _bg = Colors.white;
-  static const Color _selected = Color(0xFF222B38); // 진한 먹색
-  static const Color _unselected = Color(0xFFB5BEC8); // 연한 회색
+  static const Color _selected = Color(0xFF222B38);
+  static const Color _unselected = Color(0xFFB5BEC8);
 
   @override
   Widget build(BuildContext context) {
@@ -117,16 +115,15 @@ class _FloatingBankBar extends StatelessWidget {
         return ClipRRect(
           borderRadius: BorderRadius.circular(radius),
           child: Container(
-            color: _bg, // 바 본체만 흰색
+            color: _bg,
             padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // ✅ 내장 아이콘으로 교체: 홈 / 금융쇼핑 / 이벤트 / 더보기
                 _NavCol(
                   index: 0,
                   label: '홈',
-                  icon: Icons.home_filled, // 라인형 홈
+                  icon: Icons.home_filled,
                   selectedIndex: selectedIndex,
                   onTap: onTap,
                   compact: compact,
@@ -136,7 +133,7 @@ class _FloatingBankBar extends StatelessWidget {
                 _NavCol(
                   index: 1,
                   label: '상품',
-                  icon: Icons.shopping_bag_outlined, // 쇼핑백 라인
+                  icon: Icons.shopping_bag_outlined,
                   selectedIndex: selectedIndex,
                   onTap: onTap,
                   compact: compact,
@@ -146,7 +143,7 @@ class _FloatingBankBar extends StatelessWidget {
                 _NavCol(
                   index: 2,
                   label: '이벤트',
-                  icon: Icons.card_giftcard_outlined, // 기프트 라인
+                  icon: Icons.card_giftcard_outlined,
                   selectedIndex: selectedIndex,
                   onTap: onTap,
                   compact: compact,
@@ -156,7 +153,7 @@ class _FloatingBankBar extends StatelessWidget {
                 _NavCol(
                   index: 3,
                   label: '더보기',
-                  icon: Icons.menu_rounded, // 햄버거(가로줄 3개)
+                  icon: Icons.menu_rounded,
                   selectedIndex: selectedIndex,
                   onTap: onTap,
                   compact: compact,
@@ -202,7 +199,7 @@ class _NavCol extends StatelessWidget {
 
     return Expanded(
       child: GestureDetector(
-        behavior: HitTestBehavior.opaque, // 잉크/물결 제거
+        behavior: HitTestBehavior.opaque,
         onTap: () => onTap(index),
         child: Column(
           mainAxisSize: MainAxisSize.min,

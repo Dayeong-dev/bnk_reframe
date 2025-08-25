@@ -4,7 +4,7 @@ import 'package:reframe/event/pages/start_page.dart';
 import 'package:reframe/pages/customer/more_page.dart';
 import 'package:reframe/pages/deposit/deposit_main_page.dart';
 import 'package:reframe/pages/home_page.dart';
-import '../constants/color.dart';
+// import '../constants/color.dart'; // 필요 없으면 제거 OK
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -14,18 +14,20 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _selectedIndex = 0;
+
+  // 각 탭에 독립적인 네비게이터 스택 유지
   final _navigatorKeys = List.generate(4, (_) => GlobalKey<NavigatorState>());
 
+  // 탭 인덱스별 루트 위젯
   Widget _rootForIndex(int i) => switch (i) {
-    0 => const HomePage(),
-    1 => DepositMainPage(),
+        0 => const HomePage(),
+        1 => DepositMainPage(),
+        2 => const StartPage(),
+        3 => const MorePage(),
+        _ => const HomePage(),
+      };
 
-    2 => const StartPage(),
-
-    3 => const MorePage(),
-    _ => const HomePage(),
-  };
-
+  // 현재 선택된 탭만 화면에 렌더 (나머지는 Offstage로 유지 → 상태/스택 보존)
   Widget _buildTabNavigator(int index) {
     return Offstage(
       offstage: _selectedIndex != index,
@@ -39,6 +41,7 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
+  // 안드로이드 백버튼: 현재 탭의 스택이 있으면 pop, 아니면 앱 종료 허용
   Future<bool> _onWillPop() async {
     final nav = _navigatorKeys[_selectedIndex].currentState!;
     if (nav.canPop()) {
@@ -48,8 +51,10 @@ class _AppShellState extends State<AppShell> {
     return true;
   }
 
+  // 하단 네비 탭 클릭
   void _onTapNav(int index) {
     if (_selectedIndex == index) {
+      // 같은 탭을 다시 누르면 해당 탭의 스택을 루트까지 팝
       final nav = _navigatorKeys[index].currentState!;
       if (nav.canPop()) nav.popUntil((r) => r.isFirst);
     } else {
@@ -62,8 +67,9 @@ class _AppShellState extends State<AppShell> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-
-        backgroundColor: Colors.white, // ✅ 전체 배경 흰색
+        // 곡선 뒤로 비치는 배경을 깔끔한 흰색으로
+        backgroundColor: Colors.white,
+        // floating 네비가 아니므로 extendBody = false
         extendBody: false,
 
         body: Stack(
@@ -74,11 +80,14 @@ class _AppShellState extends State<AppShell> {
             _buildTabNavigator(3),
           ],
         ),
+
+        // 하단에 '붙는' 스타일의 커스텀 바
         bottomNavigationBar: SafeArea(
           top: false,
           bottom: true,
           child: MediaQuery(
             data: MediaQuery.of(context).copyWith(
+              // 시스템 폰트 크기 변경에도 네비 텍스트 높이 튀지 않도록 고정
               textScaler: const TextScaler.linear(1.0),
             ),
             child: _AttachedBankBar(
@@ -92,11 +101,9 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
-
-/// 하단에 붙고 좌우 꽉 차며 '위쪽'만 둥근 스타일 + 상단 보더라인
+/// 하단에 붙고 좌우 꽉 차며 '위쪽'만 둥근 스타일 + 상단 보더라인, 그림자 없음
 class _AttachedBankBar extends StatelessWidget {
   const _AttachedBankBar({
-
     required this.selectedIndex,
     required this.onTap,
   });
@@ -104,6 +111,7 @@ class _AttachedBankBar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTap;
 
+  static const double _radius = 22; // 윗쪽만 곡률
   static const Color _bg = Colors.white;
   static const Color _selected = Color(0xFF222B38);
   static const Color _unselected = Color(0xFFB5BEC8);
@@ -116,66 +124,14 @@ class _AttachedBankBar extends StatelessWidget {
         final double vPad = compact ? 8 : 10;
         final double hPad = compact ? 8 : 12;
 
-
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(radius),
-          child: Container(
-            color: _bg,
-            padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _NavCol(
-                  index: 0,
-                  label: '홈',
-                  icon: Icons.home_filled,
-                  selectedIndex: selectedIndex,
-                  onTap: onTap,
-                  compact: compact,
-                  selectedColor: _selected,
-                  unselectedColor: _unselected,
-                ),
-                _NavCol(
-                  index: 1,
-                  label: '상품',
-                  icon: Icons.shopping_bag_outlined,
-                  selectedIndex: selectedIndex,
-                  onTap: onTap,
-                  compact: compact,
-                  selectedColor: _selected,
-                  unselectedColor: _unselected,
-                ),
-                _NavCol(
-                  index: 2,
-                  label: '이벤트',
-                  icon: Icons.card_giftcard_outlined,
-                  selectedIndex: selectedIndex,
-                  onTap: onTap,
-                  compact: compact,
-                  selectedColor: _selected,
-                  unselectedColor: _unselected,
-                ),
-                _NavCol(
-                  index: 3,
-                  label: '더보기',
-                  icon: Icons.menu_rounded,
-                  selectedIndex: selectedIndex,
-                  onTap: onTap,
-                  compact: compact,
-                  selectedColor: _selected,
-                  unselectedColor: _unselected,
-                ),
-              ],
-
         return Container(
           decoration: BoxDecoration(
             color: _bg,
             borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(22),
-              topRight: Radius.circular(22),
-
+              topLeft: Radius.circular(_radius),
+              topRight: Radius.circular(_radius),
             ),
-            // ✅ 그림자 제거, 대신 보더라인 추가
+            // ✅ 그림자 제거하고 상단 보더라인만
             border: Border(
               top: BorderSide(color: Colors.grey.shade300, width: 0.6),
             ),

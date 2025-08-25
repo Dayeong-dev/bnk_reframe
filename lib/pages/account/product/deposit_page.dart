@@ -94,18 +94,19 @@ class _DepositPageState extends State<DepositPage> {
                     LiveInterestTicker(
                       principal: principal,
                       annualRatePercent: rateEffective, // 적용 금리(연)
-                      start: start,                     // 가입일
-                      end: close,                       // 만기(없으면 null)
+                      start: start, // 가입일
+                      end: close, // 만기(없으면 null)
                       // 원 단위 표시(기본):
                       // formatter: NumberFormat.currency(locale: 'ko_KR', symbol: '₩', decimalDigits: 0),
 
                       // 소수점 둘째자리까지 보고 싶다면 아래처럼 사용
-                      formatter: NumberFormat.currency(locale: 'ko_KR', symbol: '₩', decimalDigits: 2),
+                      formatter: NumberFormat.currency(
+                          locale: 'ko_KR', symbol: '₩', decimalDigits: 2),
                     ),
                   ),
-
                   if (maturityAmountProjected != null)
-                    _RowKV('만기 예상 수령액(세전)', _won.format(maturityAmountProjected)),
+                    _RowKV(
+                        '만기 예상 수령액(세전)', _won.format(maturityAmountProjected)),
                 ]),
                 const SizedBox(height: 20),
                 _SectionGroup(children: [
@@ -123,7 +124,6 @@ class _DepositPageState extends State<DepositPage> {
                   _RowKV('만기일', close == null ? '-' : _date.format(close)),
                 ]),
                 const SizedBox(height: 12),
-
               ],
             );
           },
@@ -142,16 +142,15 @@ class _HeaderSummary extends StatelessWidget {
   DateTime? start;
   DateTime? close;
 
-
-  _HeaderSummary(
-      {super.key,
-      required this.title,
-      required this.accountMasked,
-      required this.principalText,
-      required this.ddayText,
-      this.start,
-      this.close});
-
+  _HeaderSummary({
+    super.key,
+    required this.title,
+    required this.accountMasked,
+    required this.principal,
+    required this.ddayText,
+    this.start,
+    this.close,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -202,7 +201,7 @@ class _HeaderSummary extends StatelessWidget {
           child: MoneyCountUp(
             value: principal,
             formatter: _won,
-            animateOnFirstBuild: true,                 // 첫 진입에도 촤라락
+            animateOnFirstBuild: true, // 첫 진입에도 촤라락
             duration: const Duration(milliseconds: 650),
             style: Theme.of(context).textTheme.headlineSmall, // (원하면 더 크게)
           ),
@@ -279,11 +278,9 @@ class _RowKV extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = Theme.of(context).textTheme.bodyMedium?.copyWith(
-
           color: Colors.grey[600],
         );
-    final value = Theme.of(context).textTheme.bodyMedium?.copyWith(
-
+    final valueStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
       fontWeight: FontWeight.w700,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
@@ -335,9 +332,11 @@ class _CountdownBarState extends State<CountdownBar> {
   static double _calcProgress(DateTime? start, DateTime? close) {
     if (start == null || close == null) return 0.0;
     final today = DateTime.now();
-    final total = close.difference(DateTime(start.year, start.month, start.day)).inDays;
+    final total =
+        close.difference(DateTime(start.year, start.month, start.day)).inDays;
     if (total <= 0) return 1.0;
-    final left = close.difference(DateTime(today.year, today.month, today.day)).inDays;
+    final left =
+        close.difference(DateTime(today.year, today.month, today.day)).inDays;
     final done = (total - left).clamp(0, total);
     return done / total;
   }
@@ -359,18 +358,18 @@ class _CountdownBarState extends State<CountdownBar> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.start == null || widget.close == null) return const SizedBox.shrink();
+    if (widget.start == null || widget.close == null)
+      return const SizedBox.shrink();
 
     final today = DateTime.now();
-
     final total = widget.close!
-        .difference(DateTime(widget.start!.year, widget.start!.month, widget.start!.day))
+        .difference(DateTime(
+            widget.start!.year, widget.start!.month, widget.start!.day))
         .inDays;
     final left = widget.close!
         .difference(DateTime(today.year, today.month, today.day))
         .inDays
         .clamp(-1 << 31, 1 << 31); // 안전 클램프
-
     final done = (total - left).clamp(0, total);
     final target = total <= 0 ? 1.0 : (done / total);
 
@@ -395,21 +394,20 @@ class _CountdownBarState extends State<CountdownBar> {
           ),
         ),
         const SizedBox(height: 6),
-
         // 라벨 숫자도 같이 자연스럽게 증가
         TweenAnimationBuilder<double>(
           tween: Tween(begin: _prev, end: target),
           duration: widget.duration,
           curve: widget.curve,
           builder: (context, value, _) {
-            final currDone = (value * (total <= 0 ? 0 : total)).round().clamp(0, total);
+            final currDone =
+                (value * (total <= 0 ? 0 : total)).round().clamp(0, total);
             return Text(
               '진행 ${currDone}일 / 총 ${total}일',
               style: Theme.of(context).textTheme.bodySmall,
             );
           },
         ),
-
       ],
     );
   }
@@ -443,14 +441,15 @@ class RollingNumberText extends StatefulWidget {
 
 class _RollingNumberTextState extends State<RollingNumberText> {
   late String _display; // 화면에 그릴 "현재 문자열" (처음엔 from, 다음 프레임에 target으로 교체)
-  late String _target;  // 최종 문자열
+  late String _target; // 최종 문자열
 
   @override
   void initState() {
     super.initState();
-    final from = widget.animateOnFirstBuild ? (widget.initialFrom ?? 0) : widget.value;
+    final from =
+        widget.animateOnFirstBuild ? (widget.initialFrom ?? 0) : widget.value;
     _display = widget.formatter.format(from);
-    _target  = widget.formatter.format(widget.value);
+    _target = widget.formatter.format(widget.value);
 
     // 첫 진입 롤링: 다음 프레임에 target으로 교체해 AnimatedSwitcher가 작동하도록
     if (widget.animateOnFirstBuild && _display != _target) {
@@ -480,9 +479,10 @@ class _RollingNumberTextState extends State<RollingNumberText> {
       fontFeatures: const [FontFeature.tabularFigures()],
     );
 
-    final maxLen = _display.length > _target.length ? _display.length : _target.length;
+    final maxLen =
+        _display.length > _target.length ? _display.length : _target.length;
     final padDisp = _display.padLeft(maxLen);
-    final padTgt  = _target.padLeft(maxLen);
+    final padTgt = _target.padLeft(maxLen);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -496,10 +496,13 @@ class _RollingNumberTextState extends State<RollingNumberText> {
         return AnimatedSwitcher(
           duration: widget.duration,
           transitionBuilder: (child, anim) {
-            final offset = Tween<Offset>(begin: const Offset(0, 0.45), end: Offset.zero)
-                .chain(CurveTween(curve: widget.curve))
-                .animate(anim);
-            return SlideTransition(position: offset, child: FadeTransition(opacity: anim, child: child));
+            final offset =
+                Tween<Offset>(begin: const Offset(0, 0.45), end: Offset.zero)
+                    .chain(CurveTween(curve: widget.curve))
+                    .animate(anim);
+            return SlideTransition(
+                position: offset,
+                child: FadeTransition(opacity: anim, child: child));
           },
           child: Text(
             ch,
@@ -516,13 +519,13 @@ class _RollingNumberTextState extends State<RollingNumberText> {
 /// - ACT/365 단순이자 가정
 /// - 만기(end) 도달 시 자동 정지
 class LiveInterestTicker extends StatefulWidget {
-  final num principal;                 // 납입(원금)
-  final double annualRatePercent;      // 연이율(%)
-  final DateTime? start;               // 이자 발생 시작 시점
-  final DateTime? end;                 // 만기(없으면 null)
-  final NumberFormat formatter;        // 표시 포맷 (소수점 2자리 원하면 decimalDigits: 2)
-  final Duration tick;                 // 갱신 주기
-  final bool animateOnFirstBuild;      // 첫 진입 롤링 여부
+  final num principal; // 납입(원금)
+  final double annualRatePercent; // 연이율(%)
+  final DateTime? start; // 이자 발생 시작 시점
+  final DateTime? end; // 만기(없으면 null)
+  final NumberFormat formatter; // 표시 포맷 (소수점 2자리 원하면 decimalDigits: 2)
+  final Duration tick; // 갱신 주기
+  final bool animateOnFirstBuild; // 첫 진입 롤링 여부
 
   const LiveInterestTicker({
     super.key,
@@ -547,13 +550,15 @@ class _LiveInterestTickerState extends State<LiveInterestTicker> {
 
   num _interestAt(DateTime now) {
     if (widget.start == null) return 0;
-    final end = (widget.end != null && now.isAfter(widget.end!)) ? widget.end! : now;
+    final end =
+        (widget.end != null && now.isAfter(widget.end!)) ? widget.end! : now;
     if (end.isBefore(widget.start!)) return 0;
 
     final elapsedSec = end.difference(widget.start!).inSeconds;
     final rate = widget.annualRatePercent / 100.0;
 
-    final raw = widget.principal.toDouble() * rate * (elapsedSec / _secondsPerYear);
+    final raw =
+        widget.principal.toDouble() * rate * (elapsedSec / _secondsPerYear);
     // 표시 자리수에 맞춰 반올림 (원 단위면 정수, 2자리면 소수)
     final decimals = widget.formatter.decimalDigits ?? 0;
     final factor = MathPow.pow(10, decimals).toDouble();

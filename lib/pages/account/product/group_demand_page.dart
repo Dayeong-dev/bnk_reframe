@@ -122,7 +122,8 @@ class _TossTxTile extends StatelessWidget {
   final NumberFormat won;
   final int? balanceAfter;
 
-  const _TossTxTile({required this.tx, required this.won, this.balanceAfter, super.key});
+  const _TossTxTile(
+      {required this.tx, required this.won, this.balanceAfter, super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -165,7 +166,8 @@ class _TossTxTile extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('$sign${won.format(tx.amount ?? 0)}', style: _b1.copyWith(color: color)),
+              Text('$sign${won.format(tx.amount ?? 0)}',
+                  style: _b1.copyWith(color: color)),
               if (balanceAfter != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
@@ -202,8 +204,8 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
 
   // ====== 필터 상태 ======
   String _filterDirection = 'ALL'; // ALL | CREDIT | DEBIT
-  int _filterDays = 0;             // 0(전체) | 7 | 30 | -1(이번 달)
-  bool _sortDesc = true;           // 최신순(true) / 과거순(false)
+  int _filterDays = 0; // 0(전체) | 7 | 30 | -1(이번 달)
+  bool _sortDesc = true; // 최신순(true) / 과거순(false)
 
   @override
   void initState() {
@@ -236,9 +238,9 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
     }
   }
 
-
   // 런닝 잔액 계산 (목록: 최신→과거 기준)
-  List<int> _computeBalanceAfterList(List<AccountTransaction> list, int startingBalance) {
+  List<int> _computeBalanceAfterList(
+      List<AccountTransaction> list, int startingBalance) {
     var bal = startingBalance; // 최신 거래의 거래후잔액 = 현재 잔액
     final afters = <int>[];
     for (final t in list) {
@@ -306,7 +308,8 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
 
     // _filterDays: 0=전체, 양수=며칠, -1=이번 달
     if (_filterDays > 0) {
-      cutoff = DateTime(now.year, now.month, now.day).subtract(Duration(days: _filterDays));
+      cutoff = DateTime(now.year, now.month, now.day)
+          .subtract(Duration(days: _filterDays));
     } else if (_filterDays == -1) {
       onlyThisMonth = true;
     }
@@ -340,7 +343,7 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
   ({int inSum, int outSum, int net}) _calcMonthSnapshot() {
     final now = DateTime.now();
     final start = DateTime(now.year, now.month, 1);
-    final end   = DateTime(now.year, now.month + 1, 1);
+    final end = DateTime(now.year, now.month + 1, 1);
     int inSum = 0, outSum = 0;
 
     for (final t in _tx) {
@@ -349,12 +352,15 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
       if (dt.isBefore(start) || !dt.isBefore(end)) continue;
       final amt = t.amount ?? 0;
       final isCredit = (t.direction ?? '').toUpperCase() == 'CREDIT';
-      if (isCredit) inSum += amt; else outSum += amt;
+      if (isCredit)
+        inSum += amt;
+      else
+        outSum += amt;
     }
     return (inSum: inSum, outSum: outSum, net: inSum - outSum);
   }
 
-  String _ym(DateTime d) => '${d.year}.${d.month.toString().padLeft(2,'0')}';
+  String _ym(DateTime d) => '${d.year}.${d.month.toString().padLeft(2, '0')}';
 
   // 월별 헤더 + 거래 리스트 (정렬 상태에 맞게, but 런닝잔액은 최신→과거 기준으로 산출 후 매핑)
   List<Widget> _buildTxList(int startingBalance) {
@@ -415,13 +421,15 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
 
   // Top 상대계좌 (필터 결과 기준)
   List<MapEntry<String, int>> _topCounterparties() {
-    final map = <String,int>{};
+    final map = <String, int>{};
     for (final t in _filteredTx) {
       final cp = (t.counterpartyAccount ?? '').trim();
       if (cp.isEmpty) continue;
-      map.update(cp, (v) => v + (t.amount ?? 0), ifAbsent: () => (t.amount ?? 0));
+      map.update(cp, (v) => v + (t.amount ?? 0),
+          ifAbsent: () => (t.amount ?? 0));
     }
-    final entries = map.entries.toList()..sort((a,b)=> b.value.compareTo(a.value));
+    final entries = map.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
     return entries.take(3).toList();
   }
 
@@ -429,7 +437,7 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
   Future<void> _exportCsv() async {
     try {
       final rows = <List<String>>[
-        ['datetime','direction','type','amount','counterparty']
+        ['datetime', 'direction', 'type', 'amount', 'counterparty']
       ];
       for (final t in _filteredTx) {
         rows.add([
@@ -440,11 +448,14 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
           t.counterpartyAccount ?? '',
         ]);
       }
-      final csv = rows.map((r)=> r.map((c){
-        final needsQuote = c.contains(',') || c.contains('"') || c.contains('\n');
-        final escaped = c.replaceAll('"', '""');
-        return needsQuote ? '"$escaped"' : escaped;
-      }).join(',')).join('\n');
+      final csv = rows
+          .map((r) => r.map((c) {
+                final needsQuote =
+                    c.contains(',') || c.contains('"') || c.contains('\n');
+                final escaped = c.replaceAll('"', '""');
+                return needsQuote ? '"$escaped"' : escaped;
+              }).join(','))
+          .join('\n');
 
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/group_account_tx.csv');
@@ -455,7 +466,8 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('내보내기 실패: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('내보내기 실패: $e')));
     }
   }
 
@@ -485,84 +497,15 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
               final app = d.application;
               final balance = (acc?.balance ?? 0);
 
-
-            return ListView(
-              controller: _scroll,
-              padding: const EdgeInsets.all(16),
-              children: [
-                // 상단 요약 (헤더)
-                _TossCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              acc?.accountName ?? '모임통장',
-                              style: _h2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if ((acc?.accountNumber ?? '').isNotEmpty)
-                            TextButton.icon(
-                              onPressed: () =>
-                                  _copyAccountNumber(acc!.accountNumber),
-                              style: TextButton.styleFrom(
-                                foregroundColor: _tWeak,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 6),
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              icon: const Icon(Icons.copy, size: 16),
-                              label: const Text('복사'),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                          '${acc?.bankName ?? ''}  ${_mask(acc?.accountNumber)}',
-                          style: _c1),
-                      const SizedBox(height: 14),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('잔액', style: TextStyle(color: _tWeak)),
-                          Text(_won.format(balance), style: _h1),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                // 빠른 액션
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _TossActionButton(
-                        icon: Icons.move_down_rounded,
-                        label: '입금하기',
-                        onTap: () {
-                          // TODO: 입금 플로우 연결
-                        },
-                      ),
-                    ),
-                    // const SizedBox(width: 8),
-                    // Expanded(child: _TossActionButton(icon: Icons.group_add_rounded, label: '멤버 초대', onTap: () {})),
-                  ],
-                ),
-
-                // (선택) 금리 카드
-                if ((app.baseRateAtEnroll ?? 0) > 0 ||
-                    (app.effectiveRateAnnual ?? 0) > 0) ...[
-                  const SizedBox(height: 12),
-
+              return ListView(
+                controller: _scroll,
+                padding: const EdgeInsets.all(16),
+                children: [
+                  // 상단 요약 (헤더)
                   _TossCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-
                         Row(
                           children: [
                             Expanded(
@@ -574,11 +517,14 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
                             ),
                             if ((acc?.accountNumber ?? '').isNotEmpty)
                               TextButton.icon(
-                                onPressed: () => _copyAccountNumber(acc!.accountNumber),
+                                onPressed: () =>
+                                    _copyAccountNumber(acc!.accountNumber),
                                 style: TextButton.styleFrom(
                                   foregroundColor: _tWeak,
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 6),
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
                                 ),
                                 icon: const Icon(Icons.copy, size: 16),
                                 label: const Text('복사'),
@@ -586,7 +532,8 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
                           ],
                         ),
                         const SizedBox(height: 6),
-                        Text('${acc?.bankName ?? ''}  ${acc?.accountNumber}', style: _c1),
+                        Text('${acc?.bankName ?? ''}  ${acc?.accountNumber}',
+                            style: _c1),
                         const SizedBox(height: 14),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -595,39 +542,6 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
                             Text(_won.format(balance), style: _h1),
                           ],
                         ),
-
-                        Text('금리', style: _h2),
-                        const SizedBox(height: 8),
-                        _kvRow('기본금리',
-                            '${(app.baseRateAtEnroll ?? 0).toStringAsFixed(2)}%'),
-                        const SizedBox(height: 8),
-                        _kvRow('현재 적용금리',
-                            '${(app.effectiveRateAnnual ?? app.baseRateAtEnroll ?? 0).toStringAsFixed(2)}%'),
-                      ],
-                    ),
-                  ),
-                ],
-
-                // 거래내역
-                const SizedBox(height: 16),
-                Text('거래내역', style: _h2),
-                const SizedBox(height: 8),
-
-                if (_tx.isEmpty && !_loadingTx)
-                  const _EmptyTransactions()
-                else
-                  _TossCard(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    child: Column(
-                      children: [
-                        ..._tx.map((t) => Column(
-                              children: [
-                                _TossTxTile(tx: t, won: _won),
-                                const Divider(height: 1, color: _line),
-                              ],
-                            )),
-
                       ],
                     ),
                   ),
@@ -644,18 +558,29 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
                           const SizedBox(height: 12),
                           Row(
                             children: [
-                              Expanded(child: _MiniStat(label: '입금',  value: _won.format(s.inSum),  color: const Color(0xFF155EEF))),
+                              Expanded(
+                                  child: _MiniStat(
+                                      label: '입금',
+                                      value: _won.format(s.inSum),
+                                      color: const Color(0xFF155EEF))),
                               const SizedBox(width: 8),
-                              Expanded(child: _MiniStat(label: '출금',  value: _won.format(s.outSum), color: const Color(0xFFB42318))),
+                              Expanded(
+                                  child: _MiniStat(
+                                      label: '출금',
+                                      value: _won.format(s.outSum),
+                                      color: const Color(0xFFB42318))),
                               const SizedBox(width: 8),
-                              Expanded(child: _MiniStat(label: '순증감', value: _won.format(s.net),   color: _tStrong)),
+                              Expanded(
+                                  child: _MiniStat(
+                                      label: '순증감',
+                                      value: _won.format(s.net),
+                                      color: _tStrong)),
                             ],
                           ),
                         ],
                       );
                     }),
                   ),
-
 
                   // 빠른 액션
                   // const SizedBox(height: 12),
@@ -674,7 +599,8 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
                   // ),
 
                   // (선택) 금리 카드
-                  if ((app.baseRateAtEnroll ?? 0) > 0 || (app.effectiveRateAnnual ?? 0) > 0) ...[
+                  if ((app.baseRateAtEnroll ?? 0) > 0 ||
+                      (app.effectiveRateAnnual ?? 0) > 0) ...[
                     const SizedBox(height: 12),
                     _TossCard(
                       child: Column(
@@ -682,9 +608,11 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
                         children: [
                           Text('금리', style: _h2),
                           const SizedBox(height: 8),
-                          _kvRow('기본금리', '${(app.baseRateAtEnroll ?? 0).toStringAsFixed(2)}%'),
+                          _kvRow('기본금리',
+                              '${(app.baseRateAtEnroll ?? 0).toStringAsFixed(2)}%'),
                           const SizedBox(height: 8),
-                          _kvRow('현재 적용금리', '${(app.effectiveRateAnnual ?? app.baseRateAtEnroll ?? 0).toStringAsFixed(2)}%'),
+                          _kvRow('현재 적용금리',
+                              '${(app.effectiveRateAnnual ?? app.baseRateAtEnroll ?? 0).toStringAsFixed(2)}%'),
                         ],
                       ),
                     ),
@@ -703,14 +631,18 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
                               Text('Top 상대계좌', style: _h2),
                               const SizedBox(height: 8),
                               ...top.map((e) => Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 6),
-                                child: Row(
-                                  children: [
-                                    Expanded(child: Text(e.key, style: _b1)),
-                                    Text(_won.format(e.value), style: _b1.copyWith(color: _tStrong)),
-                                  ],
-                                ),
-                              )),
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 6),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                            child: Text(e.key, style: _b1)),
+                                        Text(_won.format(e.value),
+                                            style:
+                                                _b1.copyWith(color: _tStrong)),
+                                      ],
+                                    ),
+                                  )),
                             ],
                           ),
                         ),
@@ -726,14 +658,6 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
                       // ▶▶ 미니 보기 바 (아주 얇은 UI)
                       _buildMiniViewBar(),
                     ],
-
-                if (!_txHasMore && _tx.isNotEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Center(
-                        child: Text('끝까지 보셨습니다.',
-                            style: TextStyle(color: _tWeak))),
-
                   ),
                   const SizedBox(height: 8),
 
@@ -748,7 +672,9 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
                   if (!_txHasMore && _tx.isNotEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Center(child: Text('끝까지 보셨습니다.', style: TextStyle(color: _tWeak))),
+                      child: Center(
+                          child: Text('끝까지 보셨습니다.',
+                              style: TextStyle(color: _tWeak))),
                     ),
                 ],
               );
@@ -777,7 +703,8 @@ class _MiniStat extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
-  const _MiniStat({required this.label, required this.value, required this.color});
+  const _MiniStat(
+      {required this.label, required this.value, required this.color});
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -800,7 +727,8 @@ class _MiniPill extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
-  const _MiniPill({required this.label, required this.selected, required this.onTap});
+  const _MiniPill(
+      {required this.label, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -816,7 +744,8 @@ class _MiniPill extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
           border: Border.all(color: border),
         ),
-        child: Text(label, style: _b1.copyWith(fontWeight: FontWeight.w600, color: _tStrong)),
+        child: Text(label,
+            style: _b1.copyWith(fontWeight: FontWeight.w600, color: _tStrong)),
       ),
     );
   }
@@ -838,12 +767,14 @@ class _EmptyTransactions extends StatelessWidget {
       );
 }
 
-
 String _dirLabel(String v) {
   switch (v) {
-    case 'CREDIT': return '입금';
-    case 'DEBIT':  return '출금';
-    default:       return '전체';
+    case 'CREDIT':
+      return '입금';
+    case 'DEBIT':
+      return '출금';
+    default:
+      return '전체';
   }
 }
 
@@ -860,7 +791,8 @@ class _DirectionSelect extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Row(                     // ← const 빼기
+        child: Row(
+          // ← const 빼기
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(label, style: _b1.copyWith(color: _tWeak)),
@@ -905,19 +837,21 @@ class _DirectionSheet extends StatelessWidget {
             // 상단 핸들
             Center(
               child: Container(
-                width: 36, height: 4,
+                width: 36,
+                height: 4,
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: _line, borderRadius: BorderRadius.circular(2),
+                  color: _line,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
             Text('내역 선택', style: _h2),
             const SizedBox(height: 8),
 
-            item('ALL',    '전체'),
+            item('ALL', '전체'),
             item('CREDIT', '입금'),
-            item('DEBIT',  '출금'),
+            item('DEBIT', '출금'),
 
             const SizedBox(height: 8),
           ],
@@ -925,10 +859,4 @@ class _DirectionSheet extends StatelessWidget {
       ),
     );
   }
-
-// 공통 유틸
-String _mask(String? n) {
-  if (n == null || n.length < 6) return n ?? '-';
-  return '${n.substring(0, 3)}****${n.substring(n.length - 2)}';
-
 }

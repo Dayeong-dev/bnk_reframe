@@ -155,7 +155,7 @@ class _StartPageState extends State<StartPage> with SingleTickerProviderStateMix
                               }),
                             ),
                           );
-                        }
+                        } 
                       },
                       child: const Text(
                         '시작하기',

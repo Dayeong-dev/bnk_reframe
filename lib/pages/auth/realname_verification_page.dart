@@ -11,7 +11,8 @@ class RealnameVerificationPage extends StatefulWidget {
   const RealnameVerificationPage({super.key});
 
   @override
-  State<RealnameVerificationPage> createState() => _RealnameVerificationPageState();
+  State<RealnameVerificationPage> createState() =>
+      _RealnameVerificationPageState();
 }
 
 class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
@@ -33,7 +34,7 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
   // ----- controllers -----
   final _nameController = TextEditingController();
   final _rrnFrontController = TextEditingController(); // 앞 6자리
-  final _rrnBackController = TextEditingController();  // 뒤 6자리
+  final _rrnBackController = TextEditingController(); // 뒤 6자리
   final _phoneController = TextEditingController();
   final _codeController = TextEditingController();
 
@@ -51,20 +52,21 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
   bool _sentOnce = false;
 
   // 약관
-  bool get _agreedAll => items.where((c) => c.required).every((c) => c.viewed && c.checked);
+  bool get _agreedAll =>
+      items.where((c) => c.required).every((c) => c.viewed && c.checked);
 
   // 인증번호 전송 버튼 활성화 조건: 상단 5개 모두 유효
   bool get _canSendCode {
-    final nameOk    = _nameController.text.trim().isNotEmpty;
+    final nameOk = _nameController.text.trim().isNotEmpty;
 
-    final front     = _rrnFrontController.text.replaceAll(RegExp(r'\D'), '');
-    final back      = _rrnBackController.text.replaceAll(RegExp(r'\D'), '');
-    final rrnOk     = front.length == 6 && back.length == 7;
+    final front = _rrnFrontController.text.replaceAll(RegExp(r'\D'), '');
+    final back = _rrnBackController.text.replaceAll(RegExp(r'\D'), '');
+    final rrnOk = front.length == 6 && back.length == 7;
 
     final carrierOk = _carrier != null && _carrier!.isNotEmpty;
 
     final phoneDigits = _phoneController.text.replaceAll(RegExp(r'\D'), '');
-    final phoneOk     = phoneDigits.length >= 10 && phoneDigits.length <= 11;
+    final phoneOk = phoneDigits.length >= 10 && phoneDigits.length <= 11;
 
     return nameOk && rrnOk && carrierOk && phoneOk;
   }
@@ -91,7 +93,8 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
     ConsentItem(
       kind: ConsentKind.thirdParty,
       title: '[필수] 개인정보 제3자 제공 동의',
-      pdfUrl: '$apiBaseUrl/uploads/common/개인(신용)정보 제3자 제공 동의서.pdf',
+      pdfUrl:
+          '$apiBaseUrl/uploads/common/개인(신용)정보 제3자 제공 동의서.pdf',
       required: true,
     ),
   ];
@@ -151,8 +154,9 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
     setState(() => _autoTop = AutovalidateMode.always);
 
     // 드롭다운/전화번호는 키로 validate (필요 시)
-    final carrierOk = _carrierFieldKey.currentState?.validate() ?? true; // 드롭다운 없으면 true
-    final phoneOk   = _phoneFieldKey.currentState?.validate() ?? false;
+    final carrierOk =
+        _carrierFieldKey.currentState?.validate() ?? true; // 드롭다운 없으면 true
+    final phoneOk = _phoneFieldKey.currentState?.validate() ?? false;
 
     // 주민번호 통합 에러
     final rrnOk = vRrnCombined() == null;
@@ -234,7 +238,7 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
       bool result = await verifyCode(_buildForm(), inputCode);
 
       if (!mounted) return;
-      if(result) {
+      if (result) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('본인인증이 완료되었습니다.')),
         );
@@ -244,7 +248,7 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
           const SnackBar(content: Text('본인인증에 실패하였습니다.')),
         );
       }
-    } catch(e) {
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('본인인증에 실패하였습니다.')),
       );
@@ -254,18 +258,34 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
   }
 
   void _focusFirstError() {
-    if (vName(_nameController.text) != null) { _nameFocus.requestFocus(); return; }
-    if (vRrnFront(_rrnFrontController.text) != null) { _rrnFrontFocus.requestFocus(); return; }
-    if (vRrnBack7(_rrnBackController.text) != null) { _rrnBackFocus.requestFocus(); return; }
-    if ((_carrierFieldKey.currentState?.validate() ?? false) == false) { // 드롭다운
+    if (vName(_nameController.text) != null) {
+      _nameFocus.requestFocus();
+      return;
+    }
+    if (vRrnFront(_rrnFrontController.text) != null) {
+      _rrnFrontFocus.requestFocus();
+      return;
+    }
+    if (vRrnBack7(_rrnBackController.text) != null) {
+      _rrnBackFocus.requestFocus();
+      return;
+    }
+    if ((_carrierFieldKey.currentState?.validate() ?? false) == false) {
+      // 드롭다운
       // Dropdown은 포커스 이동이 어려우니 스낵바로 안내
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('통신사를 선택해주세요.')),
       );
       return;
     }
-    if (vPhone(_phoneController.text) != null) { _phoneFocus.requestFocus(); return; }
-    if (_sentOnce && vCode(_codeController.text) != null) { _codeFocus.requestFocus(); return; }
+    if (vPhone(_phoneController.text) != null) {
+      _phoneFocus.requestFocus();
+      return;
+    }
+    if (_sentOnce && vCode(_codeController.text) != null) {
+      _codeFocus.requestFocus();
+      return;
+    }
   }
 
   // ===== Validators =====
@@ -290,7 +310,6 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
     return null;
   }
 
-
   String? vCarrierSelected() {
     return (_carrier == null || _carrier!.isEmpty) ? '통신사를 선택해주세요.' : null;
   }
@@ -298,7 +317,8 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
   String? vPhone(String? v) {
     if (v == null || v.trim().isEmpty) return '휴대폰 번호를 입력해주세요.';
     final digits = v.replaceAll(RegExp(r'\D'), '');
-    if (digits.length < 10 || digits.length > 11) return '휴대폰 번호는 10~11자리 숫자입니다.';
+    if (digits.length < 10 || digits.length > 11)
+      return '휴대폰 번호는 10~11자리 숫자입니다.';
     return null;
   }
 
@@ -338,7 +358,9 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (labelText != null) ...[
-          Text(labelText, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          Text(labelText,
+              style:
+                  const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
         ],
         _buildTextInput(
@@ -413,8 +435,29 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
 
   @override
   Widget build(BuildContext context) {
-    final rrnErr = (_autoTop == AutovalidateMode.always) ? vRrnCombined() : null;
+    final rrnErr =
+        (_autoTop == AutovalidateMode.always) ? vRrnCombined() : null;
     final sendDisabled = _isSending || !_canSendCode;
+    void _openPdfAndAutoCheck(ConsentItem c) async {
+      if (c.pdfUrl == null || c.pdfUrl!.isEmpty) return;
+
+      final viewedOk = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PdfViewerPage(
+            title: c.title.replaceFirst('[필수] ', ''),
+            pdfUrl: c.pdfUrl!,
+          ),
+        ),
+      );
+
+      if (viewedOk == true) {
+        setState(() {
+          c.viewed = true;
+          c.checked = true; // 열람 완료 시 자동 체크
+        });
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('본인인증'), centerTitle: true),
@@ -423,7 +466,6 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
-
               // ───── 상단 Form ─────
               Form(
                 key: _topFormKey,
@@ -445,7 +487,9 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('주민등록번호', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                        const Text('주민등록번호',
+                            style: TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w600)),
                         const SizedBox(height: 4),
                         Row(
                           children: [
@@ -455,7 +499,8 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
                                 hintText: '앞 6자리 (YYMMDD)',
                                 keyboardType: TextInputType.number,
                                 focusNode: _rrnFrontFocus,
-                                onFieldSubmitted: (_) => _rrnBackFocus.requestFocus(),
+                                onFieldSubmitted: (_) =>
+                                    _rrnBackFocus.requestFocus(),
                                 inputFormatters: [
                                   FilteringTextInputFormatter.digitsOnly,
                                   LengthLimitingTextInputFormatter(6),
@@ -464,7 +509,11 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
                               ),
                             ),
                             const SizedBox(width: 12),
-                            const SizedBox(width: 14, child: Center(child: Text('-', style: TextStyle(fontSize: 18)))),
+                            const SizedBox(
+                                width: 14,
+                                child: Center(
+                                    child: Text('-',
+                                        style: TextStyle(fontSize: 18)))),
                             const SizedBox(width: 12),
                             Expanded(
                               child: _buildTextInput(
@@ -473,7 +522,8 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
                                 keyboardType: TextInputType.number,
                                 obscureText: true,
                                 focusNode: _rrnBackFocus,
-                                onFieldSubmitted: (_) => _phoneFocus.requestFocus(),
+                                onFieldSubmitted: (_) =>
+                                    _phoneFocus.requestFocus(),
                                 inputFormatters: [
                                   FilteringTextInputFormatter.digitsOnly,
                                   LengthLimitingTextInputFormatter(7),
@@ -486,7 +536,9 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
                         if (rrnErr != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 6, left: 4),
-                            child: Text(rrnErr, style: TextStyle(color: _errorColor, fontSize: 12)),
+                            child: Text(rrnErr,
+                                style: TextStyle(
+                                    color: _errorColor, fontSize: 12)),
                           ),
                       ],
                     ),
@@ -495,7 +547,9 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('휴대폰 번호', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                        const Text('휴대폰 번호',
+                            style: TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.w600)),
                         const SizedBox(height: 4),
 
                         Row(
@@ -509,34 +563,50 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
                                 isExpanded: true,
                                 decoration: InputDecoration(
                                   isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14), // ⬅ 높이 통일
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 14), // ⬅ 높이 통일
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
-                                    borderSide: const BorderSide(color: Colors.black12),
+                                    borderSide:
+                                        const BorderSide(color: Colors.black12),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
-                                    borderSide: const BorderSide(color: Colors.black),
+                                    borderSide:
+                                        const BorderSide(color: Colors.black),
                                   ),
                                   errorBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
-                                    borderSide: const BorderSide(color: Colors.black12),
+                                    borderSide:
+                                        const BorderSide(color: Colors.black12),
                                   ),
                                   focusedErrorBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
-                                    borderSide: const BorderSide(color: Colors.black),
+                                    borderSide:
+                                        const BorderSide(color: Colors.black),
                                   ),
-                                  errorStyle: TextStyle(color: _errorColor, fontSize: 12),
+                                  errorStyle: TextStyle(
+                                      color: _errorColor, fontSize: 12),
                                 ),
                                 hint: const Text('통신사 선택'),
                                 items: const [
-                                  DropdownMenuItem(value: 'SKT', child: Text('SKT')),
-                                  DropdownMenuItem(value: 'KT', child: Text('KT')),
-                                  DropdownMenuItem(value: 'LGU+', child: Text('LG U+')),
-                                  DropdownMenuItem(value: '알뜰폰(SKT망)', child: Text('알뜰폰(SKT망)')),
-                                  DropdownMenuItem(value: '알뜰폰(KT망)', child: Text('알뜰폰(KT망)')),
-                                  DropdownMenuItem(value: '알뜰폰(LGU+망)', child: Text('알뜰폰(LGU+망)')),
-                                  DropdownMenuItem(value: '기타', child: Text('기타')),
+                                  DropdownMenuItem(
+                                      value: 'SKT', child: Text('SKT')),
+                                  DropdownMenuItem(
+                                      value: 'KT', child: Text('KT')),
+                                  DropdownMenuItem(
+                                      value: 'LGU+', child: Text('LG U+')),
+                                  DropdownMenuItem(
+                                      value: '알뜰폰(SKT망)',
+                                      child: Text('알뜰폰(SKT망)')),
+                                  DropdownMenuItem(
+                                      value: '알뜰폰(KT망)',
+                                      child: Text('알뜰폰(KT망)')),
+                                  DropdownMenuItem(
+                                      value: '알뜰폰(LGU+망)',
+                                      child: Text('알뜰폰(LGU+망)')),
+                                  DropdownMenuItem(
+                                      value: '기타', child: Text('기타')),
                                 ],
                                 onChanged: (val) {
                                   setState(() => _carrier = val);
@@ -576,15 +646,26 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
                           height: 48,
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: (_isSending || !_canSendCode) ? null : _sendCode,
+                            onPressed: (_isSending || !_canSendCode)
+                                ? null
+                                : _sendCode,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: primaryColor,
                               foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8)),
                             ),
                             child: _isSending
-                                ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                                : const Text('인증번호 전송'),
+                                ? const SizedBox(
+                                    height: 18,
+                                    width: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2))
+                                : const Text(
+                                    '인증번호 전송',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold),
+                                  ),
                           ),
                         ),
                       ],
@@ -600,89 +681,92 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
                 duration: const Duration(milliseconds: 250),
                 child: _sentOnce
                     ? Form(
-                  key: _bottomFormKey,
-                  autovalidateMode: _autoBottom, // ✅ 초기에 disabled
-                  child: Column(
-                    key: const ValueKey('bottom'),
-                    children: [
-                      _buildTextField(
-                        controller: _codeController,
-                        hintText: '인증번호 4~6자리를 입력해주세요.',
-                        labelText: '인증번호',
-                        keyboardType: TextInputType.number,
-                        focusNode: _codeFocus,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(6),
-                        ],
-                        validator: vCode,
-                      ),
-                      const SizedBox(height: 20),
-
-                      // 약관 (FormField → 하단 Form에 포함)
-                      FormField<bool>(
-                        validator: (_) => _agreedAll ? null : '필수 약관에 모두 동의해주세요.',
-                        builder: (state) => Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        key: _bottomFormKey,
+                        autovalidateMode: _autoBottom, // ✅ 초기에 disabled
+                        child: Column(
+                          key: const ValueKey('bottom'),
                           children: [
-                            Row(
-                              children: [
-                                const Text('약관 동의(필수)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                            _buildTextField(
+                              controller: _codeController,
+                              hintText: '인증번호 4~6자리를 입력해주세요.',
+                              labelText: '인증번호',
+                              keyboardType: TextInputType.number,
+                              focusNode: _codeFocus,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(6),
                               ],
+                              validator: vCode,
                             ),
-                            // 약관 리스트
-                            ...items.map((c) => _consentTile(
-                              item: c,
-                              onOpenPdf: () async {
-                                if (c.pdfUrl == null || c.pdfUrl!.isEmpty) return;
-                                final viewedOk = await Navigator.push<bool>(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => PdfViewerPage(
-                                      title: c.title.replaceFirst('[필수] ', ''),
-                                      pdfUrl: c.pdfUrl!,
-                                    ),
-                                  ),
-                                );
+                            const SizedBox(height: 20),
 
-                                if (viewedOk == true) {
-                                  setState(() {
-                                    c.viewed = true;
-                                    c.checked = true; // 열람 완료 시 자동 체크
-                                  });
-                                }
-                              },
-                            )),
-                            if (state.hasError)
-                              Padding(
-                                padding: const EdgeInsets.only(left: 12, top: 4),
-                                child: Text(state.errorText!,
-                                    style: TextStyle(color: _errorColor, fontSize: 12)),
+                            // 약관 (FormField → 하단 Form에 포함)
+                            // (하단 Form의 약관 영역) ─ 기존 ...items.map((c) => _consentTile(...)) 부분 교체
+                            FormField<bool>(
+                              validator: (_) =>
+                                  _agreedAll ? null : '필수 약관에 모두 동의해주세요.',
+                              builder: (state) => Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    '약관 동의(필수)',
+                                    style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                  const SizedBox(
+                                      height: 6), // 섹션 제목과 리스트 사이 최소 여백
+
+                                  // ✅ 각 항목 사이 여백 2px (거의 붙어 보이도록)
+                                  ...items.expand((c) => [
+                                        _consentTile(
+                                            item: c,
+                                            onOpenPdf: () =>
+                                                _openPdfAndAutoCheck(c)),
+                                        const SizedBox(height: 2),
+                                      ]),
+
+                                  if (state.hasError)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                          left: 4, top: 2),
+                                      child: Text(state.errorText!,
+                                          style: TextStyle(
+                                              color: _errorColor,
+                                              fontSize: 12)),
+                                    ),
+                                ],
                               ),
+                            ),
+
+                            const SizedBox(height: 20),
+
+                            // 다음
+                            SizedBox(
+                              width: double.infinity,
+                              height: 48,
+                              child: ElevatedButton(
+                                onPressed: _isLoading ? null : _submit,
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: primaryColor,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    )),
+                                child: _isLoading
+                                    ? const SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2))
+                                    : const Text(
+                                        '다음',
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                              ),
+                            ),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // 다음
-                      SizedBox(
-                        width: double.infinity, height: 48,
-                        child: ElevatedButton(
-                          onPressed: _isLoading ? null : _submit,
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: primaryColor,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              )
-                          ),
-                          child: _isLoading
-                              ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                              : const Text('다음', style: TextStyle(color: Colors.white),),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
+                      )
                     : const SizedBox.shrink(),
               ),
             ],
@@ -700,22 +784,29 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
 
     return CheckboxListTile(
       value: item.checked,
-      onChanged: canTapCheckbox ? (v) {
-        setState(() {
-          item.checked = v ?? false;
-          if (!item.checked) item.viewed = false; // 해제 시 viewed도 초기화(선택)
-        });
-      } : null, // 직접 체크 비활성화
+      onChanged: canTapCheckbox
+          ? (v) {
+              setState(() {
+                item.checked = v ?? false;
+                if (!item.checked) item.viewed = false; // 해제 시 viewed도 초기화(선택)
+              });
+            }
+          : null, // 직접 체크 비활성화
       dense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 4),
       controlAffinity: ListTileControlAffinity.leading,
       title: Row(
         children: [
-          Expanded(child: Text(item.title, style: const TextStyle(fontSize: 14, color: Colors.black))),
+          Expanded(
+              child: Text(item.title,
+                  style: const TextStyle(fontSize: 14, color: Colors.black))),
           if (item.pdfUrl != null && item.pdfUrl!.isNotEmpty)
             TextButton(
               onPressed: onOpenPdf, // PDF 열람 버튼
-              child: Icon(Icons.arrow_forward_ios_rounded, color: Colors.black,),
+              child: Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: Colors.black,
+              ),
             ),
         ],
       ),
@@ -728,7 +819,8 @@ class _RealnameVerificationPageState extends State<RealnameVerificationPage> {
 /// - 표시: 010-1234-5678 (8자리 이상: 3-4-4), 4~7자리: 3-나머지
 class KoreanPhoneNumberFormatter extends TextInputFormatter {
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
     String digits = newValue.text.replaceAll(RegExp(r'\D'), '');
     if (digits.length > 11) digits = digits.substring(0, 11);
 
@@ -741,12 +833,14 @@ class KoreanPhoneNumberFormatter extends TextInputFormatter {
     } else {
       // 3-4-나머지
       formatted =
-      '${digits.substring(0, 3)}-${digits.substring(3, 7)}-${digits.substring(7)}';
+          '${digits.substring(0, 3)}-${digits.substring(3, 7)}-${digits.substring(7)}';
     }
 
     // 커서 위치 보정
-    int nonDigitBefore = _nonDigitCountBefore(newValue.text, newValue.selection.baseOffset);
-    int cursorPosition = (newValue.selection.baseOffset - nonDigitBefore).clamp(0, digits.length);
+    int nonDigitBefore =
+        _nonDigitCountBefore(newValue.text, newValue.selection.baseOffset);
+    int cursorPosition = (newValue.selection.baseOffset - nonDigitBefore)
+        .clamp(0, digits.length);
     // 하이픈 추가 후 커서 위치 재계산
     int adjusted = _mapDigitIndexToFormattedIndex(digits, cursorPosition);
 
@@ -797,8 +891,8 @@ class ConsentItem {
   // 최소 열람 시간(초): 끝까지 스크롤 OR 이 초 경과 중 하나를 만족하면 통과
   final int minViewSeconds;
 
-  bool viewed;   // PDF 열람 완료 여부
-  bool checked;  // 동의 여부
+  bool viewed; // PDF 열람 완료 여부
+  bool checked; // 동의 여부
 
   ConsentItem({
     required this.kind,

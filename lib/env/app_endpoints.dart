@@ -8,4 +8,9 @@ class AppEndpoints {
   // Netty WebSocket
   // 운영은 wss:// 권장. ex) wss://ws.mybank.com/ws
   static const wsBase = 'ws://$apiUrl:8081/ws';
+
+  // 🔵 전역 쿠폰 이벤트 토픽
+  static const wsTopicCoupons = 'events.coupons';
+
+  static const wsPublishToken = 'MY_SECRET_123';
 }

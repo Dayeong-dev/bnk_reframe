@@ -1,6 +1,9 @@
+// lib/event/pages/start_page.dart
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../service/fortune_auth_service.dart';
 import 'input_page.dart';
 
@@ -12,7 +15,6 @@ class StartPage extends StatefulWidget {
 }
 
 class _StartPageState extends State<StartPage> with SingleTickerProviderStateMixin {
-  // ★ 테스트용: 하루 1회 제한을 우회하려면 true (운영 시 false)
   static const bool kBypassDailyLimitForTest = true;
 
   late final AnimationController _ctrl;
@@ -22,13 +24,11 @@ class _StartPageState extends State<StartPage> with SingleTickerProviderStateMix
   void initState() {
     super.initState();
 
-    // 전체 애니메이션 타임라인
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2500),
     );
 
-    // 텍스트: 0.0~0.6 구간에서 0.2 → 1.0으로 부드럽게
     _textOpacity = Tween<double>(begin: 0.2, end: 1.0).animate(
       CurvedAnimation(
         parent: _ctrl,
@@ -36,7 +36,6 @@ class _StartPageState extends State<StartPage> with SingleTickerProviderStateMix
       ),
     );
 
-    // 페이지 진입 시 자동 재생
     _ctrl.forward();
   }
 
@@ -61,12 +60,21 @@ class _StartPageState extends State<StartPage> with SingleTickerProviderStateMix
         "${today.year}${today.month.toString().padLeft(2, '0')}${today.day.toString().padLeft(2, '0')}";
 
     if (lastDrawDate == todayStr) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('이미 오늘의 운세를 확인하셨습니다. 내일 다시 시도해주세요.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('이미 오늘의 운세를 확인하셨습니다. 내일 다시 시도해주세요.')),
+        );
+      }
       return false;
     }
     return true;
+  }
+
+  double _dxFor(double t) {
+    const amplitude = 16.0;
+    const freq = 4;
+    final damping = (1 - t);
+    return math.sin(2 * math.pi * freq * t) * amplitude * damping;
   }
 
   @override
@@ -77,26 +85,13 @@ class _StartPageState extends State<StartPage> with SingleTickerProviderStateMix
       inviter = (raw['inviter'] ?? raw['inviteCode'] ?? raw['code'])?.toString();
     }
 
-    // 이미지 흔들림: 감쇠되는 사인파로 좌우 이동
-    // 진행값 t: 0→1, amplitude: 최대 16px, freq: 5회 진동
-    double dxFor(double t) {
-      const amplitude = 16.0; // 시작 최대 이동량(px)
-      const freq = 4;       // 좌우 왕복 횟수
-      final damping = (1 - t); // 시간이 지날수록 감쇠
-      return math.sin(2 * math.pi * freq * t) * amplitude * damping;
-    }
-
     return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        elevation: 0.5,
-      ),
+      appBar: AppBar(centerTitle: true, elevation: 0.5),
       body: SafeArea(
         child: AnimatedBuilder(
           animation: _ctrl,
           builder: (context, _) {
             final t = _ctrl.value;
-            final dx = dxFor(t);
 
             return Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -118,15 +113,15 @@ class _StartPageState extends State<StartPage> with SingleTickerProviderStateMix
                   ),
                 ),
 
-                // 중간 이미지 (좌우 흔들림 + 살짝 페이드)
                 const SizedBox(height: 40),
 
+                // 중간 이미지 (좌우 흔들림 + 살짝 페이드)
                 Expanded(
                   child: Center(
                     child: Opacity(
-                      opacity: 0.3 + 0.7 * Curves.easeOut.transform(t), // 0.3→1.0
+                      opacity: 0.3 + 0.7 * Curves.easeOut.transform(t),
                       child: Transform.translate(
-                        offset: Offset(dx, 0),
+                        offset: Offset(_dxFor(t), 0),
                         child: Image.asset(
                           'assets/images/f1.png',
                           width: 500,
@@ -160,7 +155,7 @@ class _StartPageState extends State<StartPage> with SingleTickerProviderStateMix
                               }),
                             ),
                           );
-                        }
+                        } 
                       },
                       child: const Text(
                         '시작하기',

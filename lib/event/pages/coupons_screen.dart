@@ -1,3 +1,4 @@
+// lib/event/pages/coupons_screen.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -5,6 +6,10 @@ import '../service/fortune_auth_service.dart';
 import '../service/fortune_firestore_service.dart';
 import 'coupons_page.dart';
 import 'coupon_detail_page.dart';
+
+// 🔵 추가
+import '../../core/ws_publisher.dart';
+import '../../env/app_endpoints.dart';
 
 class CouponsScreen extends StatefulWidget {
   const CouponsScreen({super.key});
@@ -23,7 +28,6 @@ class _CouponsScreenState extends State<CouponsScreen> {
   void initState() {
     super.initState();
     _uid = FortuneAuthService.getCurrentUid();
-    // ✅ 초대한 사람(=현재 로그인 사용자)의 미정산 방문 정산 시도
     _applyInviteRewards();
   }
 
@@ -31,20 +35,17 @@ class _CouponsScreenState extends State<CouponsScreen> {
     final uid = _uid;
     if (uid == null) return;
     try {
-      // 규칙상 inviter 본인만 자신의 invites 하위를 list/update 가능
       final n = await FortuneFirestoreService
           .claimPendingInvitesAndIssueRewards(inviterUid: uid, batchSize: 20);
       if (n > 0) {
         debugPrint('✅ invite rewards claimed: $n for inviter=$uid');
         if (!mounted) return;
-        // 살짝 피드백(선택)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('초대 방문 $n건이 정산되었습니다.')),
         );
       }
     } catch (e) {
       debugPrint('⚠️ invite reward apply failed (inviter view): $e');
-      // 권한 오류가 나면, 실제로 inviter가 아닌 계정일 가능성. UI는 계속 노출.
     }
   }
 
@@ -80,10 +81,28 @@ class _CouponsScreenState extends State<CouponsScreen> {
                 final docs = couponSnap.data!.docs;
                 if (docs.isNotEmpty) {
                   final latest = docs.first;
+
                   if (_couponStreamInitialized &&
                       latest.id != _lastNotifiedCouponId) {
                     _notifyNewCoupon(latest.id, latest.data());
+
+                    // 🔵 여기서 발행: 발급자 제외(excludeSelf) + issuer(uid) 포함
+                    final maskedName = _getMaskedKoreanName() ?? '오**';
+                    final title = (latest.data()['title'] ?? '기프티콘').toString();
+
+                    WsPublisher.publish(
+                      AppEndpoints.wsTopicCoupons,
+                      {
+                        "type": "coupon_issued",
+                        "maskedName": maskedName,
+                        "title": title,
+                        "ts": DateTime.now().millisecondsSinceEpoch,
+                      },
+                      excludeSelf: true,   // ✅ 자신(발급자) 제외
+                      issuer: uid,         // ✅ 서버가 제외 기준으로 사용
+                    );
                   }
+
                   _lastNotifiedCouponId = latest.id;
                   _couponStreamInitialized = true;
                 } else {
@@ -92,12 +111,9 @@ class _CouponsScreenState extends State<CouponsScreen> {
                 }
               }
 
-              // ✅ 내용 전용 CouponsPage 사용 (AppBar 없음)
               return CouponsPage(
                 stampCount: stampCount,
-                onFull: () {
-                  debugPrint('스탬프 만땅!');
-                },
+                onFull: () => debugPrint('스탬프 만땅!'),
               );
             },
           );
@@ -121,7 +137,9 @@ class _CouponsScreenState extends State<CouponsScreen> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => CouponDetailPage(couponId: couponId)),
+                MaterialPageRoute(
+                  builder: (_) => CouponDetailPage(couponId: couponId),
+                ),
               );
             },
           ),
@@ -129,4 +147,6 @@ class _CouponsScreenState extends State<CouponsScreen> {
       );
     });
   }
+
+  String? _getMaskedKoreanName() => '오**';
 }

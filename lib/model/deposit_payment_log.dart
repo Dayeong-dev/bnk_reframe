@@ -1,10 +1,10 @@
 import 'common.dart';
 
 class DepositPaymentLog {
-  final int round;               // 회차(월/일차)
-  final int amount;              // 납입 금액
-  final DateTime? paidAt;        // 실제 납입시각 또는 예정일자(UNPAID)
-  final PaymentStatus? status;   // UNPAID | PAID
+  final int round; // 회차(월/일차)
+  final int amount; // 납입 금액
+  final DateTime? paidAt; // 실제 납입시각 또는 예정일자(UNPAID)
+  final PaymentStatus? status; // UNPAID | PAID
 
   DepositPaymentLog({
     required this.round,
@@ -23,9 +23,9 @@ class DepositPaymentLog {
   }
 
   Map<String, dynamic> toJson() => {
-    'round': round,
-    'amount': amount,
-    'paidAt': paidAt?.toIso8601String(),
-    'status': status?.name.toUpperCase(),
-  };
+        'round': round,
+        'amount': amount,
+        'paidAt': paidAt?.toIso8601String(),
+        'status': status?.name.toUpperCase(),
+      };
 }

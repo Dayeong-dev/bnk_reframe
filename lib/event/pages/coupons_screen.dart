@@ -32,8 +32,9 @@ class _CouponsScreenState extends State<CouponsScreen> {
     if (uid == null) return;
     try {
       // 규칙상 inviter 본인만 자신의 invites 하위를 list/update 가능
-      final n = await FortuneFirestoreService
-          .claimPendingInvitesAndIssueRewards(inviterUid: uid, batchSize: 20);
+      final n =
+          await FortuneFirestoreService.claimPendingInvitesAndIssueRewards(
+              inviterUid: uid, batchSize: 20);
       if (n > 0) {
         debugPrint('✅ invite rewards claimed: $n for inviter=$uid');
         if (!mounted) return;
@@ -121,7 +122,8 @@ class _CouponsScreenState extends State<CouponsScreen> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => CouponDetailPage(couponId: couponId)),
+                MaterialPageRoute(
+                    builder: (_) => CouponDetailPage(couponId: couponId)),
               );
             },
           ),

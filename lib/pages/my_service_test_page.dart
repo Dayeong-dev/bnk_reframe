@@ -137,7 +137,9 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
     final bm = _benchmarks[_selectedBM]!;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('내 자산 요약'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('내 자산 요약'),
+      ),
       body: SafeArea(
         bottom: true,
         child: Builder(builder: (context) {
@@ -161,7 +163,6 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
 
               // ===== [추가] 적금 목표 (게이지 + 프로그레스) =====
               Card(
-                elevation: 0.4,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
                 child: Padding(
@@ -207,7 +208,6 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
 
               // ===== 자산 분포 (도넛 차트) =====
               Card(
-                elevation: 0.4,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
                 child: Padding(
@@ -262,7 +262,6 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
 
               // ===== 내 비중 vs 벤치마크 =====
               Card(
-                elevation: 0.4,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
                 child: Padding(

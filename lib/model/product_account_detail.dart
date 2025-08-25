@@ -30,11 +30,11 @@ class ProductAccountDetail {
       application: ProductApplication.fromJson(
           json['applicationDTO'] as Map<String, dynamic>),
       depositPaymentLogList:
-      (json['depositPaymentLogDTOList'] as List<dynamic>? ?? const [])
-          .map((e) => DepositPaymentLog.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      productRateList:
-      (json['productRateDTOList'] as List<dynamic>? ?? const [])
+          (json['depositPaymentLogDTOList'] as List<dynamic>? ?? const [])
+              .map((e) => DepositPaymentLog.fromJson(e as Map<String, dynamic>))
+              .toList(),
+      productRateList: (json['productRateDTOList'] as List<dynamic>? ??
+              const [])
           .map((e) => DepositProductRate.fromJson(e as Map<String, dynamic>))
           .toList(),
       projectedInterestNow: json['projectedInterestNow'] as int?,
@@ -43,11 +43,12 @@ class ProductAccountDetail {
   }
 
   Map<String, dynamic> toJson() => {
-    'accountDTO': account?.toJson(),
-    'applicationDTO': application.toJson(),
-    'depositPaymentLogDTOList': depositPaymentLogList.map((e) => e.toJson()).toList(),
-    'productRateDTOList': productRateList.map((e) => e.toJson()).toList(),
-    'projectedInterestNow': projectedInterestNow,
-    'maturityAmountProjected': maturityAmountProjected
-  };
+        'accountDTO': account?.toJson(),
+        'applicationDTO': application.toJson(),
+        'depositPaymentLogDTOList':
+            depositPaymentLogList.map((e) => e.toJson()).toList(),
+        'productRateDTOList': productRateList.map((e) => e.toJson()).toList(),
+        'projectedInterestNow': projectedInterestNow,
+        'maturityAmountProjected': maturityAmountProjected
+      };
 }

@@ -52,7 +52,10 @@ class FaqStore extends ChangeNotifier {
       _items.clear();
 
       final pageRes = await api.fetchFaqs(
-        page: _page, size: _size, search: _search, category: _category,
+        page: _page,
+        size: _size,
+        search: _search,
+        category: _category,
       );
       _items.addAll(pageRes.content);
       _isLast = pageRes.last;
@@ -78,7 +81,10 @@ class FaqStore extends ChangeNotifier {
     try {
       final next = _page + 1;
       final pageRes = await api.fetchFaqs(
-        page: next, size: _size, search: _search, category: _category,
+        page: next,
+        size: _size,
+        search: _search,
+        category: _category,
       );
       _items.addAll(pageRes.content);
       _page = next;

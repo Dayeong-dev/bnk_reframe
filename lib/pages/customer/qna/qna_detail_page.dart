@@ -73,10 +73,6 @@ class _QnaDetailPageState extends State<QnaDetailPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('문의 상세'),
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
         actions: [
           if (!_loading &&
               _error == null &&
@@ -222,7 +218,6 @@ class _QuestionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Material(
-      elevation: 6,
       shadowColor: Colors.black12,
       borderRadius: BorderRadius.circular(14),
       child: Container(
@@ -311,7 +306,6 @@ class _AnswerCard extends StatelessWidget {
     final hasAnswer = (answerText != null && answerText!.isNotEmpty);
 
     return Material(
-      elevation: 6,
       shadowColor: Colors.black12,
       borderRadius: BorderRadius.circular(14),
       child: Container(

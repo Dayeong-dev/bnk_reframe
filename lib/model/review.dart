@@ -5,9 +5,9 @@ class Review {
   final String content;
   final int? rating;
   final String? authorName;
-  final String? createdAt;   // 서버가 ISO 문자열이면 String으로 둬도 OK
-  final String? authorId;    // ★ 문자열 비교 안정
-  final bool? mine;          // ★ 서버 판정
+  final String? createdAt; // 서버가 ISO 문자열이면 String으로 둬도 OK
+  final String? authorId; // ★ 문자열 비교 안정
+  final bool? mine; // ★ 서버 판정
 
   Review({
     required this.id,
@@ -52,11 +52,11 @@ class MyReview {
   });
 
   factory MyReview.fromJson(Map<String, dynamic> j) => MyReview(
-    id: j['id'] as int,
-    productId: j['productId'] as int,
-    productName: (j['productName'] ?? '') as String,
-    content: (j['content'] ?? '') as String,
-    rating: (j['rating'] as num?)?.toInt(),
-    createdAt: j['createdAt'],
-  );
+        id: j['id'] as int,
+        productId: j['productId'] as int,
+        productName: (j['productName'] ?? '') as String,
+        content: (j['content'] ?? '') as String,
+        rating: (j['rating'] as num?)?.toInt(),
+        createdAt: j['createdAt'],
+      );
 }

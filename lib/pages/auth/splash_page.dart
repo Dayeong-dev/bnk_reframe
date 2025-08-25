@@ -46,9 +46,9 @@ class _SplashPageState extends State<SplashPage> {
 
     final CheckResult checkResult = gated.first as CheckResult;
 
-    if(!mounted) return;
+    if (!mounted) return;
 
-    if(checkResult == CheckResult.toHome) {
+    if (checkResult == CheckResult.toHome) {
       await _navigateOnce(MaterialPageRoute(builder: (context) => AppShell()));
     } else {
       await _navigateOnce(MaterialPageRoute(builder: (context) => LoginPage()));
@@ -58,7 +58,8 @@ class _SplashPageState extends State<SplashPage> {
   Future<CheckResult> _checkLoginStatus() async {
     try {
       final refreshToken = await _secureStorage.read(key: "refreshToken");
-      final biometricEnabled = await _secureStorage.read(key: "biometricEnabled");
+      final biometricEnabled =
+          await _secureStorage.read(key: "biometricEnabled");
 
       // if (refreshToken != null && biometricEnabled == 'true') {
       //   final didAuthenticate = await _auth.authenticate(
@@ -74,16 +75,15 @@ class _SplashPageState extends State<SplashPage> {
       if (refreshToken != null && refreshToken.isNotEmpty) {
         Uri url = Uri.parse("$apiBaseUrl/mobile/auth/refresh");
 
-        final response = await http.post(url,
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({
-              'refreshToken': refreshToken
-            })
-        ).timeout(const Duration(seconds: 8)); // 8초 제한
+        final response = await http
+            .post(url,
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: jsonEncode({'refreshToken': refreshToken}))
+            .timeout(const Duration(seconds: 8)); // 8초 제한
 
-        if(response.statusCode == 200) {
+        if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
 
           final accessToken = data['accessToken'] as String;
@@ -103,7 +103,7 @@ class _SplashPageState extends State<SplashPage> {
       return CheckResult.toLogin;
     } on TimeoutException {
       return CheckResult.toLogin;
-    } catch(e) {
+    } catch (e) {
       await _secureStorage.delete(key: "refreshToken");
       return CheckResult.toLogin;
     }
@@ -111,25 +111,22 @@ class _SplashPageState extends State<SplashPage> {
 
   // 단일 네비게이션 헬퍼(중복 호출 방지)
   Future<void> _navigateOnce(Route routeBuilder) async {
-    if(!mounted || _routed) return;
+    if (!mounted || _routed) return;
     _routed = true;
     Navigator.of(context).pushAndRemoveUntil(routeBuilder, (route) => false);
   }
-
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
         body: Center(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Image.asset("assets/images/logo/logo_small.png", width: 200),
-                SizedBox(height: 16),
-                CircularProgressIndicator(color: Colors.black),
-              ],
-            )
-        )
-    );
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Image.asset("assets/images/logo/logo_small.png", width: 200),
+        SizedBox(height: 16),
+        CircularProgressIndicator(color: Colors.black),
+      ],
+    )));
   }
 }

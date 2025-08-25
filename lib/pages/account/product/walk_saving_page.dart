@@ -12,13 +12,14 @@ import '../../../model/product_account_detail.dart';
 import 'package:reframe/service/account_service.dart'; // dio, commonUrl
 
 // ===== 토스 스타일 색/타이포 =====
-const _bgCanvas = Color(0xFFF7F8FA);          // 화면 배경
-const _textStrong = Color(0xFF0B0D12);        // 강한 본문
-const _textWeak = Color(0xFF6B7280);          // 연한 본문
-const _line = Color(0xFFE5E7EB);              // 아주 옅은 구분선
-const _blue = Color(0xFF0064FF);              // Toss Blue
+const _bgCanvas = Color(0xFFF7F8FA); // 화면 배경
+const _textStrong = Color(0xFF0B0D12); // 강한 본문
+const _textWeak = Color(0xFF6B7280); // 연한 본문
+const _line = Color(0xFFE5E7EB); // 아주 옅은 구분선
+const _blue = Color(0xFF0064FF); // Toss Blue
 
-final _won = NumberFormat.currency(locale: 'ko_KR', symbol: '₩', decimalDigits: 0);
+final _won =
+    NumberFormat.currency(locale: 'ko_KR', symbol: '₩', decimalDigits: 0);
 
 // ===== intl 초기화 없이 쓰는 날짜 포맷 =====
 String _pad2(int n) => n.toString().padLeft(2, '0');
@@ -96,7 +97,8 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
   // ===== 도메인 헬퍼 =====
   DepositPaymentLog? _findNextUnpaid(ProductAccountDetail d) {
     for (final log in d.depositPaymentLogList) {
-      if ((log.status ?? PaymentStatus.unpaid) == PaymentStatus.unpaid) return log;
+      if ((log.status ?? PaymentStatus.unpaid) == PaymentStatus.unpaid)
+        return log;
     }
     return null;
   }
@@ -114,7 +116,9 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
   String _errorMessage(Object e) {
     if (e is DioException) {
       final r = e.response;
-      final msg = (r?.data is Map && r!.data['message'] is String) ? r.data['message'] as String : null;
+      final msg = (r?.data is Map && r!.data['message'] is String)
+          ? r.data['message'] as String
+          : null;
       return msg ?? 'HTTP ${r?.statusCode ?? ''} 오류';
     }
     return '알 수 없는 오류';
@@ -123,7 +127,8 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
   Future<void> _inputSteps() async {
     // 여기 걸음 수 연동 예정
 
-    final c = TextEditingController(text: _stepsToday > 0 ? '$_stepsToday' : '');
+    final c =
+        TextEditingController(text: _stepsToday > 0 ? '$_stepsToday' : '');
     final v = await showDialog<int>(
       context: context,
       builder: (ctx) => _TossSheet(
@@ -223,7 +228,8 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                   Expanded(
                     child: Text(
                       '확인 시 납입이 진행됩니다. \n납입 취소는 거래내역에서 가능합니다.',
-                      style: TextStyle(fontSize: 13, color: _textWeak, height: 1.4),
+                      style: TextStyle(
+                          fontSize: 13, color: _textWeak, height: 1.4),
                     ),
                   ),
                 ],
@@ -236,7 +242,6 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
 
     return result ?? false;
   }
-
 
   // ===== UI =====
   @override
@@ -269,9 +274,12 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
 
               final nextUnpaid = _findNextUnpaid(detail);
               final startAt = app.startAt ?? DateTime.now();
-              final nextDue = (nextUnpaid == null) ? null : _computeDueDate(startAt, nextUnpaid.round);
+              final nextDue = (nextUnpaid == null)
+                  ? null
+                  : _computeDueDate(startAt, nextUnpaid.round);
               final today = DateTime.now();
-              final canPayToday = nextDue != null && fmtYmd(nextDue) == fmtYmd(today);
+              final canPayToday =
+                  nextDue != null && fmtYmd(nextDue) == fmtYmd(today);
 
               return ListView(
                 padding: const EdgeInsets.only(bottom: 24),
@@ -286,26 +294,37 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                         // 상단 타이틀 라인
                         Row(
                           children: [
-                            const Icon(CupertinoIcons.creditcard, size: 18, color: _textWeak),
+                            const Icon(CupertinoIcons.creditcard,
+                                size: 18, color: _textWeak),
                             const SizedBox(width: 6),
                             Text(
                               acc?.accountName ?? app.product.name,
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: _textStrong),
+                              style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: _textStrong),
                             ),
                             const Spacer(),
-                            Text(acc!.accountNumber, style: const TextStyle(color: _textWeak)),
+                            Text(acc!.accountNumber,
+                                style: const TextStyle(color: _textWeak)),
                           ],
                         ),
                         const SizedBox(height: 14),
-                        const Text('현재 잔액', style: TextStyle(fontSize: 13, color: _textWeak)),
+                        const Text('현재 잔액',
+                            style: TextStyle(fontSize: 13, color: _textWeak)),
                         const SizedBox(height: 6),
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 200),
-                          transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
+                          transitionBuilder: (child, anim) =>
+                              FadeTransition(opacity: anim, child: child),
                           child: Text(
                             _won.format(principal),
                             key: ValueKey(principal),
-                            style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w800, height: 1.1, color: _textStrong),
+                            style: const TextStyle(
+                                fontSize: 30,
+                                fontWeight: FontWeight.w800,
+                                height: 1.1,
+                                color: _textStrong),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -313,13 +332,24 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            _TossChip(text: '기본 ${_pct(app.baseRateAtEnroll)}', icon: CupertinoIcons.percent),
-                            _TossChip(text: '적용 ${_pct(app.effectiveRateAnnual ?? app.baseRateAtEnroll)}', icon: Icons.trending_up),
+                            _TossChip(
+                                text: '기본 ${_pct(app.baseRateAtEnroll)}',
+                                icon: CupertinoIcons.percent),
+                            _TossChip(
+                                text:
+                                    '적용 ${_pct(app.effectiveRateAnnual ?? app.baseRateAtEnroll)}',
+                                icon: Icons.trending_up),
                             if (nextDue != null)
                               _TossChip(
-                                text: canPayToday ? '오늘 납입 가능' : '예정일 ${fmtYmd(nextDue)}',
-                                icon: canPayToday ? CupertinoIcons.calendar_badge_plus : CupertinoIcons.calendar,
-                                tone: canPayToday ? _ChipTone.success : _ChipTone.neutral,
+                                text: canPayToday
+                                    ? '오늘 납입 가능'
+                                    : '예정일 ${fmtYmd(nextDue)}',
+                                icon: canPayToday
+                                    ? CupertinoIcons.calendar_badge_plus
+                                    : CupertinoIcons.calendar,
+                                tone: canPayToday
+                                    ? _ChipTone.success
+                                    : _ChipTone.neutral,
                               ),
                           ],
                         ),
@@ -335,21 +365,28 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('오늘 걸음 수', style: TextStyle(fontWeight: FontWeight.w700, color: _textStrong)),
+                              const Text('오늘 걸음 수',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: _textStrong)),
                               const SizedBox(height: 10),
                               AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 200),
                                 child: Text(
                                   '$_stepsToday 걸음',
                                   key: ValueKey(_stepsToday),
-                                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: _textStrong),
+                                  style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w800,
+                                      color: _textStrong),
                                 ),
                               ),
                             ],
                           ),
                         ),
                         const SizedBox(width: 12),
-                        _TossOutlineButton(label: '걸음 입력', onPressed: _inputSteps),
+                        _TossOutlineButton(
+                            label: '걸음 입력', onPressed: _inputSteps),
                       ],
                     ),
                   ),
@@ -361,15 +398,21 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                       children: [
                         const _SectionTitle('다음 납입'),
                         const SizedBox(height: 10),
-                        _KvRow('회차', nextUnpaid == null ? '-' : '${nextUnpaid.round}회차'),
+                        _KvRow('회차',
+                            nextUnpaid == null ? '-' : '${nextUnpaid.round}회차'),
                         _KvRow('예정일', nextDue == null ? '-' : fmtYmdE(nextDue)),
-                        _KvRow('회차 금액', nextUnpaid == null ? '-' : _won.format(nextUnpaid.amount)),
+                        _KvRow(
+                            '회차 금액',
+                            nextUnpaid == null
+                                ? '-'
+                                : _won.format(nextUnpaid.amount)),
                         const SizedBox(height: 14),
                         _TossPrimaryButton(
                           label: canPayToday ? '이번 회차 납입' : '오늘은 납입일이 아니에요',
-                          onPressed: (nextUnpaid == null || !canPayToday || _paying)
-                              ? null
-                              : () async => _onPressPay(detail),
+                          onPressed:
+                              (nextUnpaid == null || !canPayToday || _paying)
+                                  ? null
+                                  : () async => _onPressPay(detail),
                           busy: _paying,
                         ),
                       ],
@@ -383,9 +426,15 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                       children: [
                         const _SectionTitle('요약'),
                         const SizedBox(height: 10),
-                        _KvRow('약정 개월수', app.termMonthsAtEnroll == null ? '-' : '${app.termMonthsAtEnroll}개월'),
-                        _KvRow('가입일', app.startAt == null ? '-' : fmtYmdE(app.startAt!)),
-                        _KvRow('만기일', app.closeAt == null ? '-' : fmtYmdE(app.closeAt!)),
+                        _KvRow(
+                            '약정 개월수',
+                            app.termMonthsAtEnroll == null
+                                ? '-'
+                                : '${app.termMonthsAtEnroll}개월'),
+                        _KvRow('가입일',
+                            app.startAt == null ? '-' : fmtYmdE(app.startAt!)),
+                        _KvRow('만기일',
+                            app.closeAt == null ? '-' : fmtYmdE(app.closeAt!)),
                       ],
                     ),
                   ),
@@ -400,24 +449,34 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                         if (detail.depositPaymentLogList.isEmpty)
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 12),
-                            child: Text('표시할 납입 내역이 없습니다.', style: TextStyle(color: _textWeak)),
+                            child: Text('표시할 납입 내역이 없습니다.',
+                                style: TextStyle(color: _textWeak)),
                           )
                         else
                           ...detail.depositPaymentLogList.map((e) {
-                            final isPaid = (e.status ?? PaymentStatus.unpaid) == PaymentStatus.paid;
+                            final isPaid = (e.status ?? PaymentStatus.unpaid) ==
+                                PaymentStatus.paid;
                             final due = _computeDueDate(startAt, e.round);
-                            final subtitle = isPaid ? '납입일 ${fmtYmd(e.paidAt ?? due)}' : '예정일 ${fmtYmd(due)}';
+                            final subtitle = isPaid
+                                ? '납입일 ${fmtYmd(e.paidAt ?? due)}'
+                                : '예정일 ${fmtYmd(due)}';
                             return Column(
                               children: [
                                 ListTile(
                                   dense: true,
                                   contentPadding: EdgeInsets.zero,
-                                  title: Text('${e.round}회차  ${_won.format(e.amount)}',
-                                      style: const TextStyle(fontWeight: FontWeight.w700, color: _textStrong)),
-                                  subtitle: Text(subtitle, style: const TextStyle(color: _textWeak)),
+                                  title: Text(
+                                      '${e.round}회차  ${_won.format(e.amount)}',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          color: _textStrong)),
+                                  subtitle: Text(subtitle,
+                                      style: const TextStyle(color: _textWeak)),
                                   trailing: _StatusPill(
                                     text: isPaid ? '납입완료' : '미납입',
-                                    tone: isPaid ? _ChipTone.success : _ChipTone.warning,
+                                    tone: isPaid
+                                        ? _ChipTone.success
+                                        : _ChipTone.warning,
                                   ),
                                 ),
                                 const Divider(height: 16, color: _line),
@@ -462,7 +521,9 @@ class _SectionTitle extends StatelessWidget {
   const _SectionTitle(this.text);
   @override
   Widget build(BuildContext context) {
-    return Text(text, style: const TextStyle(fontWeight: FontWeight.w800, color: _textStrong));
+    return Text(text,
+        style:
+            const TextStyle(fontWeight: FontWeight.w800, color: _textStrong));
   }
 }
 
@@ -478,7 +539,9 @@ class _KvRow extends StatelessWidget {
         children: [
           Expanded(child: Text(k, style: const TextStyle(color: _textWeak))),
           const SizedBox(width: 8),
-          Text(v, style: const TextStyle(fontWeight: FontWeight.w700, color: _textStrong)),
+          Text(v,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w700, color: _textStrong)),
         ],
       ),
     );
@@ -491,11 +554,13 @@ class _TossChip extends StatelessWidget {
   final String text;
   final IconData icon;
   final _ChipTone tone;
-  const _TossChip({required this.text, required this.icon, this.tone = _ChipTone.neutral});
+  const _TossChip(
+      {required this.text, required this.icon, this.tone = _ChipTone.neutral});
 
   @override
   Widget build(BuildContext context) {
-    Color fg; Color bg;
+    Color fg;
+    Color bg;
     switch (tone) {
       case _ChipTone.success:
         fg = const Color(0xFF0A7A33);
@@ -511,7 +576,8 @@ class _TossChip extends StatelessWidget {
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(icon, size: 14, color: fg),
         const SizedBox(width: 6),
@@ -527,7 +593,8 @@ class _StatusPill extends StatelessWidget {
   const _StatusPill({required this.text, this.tone = _ChipTone.neutral});
   @override
   Widget build(BuildContext context) {
-    Color fg; Color bg;
+    Color fg;
+    Color bg;
     switch (tone) {
       case _ChipTone.success:
         fg = const Color(0xFF0A7A33);
@@ -543,8 +610,10 @@ class _StatusPill extends StatelessWidget {
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
-      child: Text(text, style: TextStyle(color: fg, fontWeight: FontWeight.w700)),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
+      child:
+          Text(text, style: TextStyle(color: fg, fontWeight: FontWeight.w700)),
     );
   }
 }
@@ -553,7 +622,8 @@ class _TossPrimaryButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
   final bool busy;
-  const _TossPrimaryButton({required this.label, required this.onPressed, this.busy = false});
+  const _TossPrimaryButton(
+      {required this.label, required this.onPressed, this.busy = false});
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null && !busy;
@@ -566,10 +636,15 @@ class _TossPrimaryButton extends StatelessWidget {
           backgroundColor: enabled ? _blue : const Color(0xFFE5E7EB),
           foregroundColor: enabled ? Colors.white : const Color(0xFF9CA3AF),
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         child: busy
-            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white))
             : Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
       ),
     );
@@ -615,7 +690,11 @@ class _TossSheet extends StatelessWidget {
   final Widget child;
   final Widget primary;
   final Widget? secondary;
-  const _TossSheet({required this.title, required this.child, required this.primary, this.secondary});
+  const _TossSheet(
+      {required this.title,
+      required this.child,
+      required this.primary,
+      this.secondary});
 
   @override
   Widget build(BuildContext context) {
@@ -628,16 +707,20 @@ class _TossSheet extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _textStrong)),
+            Text(title,
+                style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: _textStrong)),
             const SizedBox(height: 10),
             child,
             if (secondary != null) ...[
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(child: secondary!),   // 취소 버튼
-                  const SizedBox(width: 8),      // 버튼 간격
-                  Expanded(child: primary),      // 납입 버튼
+                  Expanded(child: secondary!), // 취소 버튼
+                  const SizedBox(width: 8), // 버튼 간격
+                  Expanded(child: primary), // 납입 버튼
                 ],
               ),
             ] else ...[

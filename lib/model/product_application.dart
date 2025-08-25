@@ -10,13 +10,13 @@ class ProductApplication {
   final DateTime? closeAt;
 
   // 금리/기간 스냅샷
-  final double? baseRateAtEnroll;       // 예: 3.200 (== 3.2%)
-  final double? effectiveRateAnnual;    // 현재 적용 연이율 (지금은 기본과 동일)
+  final double? baseRateAtEnroll; // 예: 3.200 (== 3.2%)
+  final double? effectiveRateAnnual; // 현재 적용 연이율 (지금은 기본과 동일)
   final int? termMonthsAtEnroll;
 
   ProductApplication({
     required this.id,
-    required this.product, 
+    required this.product,
     this.status,
     this.startAt,
     this.closeAt,
@@ -39,13 +39,13 @@ class ProductApplication {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'product': product,
-    'status': status?.name.toUpperCase(),
-    'startAt': startAt?.toIso8601String(),
-    'closeAt': closeAt?.toIso8601String(),
-    'baseRateAtEnroll': baseRateAtEnroll,
-    'effectiveRateAnnual': effectiveRateAnnual,
-    'termMonthsAtEnroll': termMonthsAtEnroll,
-  };
+        'id': id,
+        'product': product,
+        'status': status?.name.toUpperCase(),
+        'startAt': startAt?.toIso8601String(),
+        'closeAt': closeAt?.toIso8601String(),
+        'baseRateAtEnroll': baseRateAtEnroll,
+        'effectiveRateAnnual': effectiveRateAnnual,
+        'termMonthsAtEnroll': termMonthsAtEnroll,
+      };
 }

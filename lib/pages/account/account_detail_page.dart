@@ -70,7 +70,6 @@ class _AccountDetailPageState extends State<AccountDetailPage> {
         return Scaffold(
           appBar: AppBar(
             title: Text(product.name),
-            centerTitle: true,
           ),
           body: body,
         );

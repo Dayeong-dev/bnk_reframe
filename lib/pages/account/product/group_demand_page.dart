@@ -7,29 +7,37 @@ import '../../../model/product_account_detail.dart';
 import '../../../service/account_service.dart';
 
 // 금액 포맷
-final _won = NumberFormat.currency(locale: 'ko_KR', symbol: '₩', decimalDigits: 0);
+final _won =
+    NumberFormat.currency(locale: 'ko_KR', symbol: '₩', decimalDigits: 0);
 
 // ===== Toss tone colors & text =====
 const _tStrong = Color(0xFF0B0D12);
-const _tWeak   = Color(0xFF6B7280);
-const _line    = Color(0xFFE5E7EB);
-const _blue    = Color(0xFF0064FF);
-const _bg      = Color(0xFFF7F8FA);
+const _tWeak = Color(0xFF6B7280);
+const _line = Color(0xFFE5E7EB);
+const _blue = Color(0xFF0064FF);
+const _bg = Color(0xFFF7F8FA);
 
-TextStyle get _h1 => const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: _tStrong);
-TextStyle get _h2 => const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: _tStrong);
-TextStyle get _b1 => const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: _tStrong);
+TextStyle get _h1 =>
+    const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: _tStrong);
+TextStyle get _h2 =>
+    const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: _tStrong);
+TextStyle get _b1 =>
+    const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: _tStrong);
 TextStyle get _c1 => const TextStyle(fontSize: 13, color: _tWeak, height: 1.3);
 
 // 둥근 화이트 카드
 class _TossCard extends StatelessWidget {
   final Widget child;
   final EdgeInsets padding;
-  const _TossCard({required this.child, this.padding = const EdgeInsets.all(16), super.key});
+  const _TossCard(
+      {required this.child,
+      this.padding = const EdgeInsets.all(16),
+      super.key});
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
+      decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(18)),
       padding: padding,
       child: child,
     );
@@ -41,7 +49,8 @@ class _TossPrimaryBtn extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
   final bool busy;
-  const _TossPrimaryBtn({required this.label, required this.onTap, this.busy = false, super.key});
+  const _TossPrimaryBtn(
+      {required this.label, required this.onTap, this.busy = false, super.key});
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null && !busy;
@@ -53,11 +62,16 @@ class _TossPrimaryBtn extends StatelessWidget {
           elevation: 0,
           backgroundColor: enabled ? _blue : _line,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           textStyle: const TextStyle(fontWeight: FontWeight.w800),
         ),
         child: busy
-            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white))
             : Text(label),
       ),
     );
@@ -69,7 +83,8 @@ class _TossActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
-  const _TossActionButton({required this.icon, required this.label, this.onTap, super.key});
+  const _TossActionButton(
+      {required this.icon, required this.label, this.onTap, super.key});
   @override
   Widget build(BuildContext context) {
     return InkWell(
@@ -87,7 +102,9 @@ class _TossActionButton extends StatelessWidget {
           children: [
             Icon(icon, color: _blue),
             const SizedBox(width: 8),
-            Text(label, style: const TextStyle(fontWeight: FontWeight.w700, color: _tStrong)),
+            Text(label,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700, color: _tStrong)),
           ],
         ),
       ),
@@ -112,9 +129,10 @@ class _TossTxTile extends StatelessWidget {
     String when = '';
     if (dt != null) {
       String pad2(int n) => n.toString().padLeft(2, '0');
-      const days = ['월','화','수','목','금','토','일'];
+      const days = ['월', '화', '수', '목', '금', '토', '일'];
       final w = days[(dt.weekday - 1) % 7];
-      when = '${dt.year}.${pad2(dt.month)}.${pad2(dt.day)} ($w) ${pad2(dt.hour)}:${pad2(dt.minute)}';
+      when =
+          '${dt.year}.${pad2(dt.month)}.${pad2(dt.day)} ($w) ${pad2(dt.hour)}:${pad2(dt.minute)}';
     }
 
     return Container(
@@ -199,7 +217,8 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
   void _onScroll() {
     if (!_scroll.hasClients || _loadingTx || !_txHasMore) return;
     const threshold = 300.0;
-    if (_scroll.position.maxScrollExtent - _scroll.position.pixels < threshold) {
+    if (_scroll.position.maxScrollExtent - _scroll.position.pixels <
+        threshold) {
       _loadMoreTx();
     }
   }
@@ -208,7 +227,8 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
     if (_loadingTx || !_txHasMore) return;
     setState(() => _loadingTx = true);
     try {
-      final page = await fetchAccountTransactions(widget.accountId, page: _nextPage, size: 30);
+      final page = await fetchAccountTransactions(widget.accountId,
+          page: _nextPage, size: 30);
       setState(() {
         _tx.addAll(page.items);
         _txHasMore = page.hasMore;
@@ -216,7 +236,8 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('거래내역 실패: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('거래내역 실패: $e')));
     } finally {
       if (mounted) setState(() => _loadingTx = false);
     }
@@ -235,7 +256,8 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
   void _copyAccountNumber(String n) async {
     await Clipboard.setData(ClipboardData(text: n));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('계좌번호가 복사되었습니다.')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('계좌번호가 복사되었습니다.')));
   }
 
   @override
@@ -282,10 +304,12 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
                           ),
                           if ((acc?.accountNumber ?? '').isNotEmpty)
                             TextButton.icon(
-                              onPressed: () => _copyAccountNumber(acc!.accountNumber),
+                              onPressed: () =>
+                                  _copyAccountNumber(acc!.accountNumber),
                               style: TextButton.styleFrom(
                                 foregroundColor: _tWeak,
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 6),
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
                               icon: const Icon(Icons.copy, size: 16),
@@ -294,7 +318,9 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      Text('${acc?.bankName ?? ''}  ${_mask(acc?.accountNumber)}', style: _c1),
+                      Text(
+                          '${acc?.bankName ?? ''}  ${_mask(acc?.accountNumber)}',
+                          style: _c1),
                       const SizedBox(height: 14),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -326,7 +352,8 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
                 ),
 
                 // (선택) 금리 카드
-                if ((app.baseRateAtEnroll ?? 0) > 0 || (app.effectiveRateAnnual ?? 0) > 0) ...[
+                if ((app.baseRateAtEnroll ?? 0) > 0 ||
+                    (app.effectiveRateAnnual ?? 0) > 0) ...[
                   const SizedBox(height: 12),
                   _TossCard(
                     child: Column(
@@ -334,9 +361,11 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
                       children: [
                         Text('금리', style: _h2),
                         const SizedBox(height: 8),
-                        _kvRow('기본금리', '${(app.baseRateAtEnroll ?? 0).toStringAsFixed(2)}%'),
+                        _kvRow('기본금리',
+                            '${(app.baseRateAtEnroll ?? 0).toStringAsFixed(2)}%'),
                         const SizedBox(height: 8),
-                        _kvRow('현재 적용금리', '${(app.effectiveRateAnnual ?? app.baseRateAtEnroll ?? 0).toStringAsFixed(2)}%'),
+                        _kvRow('현재 적용금리',
+                            '${(app.effectiveRateAnnual ?? app.baseRateAtEnroll ?? 0).toStringAsFixed(2)}%'),
                       ],
                     ),
                   ),
@@ -351,15 +380,16 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
                   const _EmptyTransactions()
                 else
                   _TossCard(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     child: Column(
                       children: [
                         ..._tx.map((t) => Column(
-                          children: [
-                            _TossTxTile(tx: t, won: _won),
-                            const Divider(height: 1, color: _line),
-                          ],
-                        )),
+                              children: [
+                                _TossTxTile(tx: t, won: _won),
+                                const Divider(height: 1, color: _line),
+                              ],
+                            )),
                       ],
                     ),
                   ),
@@ -372,7 +402,9 @@ class _GroupDemandPageState extends State<GroupDemandPage> {
                 if (!_txHasMore && _tx.isNotEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Center(child: Text('끝까지 보셨습니다.', style: TextStyle(color: _tWeak))),
+                    child: Center(
+                        child: Text('끝까지 보셨습니다.',
+                            style: TextStyle(color: _tWeak))),
                   ),
               ],
             );
@@ -399,19 +431,19 @@ class _EmptyTransactions extends StatelessWidget {
   const _EmptyTransactions({super.key});
   @override
   Widget build(BuildContext context) => _TossCard(
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Column(children: const [
-        Icon(Icons.receipt_long_outlined, size: 36, color: _tWeak),
-        SizedBox(height: 8),
-        Text('거래내역이 없습니다.', style: TextStyle(color: _tWeak)),
-      ]),
-    ),
-  );
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Column(children: const [
+            Icon(Icons.receipt_long_outlined, size: 36, color: _tWeak),
+            SizedBox(height: 8),
+            Text('거래내역이 없습니다.', style: TextStyle(color: _tWeak)),
+          ]),
+        ),
+      );
 }
 
 // 공통 유틸
 String _mask(String? n) {
   if (n == null || n.length < 6) return n ?? '-';
-  return '${n.substring(0,3)}****${n.substring(n.length-2)}';
+  return '${n.substring(0, 3)}****${n.substring(n.length - 2)}';
 }

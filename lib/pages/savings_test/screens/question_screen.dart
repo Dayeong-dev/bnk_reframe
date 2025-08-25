@@ -118,7 +118,6 @@ class _QuestionScreenState extends State<QuestionScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text("예적금 추천"),
-          centerTitle: true,
           // 왼쪽 ← 뒤로가기는 자동으로 유지됨
           actions: [
             IconButton(
@@ -164,7 +163,6 @@ class _QuestionScreenState extends State<QuestionScreen> {
                   child: LinearProgressIndicator(
                     value: progress,
                     minHeight: 8,
-                    backgroundColor: Colors.grey.shade300,
                   ),
                 ),
 

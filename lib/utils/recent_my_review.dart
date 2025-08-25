@@ -11,9 +11,9 @@ class _Key {
   @override
   bool operator ==(Object other) =>
       other is _Key &&
-          other.productId == productId &&
-          other.rating == rating &&
-          other.snippet == snippet;
+      other.productId == productId &&
+      other.rating == rating &&
+      other.snippet == snippet;
 
   @override
   int get hashCode => Object.hash(productId, rating, snippet);

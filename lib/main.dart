@@ -24,10 +24,7 @@ import 'event/service/fortune_auth_service.dart';
 import 'event/service/deep_link_service.dart';
 import 'event/pages/start_page.dart';
 import 'event/pages/coupons_page.dart';
-// 필요 시: 입력/결과/로딩 페이지를 네임드 라우트로도 쓰고 싶다면 아래도 import
-// import 'event/pages/input_page.dart';
-// import 'event/pages/result_page.dart';
-// import 'event/pages/loading_page.dart';
+
 // ── Savings 테스트 페이지 임포트 (기존 main.dart에 있던 것 유지) ─────────
 import 'package:reframe/pages/savings_test/screens/start_screen.dart';
 import 'package:reframe/pages/savings_test/screens/question_screen.dart';
@@ -41,21 +38,20 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // 1) 날짜 포맷 로케일 데이터 로드
-  await initializeDateFormatting ('ko_KR', null);
-  // (사용한다면) 다른 로케일도 추가로 호출 가능: await initializeDateFormatting('en_US');
+  await initializeDateFormatting('ko_KR', null);
 
-  // 1) 네이버 지도 SDK 초기화
+  // 2) 네이버 지도 SDK 초기화
   await FlutterNaverMap().init(
     clientId: '1vyye633d9',
     onAuthFailed: (e) => debugPrint('❌ 지도 인증 실패: $e'),
   );
 
-  // 2) Firebase Core 초기화 (운세/분석 모두 공통 기반)
+  // 3) Firebase Core 초기화
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // 3) 운세 기능: 익명 로그인 보장
+  // 4) 운세 기능: 익명 로그인 보장
   try {
     await FortuneAuthService.ensureSignedIn();
     debugPrint('✅ 익명 로그인 보장 완료');
@@ -63,7 +59,7 @@ Future<void> main() async {
     debugPrint('🔥 익명 로그인 실패: $e\n$st');
   }
 
-  // 4) 기존 FirebaseService(Analytics 등) 초기화
+  // 5) 기존 FirebaseService(Analytics 등) 초기화
   final firebaseService = await FirebaseService.init(
     forceRefreshToken: true,
   );
@@ -103,14 +99,11 @@ class MyApp extends StatelessWidget {
           '/savings/result': (_) => const ResultScreen(),
 
           // 운세 이벤트(선택) 네임드 라우트
-
           '/event/fortune': (_) => const StartPage(),
           '/event/coupons': (_) => const CouponsPage(stampCount: 0),
-          // 필요 시 추가:
-          // '/event/input': (_) => const InputPage(),
-          // '/event/result': (_) => ResultPage(args: (isAgreed:false, name:null, birthDate:null, gender:null, invitedBy:null)),
-          // '/event/loading': (_) => LoadingPage(args: (isAgreed:false, name:null, birthDate:null, gender:null, invitedBy:null)),
         },
+
+        // 👇👇 여기서 전역 AppBar 스타일 통일!
         theme: ThemeData(
           useMaterial3: true,
           scaffoldBackgroundColor: Colors.white,
@@ -118,13 +111,48 @@ class MyApp extends StatelessWidget {
             primary: primaryColor,
             surface: Colors.white,
             background: Colors.white,
+
           ),
+          textButtonTheme: TextButtonThemeData(
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.black,   // ← 모든 TextButton 기본 텍스트색
+              textStyle: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+              ),
+            ),
+          ),
+
+          // ✅ AppBar 전역 스타일
           appBarTheme: const AppBarTheme(
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black,
+            centerTitle: true,                     // 타이틀 중앙 정렬
+            backgroundColor: Colors.white,         // AppBar 배경
+            foregroundColor: Colors.black,         // ← 뒤로가기 아이콘 / 텍스트 전부 검정
             elevation: 0,
             surfaceTintColor: Colors.transparent,
+
+            // 타이틀 텍스트 통일: 무조건 볼드, 검정
+            titleTextStyle: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,         // 볼드
+              color: Colors.black,
+            ),
+
+            // 액션 버튼 텍스트/아이콘도 동일하게
+            toolbarTextStyle: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
+            ),
+            iconTheme: IconThemeData(
+              color: Colors.black,                 // 뒤로가기/메뉴 아이콘 색
+            ),
+            actionsIconTheme: IconThemeData(
+              color: Colors.black,                 // 오른쪽 액션 아이콘 색
+            ),
           ),
+
+
           bottomSheetTheme: const BottomSheetThemeData(
             surfaceTintColor: Colors.transparent,
             backgroundColor: Colors.white,
@@ -158,8 +186,7 @@ class _DeepLinkBootstrapperState extends State<DeepLinkBootstrapper> {
 
       // 2) inviter/code 파라미터 통합
       final inviter = uri.queryParameters['inviter'];
-      final code =
-          uri.queryParameters['code'] ?? uri.queryParameters['inviteCode'];
+      final code = uri.queryParameters['code'] ?? uri.queryParameters['inviteCode'];
       final inviterOrCode = inviter ?? code;
 
       // 3) 중복 네비 방지 후 네비게이션

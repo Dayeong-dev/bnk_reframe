@@ -10,9 +10,10 @@ class StartScreen extends StatefulWidget {
   State<StartScreen> createState() => _StartScreenState();
 }
 
-class _StartScreenState extends State<StartScreen> with TickerProviderStateMixin {
+class _StartScreenState extends State<StartScreen>
+    with TickerProviderStateMixin {
   late final AnimationController _textController; // 문장 전체 페이드
-  late final AnimationController _popController;  // 이미지 팝(커졌다 작아짐)
+  late final AnimationController _popController; // 이미지 팝(커졌다 작아짐)
 
   @override
   void initState() {
@@ -117,7 +118,8 @@ class _StartScreenState extends State<StartScreen> with TickerProviderStateMixin
                       ),
                     ),
                   ),
-                  onPressed: () => Navigator.pushNamed(context, '/savings/question'),
+                  onPressed: () =>
+                      Navigator.pushNamed(context, '/savings/question'),
                   child: const Text(
                     '시작하기',
                     style: TextStyle(

@@ -69,10 +69,10 @@ class _DepositListPageState extends State<DepositListPage>
   }
 
   Future<void> _logProductClick(
-    DepositProduct item,
-    int index, {
-    required String source,
-  }) async {
+      DepositProduct item,
+      int index, {
+        required String source,
+      }) async {
     await _analytics.logEvent(
       name: 'product_list_click',
       parameters: {
@@ -152,7 +152,8 @@ class _DepositListPageState extends State<DepositListPage>
     final cat = categories[catIndex];
     if (cat != '전체') {
       if (cat == '입출금') {
-        result = result.where((e) => (e.category ?? '') == '입출금자유').toList();
+        result =
+            result.where((e) => (e.category ?? '') == '입출금자유').toList();
       } else {
         result = result.where((e) => (e.category ?? '') == cat).toList();
       }
@@ -281,7 +282,7 @@ class _DepositListPageState extends State<DepositListPage>
                       style: TextStyle(
                         color: selected ? Colors.white : Colors.black87,
                         fontWeight:
-                            selected ? FontWeight.w800 : FontWeight.w500,
+                        selected ? FontWeight.w800 : FontWeight.w500,
                       ),
                     ),
                   ),
@@ -491,33 +492,27 @@ class _DepositListPageState extends State<DepositListPage>
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           boxShadow: const [
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 5, // 🔧 살짝 줄임(시각적 부피 감소)
-              offset: Offset(0, 2), // 🔧
-            ),
+            BoxShadow(color: Color(0x14000000), blurRadius: 5, offset: Offset(0, 2)),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min, // 카드 높이를 내용만큼만
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // 상단 썸네일 영역
+            // ===== 상단 썸네일 영역 =====
             ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
               child: Stack(
                 children: [
                   SizedBox(
-                    height: 72, // 🔧 90→84→72까지 축소: 카드 자체 높이 크게 감소
-                    child: Center(
-                      child:
-                          RoundProductIcon(product: item, size: 56), // 🔧 58→56
+                    height: 75,
+                    child: Align(
+                      alignment: const Alignment(0, 0.70),
+                      child: RoundProductIcon(product: item, size: 56),
                     ),
                   ),
-                  // 번호: 배경 없는 텍스트
                   Positioned(
-                    top: 8,
+                    top: 10,
                     left: 8,
                     child: Text(
                       '#${index + 1}',
@@ -529,66 +524,53 @@ class _DepositListPageState extends State<DepositListPage>
                       ),
                     ),
                   ),
-                  // HOT: 텍스트만
-                  if (_isHot(item))
-                    const Positioned(top: 8, right: 8, child: _HotTextBadge()),
+                  if (_isHot(item)) const Positioned(top: 8, right: 8, child: _HotTextBadge()),
                 ],
               ),
             ),
 
-            // 본문
+            // ===== 본문 =====
             Padding(
-              padding:
-                  const EdgeInsets.fromLTRB(12, 8, 12, 8), // 🔧 하단 10→8로 축소
+              // ✅ 상/하 동일 패딩으로 통일 (12,10,12,10 → 12,10,12,10 권장)
+              //   * 지금 코드 하단에 SizedBox(6)가 있었는데, 아래에서 제거해 상/하 완전 대칭
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
-                    height: 34, // 🔧 38→34로 제목 영역 축소
-                    child: Text(
-                      name,
+                    height: 32,
+                    child: _AutoVCenterTitle(
+                      text: name,
+                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
                       maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13.5, // 🔧 14→13.5
-                        fontWeight: FontWeight.w600,
-                      ),
-                      strutStyle: const StrutStyle(
-                        forceStrutHeight: true,
-                        height: 1.20, // 🔧 1.25→1.20로 라인간격 축소
-                      ),
+                      strutStyle: const StrutStyle(forceStrutHeight: true, height: 1.20),
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   _purposeChipsOneLine(item),
-                  const SizedBox(height: 6), // 🔧 8→6
+                  const SizedBox(height: 4),
 
-                  // 금리 표시: 배경 없는 텍스트
                   Row(
                     children: [
                       Text(
                         '최고 ${item.maxRate.toStringAsFixed(2)}%',
-                        style: const TextStyle(
-                          color: _brand,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                        ),
+                        softWrap: false,
+                        style: const TextStyle(color: _brand, fontSize: 13, fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
                           '기본 ${item.minRate.toStringAsFixed(2)}%',
-                          style: const TextStyle(
-                            fontSize: 11.5, // 🔧 12→11.5
-                            color: Colors.black54,
-                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 11.5, color: Colors.black54),
                         ),
                       ),
                     ],
                   ),
+
+                  // 🚫 하단 추가 여백 제거(기존 const SizedBox(height: 6))
                 ],
               ),
             ),
@@ -597,6 +579,7 @@ class _DepositListPageState extends State<DepositListPage>
       ),
     );
   }
+
 
   // ---------- LIST 카드 ----------
   Widget _listCard(DepositProduct item, int index) {
@@ -713,11 +696,10 @@ class _DepositListPageState extends State<DepositListPage>
     );
   }
 
-  // ---------- 하단 “더보기/간략히” (화이트, 컴팩트) ----------
+  // ---------- 하단 “더보기/간략히” ----------
   Widget _moreLessArea(int totalForPage) {
     final total = totalForPage;
 
-    // 더 보여줄 게 없고, 간략히 조건도 아니면 공간 자체를 만들지 않음
     final canMore = total > itemsToShow;
     final canLess = (_gridMode ? 10 : 7) < itemsToShow;
     if (!canMore && !canLess) return const SizedBox.shrink();
@@ -729,8 +711,8 @@ class _DepositListPageState extends State<DepositListPage>
           width: double.infinity,
           child: ElevatedButton.icon(
             icon: const Icon(Icons.expand_more, size: 18),
-            label: const Text('더보기',
-                style: TextStyle(fontWeight: FontWeight.w700)),
+            label:
+            const Text('더보기', style: TextStyle(fontWeight: FontWeight.w700)),
             style: ElevatedButton.styleFrom(
               backgroundColor: _brand,
               foregroundColor: Colors.white,
@@ -758,7 +740,7 @@ class _DepositListPageState extends State<DepositListPage>
             foregroundColor: Colors.black54,
             minimumSize: const Size.fromHeight(40),
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
           onPressed: () => setState(() => itemsToShow = _gridMode ? 8 : 6),
         ),
@@ -767,15 +749,15 @@ class _DepositListPageState extends State<DepositListPage>
 
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 0), // 상단 여백 최소화
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
       child: SafeArea(
         top: false,
         child: Column(
           children: [
             ...controls.map((w) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: w,
-                )),
+              padding: const EdgeInsets.only(bottom: 8),
+              child: w,
+            )),
           ],
         ),
       ),
@@ -790,46 +772,43 @@ class _DepositListPageState extends State<DepositListPage>
       backgroundColor: _bg,
       appBar: AppBar(
         title: const Text('예적금 목록'),
-        backgroundColor: Colors.white,
-        elevation: 0.5,
-        foregroundColor: Colors.black87,
         bottom: _searchBar(),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Column(
-              children: [
-                _topControls(totalCurrent),
-                Expanded(
-                  child: PageView.builder(
-                    controller: _pageController,
-                    onPageChanged: (i) {
-                      setState(() {
-                        selectedIndex = i;
-                        itemsToShow = _gridMode ? 8 : 6;
-                      });
-                      _applyFilter();
-                      _logCategoryView(i);
-                    },
-                    itemCount: categories.length,
-                    itemBuilder: (context, pageIndex) {
-                      final pageList = _computeFiltered(pageIndex);
-                      final visible = pageList.take(itemsToShow).toList();
+        children: [
+          _topControls(totalCurrent),
+          Expanded(
+            child: PageView.builder(
+              controller: _pageController,
+              onPageChanged: (i) {
+                setState(() {
+                  selectedIndex = i;
+                  itemsToShow = _gridMode ? 8 : 6;
+                });
+                _applyFilter();
+                _logCategoryView(i);
+              },
+              itemCount: categories.length,
+              itemBuilder: (context, pageIndex) {
+                final pageList = _computeFiltered(pageIndex);
+                final visible = pageList.take(itemsToShow).toList();
 
-                      _scheduleImpressionLog(visible, pageIndex);
+                _scheduleImpressionLog(visible, pageIndex);
 
-                      return RefreshIndicator(
-                        onRefresh: _loadProducts,
-                        color: _brand,
-                        child: _gridMode
-                            ? _buildGridForPage(visible, pageList.length)
-                            : _buildListForPage(visible, pageList.length),
-                      );
-                    },
-                  ),
-                ),
-              ],
+                return RefreshIndicator(
+                  onRefresh: _loadProducts,
+                  color: _brand,
+                  child: _gridMode
+                      ? _buildGridForPage(visible, pageList.length)
+                      : _buildListForPage(visible, pageList.length),
+                );
+              },
             ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -845,15 +824,15 @@ class _DepositListPageState extends State<DepositListPage>
   }
 
   Widget _buildGridForPage(List<DepositProduct> visible, int totalForPage) {
-    // ⬇ 하단 여백 줄이기: 그리드 패딩 하단을 최소화
+    // 그리드 셀 비율(높이)은 기존과 동일하게 유지
     const crossAxisCount = 2;
     const hPad = 12.0;
     const vPadTop = 8.0;
-    const vPadBottom = 4.0; // 기존 (8 + safe) → 4.0로 축소
+    const vPadBottom = 4.0;
     const crossAxisSpacing = 10.0;
     const mainAxisSpacing = 10.0;
 
-    const targetAspect = 1.06; // 🔧 0.88 → 1.06 : 셀 자체 높이를 확 줄임
+    const targetAspect = 1.06;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -863,34 +842,77 @@ class _DepositListPageState extends State<DepositListPage>
         final tileWidth = gridWidth / crossAxisCount;
 
         final rawHeight = tileWidth / targetAspect;
-        final tileHeight =
-            rawHeight.ceilToDouble(); // 🔧 여유값 +4 제거로 더 타이트하게 (원래 +4 있었음)
+        final tileHeight = rawHeight.ceilToDouble();
 
         return CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverPadding(
               padding:
-                  const EdgeInsets.fromLTRB(hPad, vPadTop, hPad, vPadBottom),
+              const EdgeInsets.fromLTRB(hPad, vPadTop, hPad, vPadBottom),
               sliver: SliverGrid(
                 delegate: SliverChildBuilderDelegate(
-                  (context, i) => _gridCard(visible[i], i),
+                      (context, i) => _gridCard(visible[i], i),
                   childCount: visible.length,
                 ),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: crossAxisCount,
                   mainAxisSpacing: mainAxisSpacing,
                   crossAxisSpacing: crossAxisSpacing,
-                  mainAxisExtent: tileHeight, // 카드가 더 낮아진 mainAxisExtent에 맞춰 렌더
+                  mainAxisExtent: tileHeight,
                 ),
               ),
             ),
-            // 버튼 영역(필요할 때만 생성) — 그리드와 거의 붙게
             SliverToBoxAdapter(child: _moreLessArea(totalForPage)),
           ],
         );
       },
     );
+  }
+}
+
+/// ✅ 제목 자동 세로 정렬 위젯
+/// - 1줄: 세로 중앙(centerLeft)
+/// - 2줄 이상: 위쪽(topLeft)
+class _AutoVCenterTitle extends StatelessWidget {
+  final String text;
+  final TextStyle style;
+  final int maxLines;
+  final StrutStyle? strutStyle;
+
+  const _AutoVCenterTitle({
+    required this.text,
+    required this.style,
+    this.maxLines = 2,
+    this.strutStyle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, c) {
+      // TextPainter로 실제 라인 수 측정
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: style),
+        textDirection: TextDirection.ltr,
+        maxLines: maxLines,
+        strutStyle: strutStyle,
+        ellipsis: '…',
+      )..layout(maxWidth: c.maxWidth);
+
+      final lines = painter.computeLineMetrics().length;
+      final align = (lines <= 1) ? Alignment.centerLeft : Alignment.topLeft;
+
+      return Align(
+        alignment: align,
+        child: Text(
+          text,
+          maxLines: maxLines,
+          overflow: TextOverflow.ellipsis,
+          style: style,
+          strutStyle: strutStyle,
+        ),
+      );
+    });
   }
 }
 
@@ -962,10 +984,10 @@ class _OverlappedFlatBowPainter extends CustomPainter {
   final double overlap;
 
   _OverlappedFlatBowPainter(
-    this.leftColor,
-    this.rightColor, {
-    this.overlap = 0.8,
-  });
+      this.leftColor,
+      this.rightColor, {
+        this.overlap = 0.8,
+      });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1221,7 +1243,7 @@ class RoundProductIcon extends StatelessWidget {
   Color _seedColor(String seed) {
     if (seed.isEmpty) seed = 'seed';
     final code =
-        seed.codeUnits.fold<int>(0, (a, b) => (a * 31 + b) & 0x7fffffff);
+    seed.codeUnits.fold<int>(0, (a, b) => (a * 31 + b) & 0x7fffffff);
     final hue = (code % 360).toDouble();
     final hsl = HSLColor.fromAHSL(1, hue, 0.58, 0.55);
     return hsl.toColor();

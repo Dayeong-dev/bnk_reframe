@@ -18,6 +18,9 @@ class InputPage extends StatefulWidget {
 }
 
 class _InputPageState extends State<InputPage> {
+  // ===== 공통 사이즈(★추가: 모든 입력 위젯 높이 통일) =====
+  static const double _fieldHeight = 52;
+
   // ===== 텍스트 컨트롤러 =====
   final nameController = TextEditingController();
 
@@ -28,7 +31,7 @@ class _InputPageState extends State<InputPage> {
 
   String gender = "남";
 
-  // ✅ 기본값 체크 On (중복 선언 제거)
+  // ✅ 기본값 체크 On
   bool isAgreed = true;
 
   String? invitedBy;
@@ -67,7 +70,7 @@ class _InputPageState extends State<InputPage> {
         return;
       }
       setState(
-          () => _typedTitle = _fullTitle.substring(0, _typedTitle.length + 1));
+              () => _typedTitle = _fullTitle.substring(0, _typedTitle.length + 1));
     });
   }
 
@@ -77,7 +80,7 @@ class _InputPageState extends State<InputPage> {
     final raw = ModalRoute.of(context)?.settings.arguments;
     if (raw is Map) {
       final v =
-          (raw['inviter'] ?? raw['inviteCode'] ?? raw['code'])?.toString();
+      (raw['inviter'] ?? raw['inviteCode'] ?? raw['code'])?.toString();
       if (v != null && v.isNotEmpty && invitedBy == null) {
         setState(() => invitedBy = v); // StartPage → InputPage 전달분 반영
         _recordInviteVisitIfNeeded(v, source: 'route-arg');
@@ -97,7 +100,7 @@ class _InputPageState extends State<InputPage> {
     }
 
     _linkSub = _appLinks.uriLinkStream.listen(
-      (uri) => _maybeCaptureInvite(uri, source: 'stream'),
+          (uri) => _maybeCaptureInvite(uri, source: 'stream'),
       onError: (err) => debugPrint('⚠️ uri link stream error: $err'),
     );
   }
@@ -207,7 +210,7 @@ class _InputPageState extends State<InputPage> {
     final name = nameController.text.trim();
     final birth = _composeBirth();
 
-    // ✅ 동의 저장은 '베스트 에포트' — 실패해도 흐름을 멈추지 않음
+    // ✅ 동의 저장은 '베스트 에포트'
     if (isAgreed) {
       try {
         await FortuneFirestoreService.saveOrUpdateUserConsent(
@@ -229,13 +232,12 @@ class _InputPageState extends State<InputPage> {
 
     if (!mounted) return;
 
-    // 화면 이동은 한 번만 수행
     final FortuneFlowArgs args = (
-      isAgreed: isAgreed,
-      name: isAgreed ? name : null,
-      birthDate: isAgreed ? birth : null,
-      gender: isAgreed ? gender : null,
-      invitedBy: invitedBy, // 내부 전달만, 화면 노출 없음
+    isAgreed: isAgreed,
+    name: isAgreed ? name : null,
+    birthDate: isAgreed ? birth : null,
+    gender: isAgreed ? gender : null,
+    invitedBy: invitedBy, // 내부 전달만, 화면 노출 없음
     );
 
     try {
@@ -320,13 +322,12 @@ class _InputPageState extends State<InputPage> {
 
   /// === 모달 다이얼로그(숫자 휠) 열기 ===
   Future<void> _openBirthPickerModal() async {
-    // 현재 값을 임시 저장 (완료 시에만 반영)
     int tempYear = _year;
     int tempMonth = _month;
     int tempDay = _day;
 
     final years =
-        List<int>.generate(_maxYear - _minYear + 1, (i) => _minYear + i);
+    List<int>.generate(_maxYear - _minYear + 1, (i) => _minYear + i);
     final months = List<int>.generate(12, (i) => i + 1);
 
     int yearIndex = years.indexOf(tempYear);
@@ -342,12 +343,11 @@ class _InputPageState extends State<InputPage> {
         final primary = const Color(0xFF2962FF);
         return Dialog(
           insetPadding:
-              const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: StatefulBuilder(
             builder: (context, setSB) {
-              // 모달 내부 전용 setState
               return ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 440),
                 child: Column(
@@ -378,7 +378,7 @@ class _InputPageState extends State<InputPage> {
                             style: FilledButton.styleFrom(
                               backgroundColor: primary,
                               padding:
-                                  const EdgeInsets.symmetric(horizontal: 16),
+                              const EdgeInsets.symmetric(horizontal: 16),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
@@ -406,7 +406,6 @@ class _InputPageState extends State<InputPage> {
                         height: 220,
                         child: Row(
                           children: [
-                            // 연
                             Expanded(
                               child: CupertinoPicker(
                                 itemExtent: 36,
@@ -415,20 +414,19 @@ class _InputPageState extends State<InputPage> {
                                 onSelectedItemChanged: (i) {
                                   tempYear = years[i];
                                   final newMax =
-                                      _daysInMonth(tempYear, tempMonth);
+                                  _daysInMonth(tempYear, tempMonth);
                                   if (tempDay > newMax) tempDay = newMax;
                                   dayMax = newMax;
                                   days =
-                                      List<int>.generate(newMax, (k) => k + 1);
+                                  List<int>.generate(newMax, (k) => k + 1);
                                   dayIndex = (tempDay - 1).clamp(0, newMax - 1);
-                                  setSB(() {}); // 일 리스트 갱신
+                                  setSB(() {});
                                 },
                                 children: years
                                     .map((y) => Center(child: Text('$y')))
                                     .toList(),
                               ),
                             ),
-                            // 월
                             Expanded(
                               child: CupertinoPicker(
                                 itemExtent: 36,
@@ -437,20 +435,19 @@ class _InputPageState extends State<InputPage> {
                                 onSelectedItemChanged: (i) {
                                   tempMonth = months[i];
                                   final newMax =
-                                      _daysInMonth(tempYear, tempMonth);
+                                  _daysInMonth(tempYear, tempMonth);
                                   if (tempDay > newMax) tempDay = newMax;
                                   dayMax = newMax;
                                   days =
-                                      List<int>.generate(newMax, (k) => k + 1);
+                                  List<int>.generate(newMax, (k) => k + 1);
                                   dayIndex = (tempDay - 1).clamp(0, newMax - 1);
-                                  setSB(() {}); // 일 리스트 갱신
+                                  setSB(() {});
                                 },
                                 children: months
                                     .map((m) => Center(child: Text('$m')))
                                     .toList(),
                               ),
                             ),
-                            // 일
                             Expanded(
                               child: CupertinoPicker(
                                 itemExtent: 36,
@@ -466,7 +463,6 @@ class _InputPageState extends State<InputPage> {
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 10),
                   ],
                 ),
@@ -483,10 +479,7 @@ class _InputPageState extends State<InputPage> {
     final birthLabel = '$_year년 $_month월 $_day일';
 
     return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        elevation: 0.5,
-      ),
+      appBar: AppBar(),
 
       // ✅ 하단 고정 버튼
       bottomNavigationBar: SafeArea(
@@ -534,11 +527,14 @@ class _InputPageState extends State<InputPage> {
             const SizedBox(height: 6),
             const SizedBox(height: 20),
 
-            // 이름
-            TextField(
-              controller: nameController,
-              decoration: _decor('이름'),
-              textInputAction: TextInputAction.next,
+            // ===== 이름 (★수정: 높이/폭을 다른 요소와 동일하게) =====
+            SizedBox(
+              height: _fieldHeight,
+              child: TextField(
+                controller: nameController,
+                decoration: _decor('이름'),
+                textInputAction: TextInputAction.next,
+              ),
             ),
             const SizedBox(height: 22),
 
@@ -552,7 +548,7 @@ class _InputPageState extends State<InputPage> {
                   child: GestureDetector(
                     onTap: () => setState(() => gender = "남"),
                     child: Container(
-                      height: 52,
+                      height: _fieldHeight,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: gender == "남"
@@ -565,9 +561,9 @@ class _InputPageState extends State<InputPage> {
                         "남",
                         style: TextStyle(
                           color:
-                              gender == "남" ? Colors.black87 : Colors.black54,
+                          gender == "남" ? Colors.black87 : Colors.black54,
                           fontWeight:
-                              gender == "남" ? FontWeight.w600 : FontWeight.w400,
+                          gender == "남" ? FontWeight.w600 : FontWeight.w400,
                         ),
                       ),
                     ),
@@ -578,7 +574,7 @@ class _InputPageState extends State<InputPage> {
                   child: GestureDetector(
                     onTap: () => setState(() => gender = "여"),
                     child: Container(
-                      height: 52,
+                      height: _fieldHeight,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: gender == "여"
@@ -591,9 +587,9 @@ class _InputPageState extends State<InputPage> {
                         "여",
                         style: TextStyle(
                           color:
-                              gender == "여" ? Colors.black87 : Colors.black54,
+                          gender == "여" ? Colors.black87 : Colors.black54,
                           fontWeight:
-                              gender == "여" ? FontWeight.w600 : FontWeight.w400,
+                          gender == "여" ? FontWeight.w600 : FontWeight.w400,
                         ),
                       ),
                     ),
@@ -614,8 +610,9 @@ class _InputPageState extends State<InputPage> {
               },
               borderRadius: BorderRadius.circular(12),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                height: _fieldHeight, // ★ 같은 높이
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                alignment: Alignment.centerLeft,
                 decoration: BoxDecoration(
                   color: Colors.white,
                   border: Border.all(color: Colors.grey.shade300),
@@ -637,44 +634,48 @@ class _InputPageState extends State<InputPage> {
 
             const SizedBox(height: 24),
 
-            // 개인정보 동의
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Checkbox(
-                      value: isAgreed,
-                      onChanged: (v) => setState(() => isAgreed = v ?? false),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(4)),
-                    ),
-                    const SizedBox(width: 4),
-                    const Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.only(top: 14),
-                        child: Text(
-                          '개인정보 수집/이용 동의 (선택)',
-                          style: TextStyle(
-                              fontSize: 13.5, fontWeight: FontWeight.w600),
-                        ),
+            // 개인정보 동의 (체크박스 고정, 라벨만 왼쪽으로 당김)
+            Builder(builder: (context) {
+              void toggle() => setState(() => isAgreed = !isAgreed);
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // ✅ 체크박스는 그대로
+                  Checkbox(
+                    value: isAgreed,
+                    onChanged: (v) => setState(() => isAgreed = v ?? false),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
+                  ),
+
+                  // ✅ 라벨만 왼쪽으로 당기기
+                  Transform.translate(
+                    offset: const Offset(-1, 0), // ← 텍스트만 왼쪽으로 6px
+                    child: GestureDetector(
+                      onTap: toggle,
+                      behavior: HitTestBehavior.translucent,
+                      child: const Text(
+                        '개인정보 수집/이용 동의 (선택)',
+                        style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
                       ),
                     ),
-                  ],
-                ),
-
-                // 안내 문구
-                const Padding(
-                  padding: EdgeInsets.only(left: 12, right: 8, bottom: 4),
-                  child: Text(
-                    '동의 시 이름·생년월일·성별을 서버에 저장합니다.\n동의하지 않으면 결과 페이지에서만 일시적으로 사용됩니다.',
-                    style: TextStyle(
-                        fontSize: 12.5, height: 1.4, color: Colors.black54),
                   ),
-                ),
-              ],
+                ],
+              );
+            }),
+
+
+            // 안내 문구
+            const Padding(
+              padding: EdgeInsets.only(left: 7, right: 8, bottom: 4), // ← 12 → 16
+              child: Text(
+                '동의 시 이름·생년월일·성별을 서버에 저장합니다.\n'
+                    '동의하지 않으면 결과 페이지에서만 일시적으로 사용됩니다.',
+                style: TextStyle(fontSize: 12.5, height: 1.4, color: Colors.black54),
+              ),
             ),
+
 
             const SizedBox(height: 40),
           ],

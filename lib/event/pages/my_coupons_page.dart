@@ -52,7 +52,6 @@ class MyCouponsPage extends StatelessWidget {
               final isUsed = status.toUpperCase() == 'REDEEMED';
 
               return Card(
-                elevation: 0,
                 color: Colors.grey.shade50,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -83,7 +82,8 @@ class MyCouponsPage extends StatelessWidget {
                       // 코드
                       Row(
                         children: [
-                          const Text('코드', style: TextStyle(color: Colors.black54)),
+                          const Text('코드',
+                              style: TextStyle(color: Colors.black54)),
                           const SizedBox(width: 8),
                           SelectableText(
                             code.isEmpty ? '(코드 없음)' : code,
@@ -95,11 +95,13 @@ class MyCouponsPage extends StatelessWidget {
                             onPressed: code.isEmpty
                                 ? null
                                 : () {
-                              Clipboard.setData(ClipboardData(text: code));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('코드를 복사했어요.')),
-                              );
-                            },
+                                    Clipboard.setData(
+                                        ClipboardData(text: code));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text('코드를 복사했어요.')),
+                                    );
+                                  },
                             icon: const Icon(Icons.copy_rounded),
                           ),
                         ],
@@ -109,12 +111,14 @@ class MyCouponsPage extends StatelessWidget {
                       // 날짜들
                       Row(
                         children: [
-                          const Text('발급일', style: TextStyle(color: Colors.black54)),
+                          const Text('발급일',
+                              style: TextStyle(color: Colors.black54)),
                           const SizedBox(width: 8),
                           Text(issuedAt),
                           if (isUsed) ...[
                             const SizedBox(width: 18),
-                            const Text('사용일', style: TextStyle(color: Colors.black54)),
+                            const Text('사용일',
+                                style: TextStyle(color: Colors.black54)),
                             const SizedBox(width: 8),
                             Text(redeemedAt),
                           ],
@@ -132,7 +136,8 @@ class MyCouponsPage extends StatelessWidget {
                               final shareText = StringBuffer()
                                 ..writeln('🎁 쿠폰 공유')
                                 ..writeln(title)
-                                ..writeln(code.isEmpty ? '(코드 없음)' : '코드: $code');
+                                ..writeln(
+                                    code.isEmpty ? '(코드 없음)' : '코드: $code');
                               await Share.share(shareText.toString());
                             },
                             icon: const Icon(Icons.ios_share_rounded, size: 18),
@@ -141,10 +146,12 @@ class MyCouponsPage extends StatelessWidget {
                           if (!isUsed)
                             FilledButton.icon(
                               onPressed: () async {
-                                await FortuneFirestoreService.redeemCoupon(d.id);
+                                await FortuneFirestoreService.redeemCoupon(
+                                    d.id);
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('사용 완료 처리했습니다.')),
+                                    const SnackBar(
+                                        content: Text('사용 완료 처리했습니다.')),
                                   );
                                 }
                               },
@@ -157,7 +164,8 @@ class MyCouponsPage extends StatelessWidget {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => CouponDetailPage(couponId: d.id),
+                                  builder: (_) =>
+                                      CouponDetailPage(couponId: d.id),
                                 ),
                               );
                             },
@@ -201,13 +209,13 @@ class _StatusChip extends StatelessWidget {
     final color = s == 'REDEEMED'
         ? Colors.green
         : s == 'EXPIRED'
-        ? Colors.red
-        : Colors.blue;
+            ? Colors.red
+            : Colors.blue;
     final label = s == 'REDEEMED'
         ? '사용완료'
         : s == 'EXPIRED'
-        ? '만료됨'
-        : '미사용';
+            ? '만료됨'
+            : '미사용';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -215,7 +223,8 @@ class _StatusChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: color.withOpacity(.35)),
       ),
-      child: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w700)),
+      child: Text(label,
+          style: TextStyle(color: color, fontWeight: FontWeight.w700)),
     );
   }
 }

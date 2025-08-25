@@ -17,12 +17,12 @@ class _AppShellState extends State<AppShell> {
   final _navigatorKeys = List.generate(4, (_) => GlobalKey<NavigatorState>());
 
   Widget _rootForIndex(int i) => switch (i) {
-        0 => const HomePage(),
-        1 => DepositMainPage(),
-        2 => const StartPage(),
-        3 => const MorePage(),
-        _ => const HomePage(),
-      };
+    0 => const HomePage(),
+    1 => DepositMainPage(),
+    2 => const StartPage(),
+    3 => const MorePage(),
+    _ => const HomePage(),
+  };
 
   Widget _buildTabNavigator(int index) {
     return Offstage(
@@ -60,8 +60,8 @@ class _AppShellState extends State<AppShell> {
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
-        backgroundColor: backgroundColor, // 앱 공통 매우 연한 회색
-        extendBody: true, // 바 뒤로 바디 연장 → 페이지 위에 떠 보임
+        backgroundColor: Colors.white, // ✅ 전체 배경 흰색
+        extendBody: false,
         body: Stack(
           children: [
             _buildTabNavigator(0),
@@ -72,17 +72,14 @@ class _AppShellState extends State<AppShell> {
         ),
         bottomNavigationBar: SafeArea(
           top: false,
+          bottom: true,
           child: MediaQuery(
-            // 하단바만 텍스트 스케일 고정(오버플로우 방지)
             data: MediaQuery.of(context).copyWith(
               textScaler: const TextScaler.linear(1.0),
             ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: _FloatingBankBar(
-                selectedIndex: _selectedIndex,
-                onTap: _onTapNav,
-              ),
+            child: _AttachedBankBar(
+              selectedIndex: _selectedIndex,
+              onTap: _onTapNav,
             ),
           ),
         ),
@@ -91,9 +88,9 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
-/// 플로팅 스타일 하단바 (그림자/테두리 없음, 전체 라운드)
-class _FloatingBankBar extends StatelessWidget {
-  const _FloatingBankBar({
+/// 하단에 붙고 좌우 꽉 차며 '위쪽'만 둥근 스타일 + 상단 보더라인
+class _AttachedBankBar extends StatelessWidget {
+  const _AttachedBankBar({
     required this.selectedIndex,
     required this.onTap,
   });
@@ -110,61 +107,66 @@ class _FloatingBankBar extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, c) {
         final bool compact = c.maxWidth < 360;
-        final double radius = 22;
         final double vPad = compact ? 8 : 10;
         final double hPad = compact ? 8 : 12;
 
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(radius),
-          child: Container(
-            color: _bg, // 바 본체만 흰색
-            padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // ✅ 내장 아이콘으로 교체: 홈 / 금융쇼핑 / 이벤트 / 더보기
-                _NavCol(
-                  index: 0,
-                  label: '홈',
-                  icon: Icons.home_filled, // 라인형 홈
-                  selectedIndex: selectedIndex,
-                  onTap: onTap,
-                  compact: compact,
-                  selectedColor: _selected,
-                  unselectedColor: _unselected,
-                ),
-                _NavCol(
-                  index: 1,
-                  label: '상품',
-                  icon: Icons.shopping_bag_outlined, // 쇼핑백 라인
-                  selectedIndex: selectedIndex,
-                  onTap: onTap,
-                  compact: compact,
-                  selectedColor: _selected,
-                  unselectedColor: _unselected,
-                ),
-                _NavCol(
-                  index: 2,
-                  label: '이벤트',
-                  icon: Icons.card_giftcard_outlined, // 기프트 라인
-                  selectedIndex: selectedIndex,
-                  onTap: onTap,
-                  compact: compact,
-                  selectedColor: _selected,
-                  unselectedColor: _unselected,
-                ),
-                _NavCol(
-                  index: 3,
-                  label: '더보기',
-                  icon: Icons.menu_rounded, // 햄버거(가로줄 3개)
-                  selectedIndex: selectedIndex,
-                  onTap: onTap,
-                  compact: compact,
-                  selectedColor: _selected,
-                  unselectedColor: _unselected,
-                ),
-              ],
+        return Container(
+          decoration: BoxDecoration(
+            color: _bg,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(22),
+              topRight: Radius.circular(22),
             ),
+            // ✅ 그림자 제거, 대신 보더라인 추가
+            border: Border(
+              top: BorderSide(color: Colors.grey.shade300, width: 0.6),
+            ),
+          ),
+          padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _NavCol(
+                index: 0,
+                label: '홈',
+                icon: Icons.home_filled,
+                selectedIndex: selectedIndex,
+                onTap: onTap,
+                compact: compact,
+                selectedColor: _selected,
+                unselectedColor: _unselected,
+              ),
+              _NavCol(
+                index: 1,
+                label: '상품',
+                icon: Icons.shopping_bag_outlined,
+                selectedIndex: selectedIndex,
+                onTap: onTap,
+                compact: compact,
+                selectedColor: _selected,
+                unselectedColor: _unselected,
+              ),
+              _NavCol(
+                index: 2,
+                label: '이벤트',
+                icon: Icons.card_giftcard_outlined,
+                selectedIndex: selectedIndex,
+                onTap: onTap,
+                compact: compact,
+                selectedColor: _selected,
+                unselectedColor: _unselected,
+              ),
+              _NavCol(
+                index: 3,
+                label: '더보기',
+                icon: Icons.menu_rounded,
+                selectedIndex: selectedIndex,
+                onTap: onTap,
+                compact: compact,
+                selectedColor: _selected,
+                unselectedColor: _unselected,
+              ),
+            ],
           ),
         );
       },
@@ -202,7 +204,7 @@ class _NavCol extends StatelessWidget {
 
     return Expanded(
       child: GestureDetector(
-        behavior: HitTestBehavior.opaque, // 잉크/물결 제거
+        behavior: HitTestBehavior.opaque,
         onTap: () => onTap(index),
         child: Column(
           mainAxisSize: MainAxisSize.min,

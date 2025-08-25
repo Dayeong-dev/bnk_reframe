@@ -6,19 +6,19 @@ import 'package:reframe/pages/enroll/success_enroll.dart';
 
 String commonUrl = "/mobile/application";
 
-Future<void> addApplication(int productId, EnrollForm enrollFormData, BuildContext context) async {
+Future<void> addApplication(
+    int productId, EnrollForm enrollFormData, BuildContext context) async {
   try {
     final response = await dio.post(
       '$commonUrl/add/$productId',
       data: enrollFormData.toJson(),
-
     );
 
     if (response.statusCode == 200) {
       int removed = 0;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const SuccessEnrollPage()),
-            (route) => removed++ >= 3,
+        (route) => removed++ >= 3,
       );
     } else {
       print(response.data.toString());

@@ -18,7 +18,8 @@ class _CouponDetailPageState extends State<CouponDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    final docRef = FirebaseFirestore.instance.collection('coupons').doc(widget.couponId);
+    final docRef =
+        FirebaseFirestore.instance.collection('coupons').doc(widget.couponId);
 
     return Scaffold(
       appBar: AppBar(title: const Text('쿠폰 상세')),
@@ -56,9 +57,11 @@ class _CouponDetailPageState extends State<CouponDetailPage> {
                     height: 220,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Container(
-                      width: 220, height: 220,
+                      width: 220,
+                      height: 220,
                       color: Colors.green.shade50,
-                      child: const Icon(Icons.local_cafe, size: 72, color: Colors.green),
+                      child: const Icon(Icons.local_cafe,
+                          size: 72, color: Colors.green),
                     ),
                   ),
                 ),
@@ -67,7 +70,8 @@ class _CouponDetailPageState extends State<CouponDetailPage> {
                 Text(
                   title,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.w800),
                 ),
 
                 const SizedBox(height: 18),
@@ -75,7 +79,8 @@ class _CouponDetailPageState extends State<CouponDetailPage> {
                 // 큰 코드 카드
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                   decoration: BoxDecoration(
                     color: Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(12),
@@ -98,20 +103,24 @@ class _CouponDetailPageState extends State<CouponDetailPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     OutlinedButton.icon(
-                      onPressed: code.isEmpty ? null : () {
-                        Clipboard.setData(ClipboardData(text: code));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('코드를 복사했어요.')),
-                        );
-                      },
+                      onPressed: code.isEmpty
+                          ? null
+                          : () {
+                              Clipboard.setData(ClipboardData(text: code));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('코드를 복사했어요.')),
+                              );
+                            },
                       icon: const Icon(Icons.copy_rounded, size: 18),
                       label: const Text('코드 복사'),
                     ),
                     const SizedBox(width: 8),
                     OutlinedButton.icon(
-                      onPressed: code.isEmpty ? null : () async {
-                        await Share.share('스타벅스 쿠폰 코드: $code');
-                      },
+                      onPressed: code.isEmpty
+                          ? null
+                          : () async {
+                              await Share.share('스타벅스 쿠폰 코드: $code');
+                            },
                       icon: const Icon(Icons.ios_share_rounded, size: 18),
                       label: const Text('공유'),
                     ),
@@ -127,7 +136,8 @@ class _CouponDetailPageState extends State<CouponDetailPage> {
                     height: 52,
                     child: FilledButton.icon(
                       onPressed: () async {
-                        await FortuneFirestoreService.redeemCoupon(widget.couponId);
+                        await FortuneFirestoreService.redeemCoupon(
+                            widget.couponId);
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('사용 완료 처리했습니다.')),
@@ -140,13 +150,16 @@ class _CouponDetailPageState extends State<CouponDetailPage> {
                   )
                 else
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.green.withOpacity(.12),
                       borderRadius: BorderRadius.circular(999),
                       border: Border.all(color: Colors.green.withOpacity(.35)),
                     ),
-                    child: const Text('이미 사용된 쿠폰입니다.', style: TextStyle(color: Colors.green, fontWeight: FontWeight.w700)),
+                    child: const Text('이미 사용된 쿠폰입니다.',
+                        style: TextStyle(
+                            color: Colors.green, fontWeight: FontWeight.w700)),
                   ),
               ],
             ),

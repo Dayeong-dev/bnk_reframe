@@ -116,7 +116,10 @@ class _ResultPageState extends State<ResultPage> {
     final hasDetail = (widget.data.content ?? '').isNotEmpty;
 
     return Scaffold(
-      appBar: AppBar(title: const Text(""), toolbarHeight: 30, elevation: 0),
+      appBar: AppBar(
+        title: const Text(""),
+        toolbarHeight: 30,
+      ),
       body: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(20, 20, 20, bottomPadding),
         child: Column(
@@ -214,12 +217,10 @@ class _ResultPageState extends State<ResultPage> {
               width: double.infinity,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _brandBlue,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  elevation: 0,
                 ),
                 onPressed: _shareFortune,
                 child: const Text(

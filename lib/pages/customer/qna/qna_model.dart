@@ -20,13 +20,13 @@ class Qna {
   });
 
   factory Qna.fromJson(Map<String, dynamic> j) => Qna(
-    qnaId: j['qnaId'],
-    category: j['category'],
-    title: j['title'],
-    content: j['content'],
-    answer: j['answer'],
-    status: j['status'],
-    regdate: j['regdate'] != null ? DateTime.parse(j['regdate']) : null,
-    moddate: j['moddate'] != null ? DateTime.parse(j['moddate']) : null,
-  );
+        qnaId: j['qnaId'],
+        category: j['category'],
+        title: j['title'],
+        content: j['content'],
+        answer: j['answer'],
+        status: j['status'],
+        regdate: j['regdate'] != null ? DateTime.parse(j['regdate']) : null,
+        moddate: j['moddate'] != null ? DateTime.parse(j['moddate']) : null,
+      );
 }

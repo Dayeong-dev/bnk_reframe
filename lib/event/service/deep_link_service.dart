@@ -13,7 +13,7 @@ class DeepLinkService {
   // ====== 환경 상수 ======
   // 커스텀 스킴 (AndroidManifest의 <data android:scheme / android:host>와 동일)
   static const String _customScheme = 'bnk-app-push';
-  static const String _customHost   = 'bnk_reframe';
+  static const String _customHost = 'bnk_reframe';
 
   // HTTPS 호스트(유니버설/앱 링크용). 필요 시 커스텀 도메인도 여기에 추가.
   static const Set<String> _httpsHosts = {
@@ -35,19 +35,21 @@ class DeepLinkService {
   // 초대 파라미터 존재 여부
   static bool _hasInviteParam(Uri uri) {
     final q = uri.queryParameters;
-    return q.containsKey('inviteCode') || q.containsKey('inviter') || q.containsKey('code');
+    return q.containsKey('inviteCode') ||
+        q.containsKey('inviter') ||
+        q.containsKey('code');
   }
 
   // 이 링크가 우리 앱용인가?
   static bool _isOurLink(Uri uri) {
     final scheme = uri.scheme.toLowerCase();
-    final host   = uri.host.toLowerCase();
+    final host = uri.host.toLowerCase();
 
-    final isCustom =
-    (scheme == _customScheme && host == _customHost);
+    final isCustom = (scheme == _customScheme && host == _customHost);
 
-    final isHttps =
-    (scheme == 'https' && _httpsHosts.contains(host) && (_hasInviteParam(uri) || _isAllowedPath(uri)));
+    final isHttps = (scheme == 'https' &&
+        _httpsHosts.contains(host) &&
+        (_hasInviteParam(uri) || _isAllowedPath(uri)));
 
     return isCustom || isHttps;
   }
@@ -63,7 +65,7 @@ class DeepLinkService {
 
     // (B) 실행 중 들어오는 링크
     _sub = _appLinks.uriLinkStream.listen(
-          (uri) => _handle(uri, onInvite, source: 'stream'),
+      (uri) => _handle(uri, onInvite, source: 'stream'),
       onError: (_) {},
       cancelOnError: false,
     );

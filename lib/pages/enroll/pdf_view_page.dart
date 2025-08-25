@@ -23,7 +23,9 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
 
   Future<bool> _checkFileExists(String url) async {
     try {
-      final response = await http.head(Uri.parse(url)).timeout(Duration(seconds: 8));   // 8초 제한
+      final response = await http
+          .head(Uri.parse(url))
+          .timeout(Duration(seconds: 8)); // 8초 제한
       return response.statusCode == 200;
     } catch (e) {
       return false;
@@ -33,45 +35,42 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<bool>(
-          future: _checkFileExists(widget.pdfUrl),
-          builder: (context, snapshot) {
-            final waiting = snapshot.connectionState == ConnectionState.waiting;
-            final canOpen = snapshot.data == true && snapshot.hasError == false;
+      future: _checkFileExists(widget.pdfUrl),
+      builder: (context, snapshot) {
+        final waiting = snapshot.connectionState == ConnectionState.waiting;
+        final canOpen = snapshot.data == true && snapshot.hasError == false;
 
-            return Scaffold(
-                appBar: AppBar(
-                  title: Text(widget.title),
-                  centerTitle: true,
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(widget.title),
+          ),
+          body: Builder(builder: (_) {
+            if (waiting) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (snapshot.hasError || snapshot.data == false) {
+              return const Center(
+                child: Text(
+                  '파일을 열 수 없습니다.',
+                  style: TextStyle(fontSize: 16, color: Colors.black),
                 ),
-                body: Builder(
-                    builder: (_) {
-                      if (waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      } else if (snapshot.hasError || snapshot.data == false) {
-                        return const Center(
-                          child: Text(
-                            '파일을 열 수 없습니다.',
-                            style: TextStyle(fontSize: 16, color: Colors.black),
-                          ),
-                        );
-                      } else {
-                        return PdfViewer.uri(
-                          Uri.parse(widget.pdfUrl),
-                          controller: _controller,
-                          params: const PdfViewerParams(
-                            textSelectionParams: PdfTextSelectionParams(
-                              enabled: true,
-                              enableSelectionHandles: true,
-                              showContextMenuAutomatically: true,
-                            ),
-                          ),
-                        );
-                      }
-                    }
+              );
+            } else {
+              return PdfViewer.uri(
+                Uri.parse(widget.pdfUrl),
+                controller: _controller,
+                params: const PdfViewerParams(
+                  textSelectionParams: PdfTextSelectionParams(
+                    enabled: true,
+                    enableSelectionHandles: true,
+                    showContextMenuAutomatically: true,
+                  ),
                 ),
-              bottomNavigationBar: waiting
-                ? null
-                : SafeArea(
+              );
+            }
+          }),
+          bottomNavigationBar: waiting
+              ? null
+              : SafeArea(
                   top: false,
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -85,22 +84,20 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            backgroundColor: primaryColor
                           ),
                           child: Text(
                             canOpen ? '확인' : '닫기',
                             style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800
-                            ),
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800),
                           ),
                         ),
                       ),
                     ),
                   ),
                 ),
-            );
-          },
+        );
+      },
     );
   }
 }

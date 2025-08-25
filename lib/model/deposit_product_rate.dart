@@ -16,8 +16,8 @@ class DepositProductRate {
   }
 
   Map<String, dynamic> toJson() => {
-    'fromMonth': fromMonth,
-    'toMonth': toMonth,
-    'rate': rate,
-  };
+        'fromMonth': fromMonth,
+        'toMonth': toMonth,
+        'rate': rate,
+      };
 }

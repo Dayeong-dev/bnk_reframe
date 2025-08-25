@@ -236,7 +236,6 @@ class _FirstStepPageState extends State<FirstStepPage> {
       context: context,
       isDismissible: true,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -268,7 +267,6 @@ class _FirstStepPageState extends State<FirstStepPage> {
                     _nextStep();
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: theme.colorScheme.primary,
                     foregroundColor: theme.colorScheme.onPrimary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),

@@ -629,10 +629,6 @@ class _DepositDetailPageState extends State<DepositDetailPage>
       appBar: AppBar(
         title: Text(product!.name,
             style: const TextStyle(fontWeight: FontWeight.w700)),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0.5,
       ),
       bottomNavigationBar: _bottomActionBar(),
       body: ListView(
@@ -1072,7 +1068,6 @@ class _DepositDetailPageState extends State<DepositDetailPage>
 
     return Card(
       color: Colors.white,
-      elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       margin: const EdgeInsets.symmetric(vertical: 6),
       child: Theme(

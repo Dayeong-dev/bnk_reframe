@@ -11,7 +11,9 @@ import 'package:reframe/pages/enroll/enroll_third.dart';
 import 'package:reframe/model/group_type.dart';
 import 'package:reframe/service/account_service.dart';
 import 'package:reframe/service/deposit_service.dart';
-import 'package:firebase_analytics/firebase_analytics.dart'; // Analytics
+import 'package:firebase_analytics/firebase_analytics.dart';
+
+import '../../service/enroll_service.dart'; // Analytics
 
 /// ======================
 /// Toss 스타일 토큰 (배경: 흰색 통일)
@@ -54,7 +56,7 @@ class _SecondStepPageState extends State<SecondStepPage> {
   final EnrollForm _data = EnrollForm();
 
   ProductInputFormat? _productInput;
-  late Future<ProductInputFormat> _future;
+  late Future<void> _bootstrapFuture;
 
   int _minMonths = 1;
   int _maxMonths = 60;
@@ -106,13 +108,25 @@ class _SecondStepPageState extends State<SecondStepPage> {
   void initState() {
     super.initState();
     _accountsFuture = fetchAccounts(AccountType.demand);
-
     _termOptions = _parseTermLists(widget.product.termList);
+    _bootstrapFuture = _bootstrap();
+  }
 
-    _future = getProductInputFormat(widget.product.productId).then((result) {
-      _minMonths = widget.product.minPeriodMonths ?? _minMonths;
-      _maxMonths = widget.product.maxPeriodMonths ?? _maxMonths;
+  Future<void> _bootstrap() async {
+    // 1) 입력 포맷
+    final result = await getProductInputFormat(widget.product.productId);
+    _productInput = result;
 
+    // 범위/기본값 세팅
+    _minMonths = widget.product.minPeriodMonths ?? _minMonths;
+    _maxMonths = widget.product.maxPeriodMonths ?? _maxMonths;
+
+    // 2) 드래프트 로드 (있으면 _data에 채움)
+    try {
+      final draft = await getDraft(widget.product.productId);
+      _applyDraft(draft);
+    } catch (_) {
+      // 드래프트 없음 → 기본값 세팅
       if (result.input1 && _data.periodMonths == null) {
         _data.periodMonths = _isTermList
             ? (_termOptions.isNotEmpty ? _termOptions.first : 6)
@@ -121,15 +135,34 @@ class _SecondStepPageState extends State<SecondStepPage> {
       if (result.input2 && _data.paymentAmount == null) {
         _data.paymentAmount = _minAmount;
       }
+    }
 
-      setState(() => _productInput = result);
+    if (!_viewLogged) {
+      _viewLogged = true;
+      await _logStep(stage: 'view');
+    }
+    setState(() {});
+  }
 
-      if (!_viewLogged) {
-        _viewLogged = true;
-        _logStep(stage: 'view');
-      }
-      return result;
-    });
+  void _applyDraft(EnrollForm draft) {
+    // 드래프트의 유효 필드만 주입
+    _data.periodMonths       = draft.periodMonths ?? _data.periodMonths;
+    _data.paymentAmount      = draft.paymentAmount ?? _data.paymentAmount;
+    _data.transferDate       = draft.transferDate ?? _data.transferDate;
+    _data.fromAccountId      = draft.fromAccountId ?? _data.fromAccountId;
+    _data.fromAccountNumber  = draft.fromAccountNumber ?? _data.fromAccountNumber;
+    _data.maturityAccountId  = draft.maturityAccountId ?? _data.maturityAccountId;
+    _data.maturityAccountNumber = draft.maturityAccountNumber ?? _data.maturityAccountNumber;
+    _data.groupName          = draft.groupName ?? _data.groupName;
+    _data.groupType          = draft.groupType ?? _data.groupType;
+
+    // 선택된 계좌명 표시용
+    if (_data.fromAccountNumber != null) {
+      _fromAccountName = _data.fromAccountNumber!;
+    }
+    if (_data.maturityAccountNumber != null) {
+      _maturityAccountName = _data.maturityAccountNumber!;
+    }
   }
 
   int? _toIntId(Object? v) {
@@ -342,12 +375,12 @@ class _SecondStepPageState extends State<SecondStepPage> {
     return Theme(
       data: theme,
       child: Scaffold(
-        backgroundColor: TossTokens.bg, // ✅ 흰색
-        appBar: buildAppBar(context),
+        backgroundColor: TossTokens.bg,
+        appBar: buildAppBar(context: context, enrollForm: _data, productId: widget.product.productId),
         bottomNavigationBar:
             _BottomButton(enabled: _canSubmit, onPressed: _nextStep),
         body: FutureBuilder(
-          future: _future,
+          future: _bootstrapFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState != ConnectionState.done) {
               return const Center(child: CircularProgressIndicator());
@@ -356,7 +389,7 @@ class _SecondStepPageState extends State<SecondStepPage> {
               return const Center(child: Text('입력 포맷을 불러오지 못했습니다.'));
             }
 
-            final p = snapshot.data as ProductInputFormat;
+            final p = _productInput!;
 
             return Form(
               key: _formKey,
@@ -401,6 +434,7 @@ class _SecondStepPageState extends State<SecondStepPage> {
                   ],
                   if (p.input3) ...[
                     CupertinoMonthlyWheel(
+                      initialAnchor: _data.transferDate,
                       onChanged: (firstDebitDate, int anchor) {
                         setState(() {
                           _data.transferDate = anchor;
@@ -868,10 +902,12 @@ class CupertinoMonthlyWheel extends StatefulWidget {
     super.key,
     this.onChanged,
     this.useAllDays31 = false,
+    this.initialAnchor,
   });
 
   final void Function(DateTime firstDebitDate, int anchor)? onChanged;
   final bool useAllDays31;
+  final int? initialAnchor;
 
   @override
   State<CupertinoMonthlyWheel> createState() => _CupertinoMonthlyWheelState();
@@ -880,6 +916,26 @@ class CupertinoMonthlyWheel extends StatefulWidget {
 class _CupertinoMonthlyWheelState extends State<CupertinoMonthlyWheel> {
   int? _anchor;
   DateTime? _firstDebitDate;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialAnchor != null) {
+      _anchor = widget.initialAnchor;
+      _firstDebitDate = _computeFirst(_anchor!);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant CupertinoMonthlyWheel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialAnchor != widget.initialAnchor) {
+      setState(() {
+        _anchor = widget.initialAnchor;
+        _firstDebitDate = (_anchor == null) ? null : _computeFirst(_anchor!);
+      });
+    }
+  }
 
   DateTime get _today {
     final now = DateTime.now();

@@ -3,7 +3,7 @@
 // 192.168.0.238 정원
 
 
-const apiUrl = "192.168.100.18";
+const apiUrl = "192.168.0.12";
 
 
 const apiBaseUrl = String.fromEnvironment(

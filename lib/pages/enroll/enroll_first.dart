@@ -145,7 +145,7 @@ class _FirstStepPageState extends State<FirstStepPage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: buildAppBar(context),
+      appBar: buildAppBar(context: context),
       body: SafeArea(
         child: Column(
           children: [
@@ -267,6 +267,7 @@ class _FirstStepPageState extends State<FirstStepPage> {
                     _nextStep();
                   },
                   style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
                     foregroundColor: theme.colorScheme.onPrimary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),

@@ -81,6 +81,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
                         child: ElevatedButton(
                           onPressed: () => Navigator.of(context).pop(canOpen),
                           style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),

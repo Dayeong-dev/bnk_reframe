@@ -71,14 +71,21 @@ class _ThirdStepPageState extends State<ThirdStepPage> {
     await _logStep(stage: 'submit');
 
     if (widget.enrollForm.paymentAmount != null) {
-      widget.enrollForm.paymentAmount =
-          widget.enrollForm.paymentAmount! * 10000;
+      widget.enrollForm.paymentAmount = widget.enrollForm.paymentAmount! * 10000;
     }
-    await addApplication(
-      widget.product.productId,
-      widget.enrollForm,
-      context,
-    );
+
+    try {
+      await addApplication(
+        widget.product.productId,
+        widget.enrollForm,
+        context,
+      );
+      await markSubmitted(widget.product.productId);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('가입 처리에 실패했습니다. 잠시 후 다시 시도해주세요.')),
+      );
+    }
   }
 
   String _fmtTransfer(int? d) {
@@ -130,10 +137,40 @@ class _ThirdStepPageState extends State<ThirdStepPage> {
     ];
 
     return Theme(
-      data: theme,
-      child: Scaffold(
-        appBar: buildAppBar(context),
-        body: SafeArea(
+        data: theme,
+        child: WillPopScope(
+          onWillPop: () async {
+            // 나가기 버튼과 동일한 UX를 사용하고 싶으면 appbar.dart의 다이얼로그 로직을
+            // 여기로 복붙해도 되고, 간단히 임시저장만 하고 나가도 됩니다.
+            // 여기서는 "저장 여부 묻기" 간소화 예시:
+            final shouldSave = await showDialog<bool>(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: const Text('나가기'),
+                content: const Text('작성한 내용을 저장하고 나가시겠습니까?'),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(context, null), child: const Text('취소')),
+                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('저장 안함')),
+                  ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('저장 후 나가기')),
+                ],
+              ),
+            );
+            if (shouldSave == true) {
+              await saveDraft(widget.product.productId, widget.enrollForm, context);
+              return true; // 뒤로가기 진행
+            } else if (shouldSave == false) {
+              return true; // 저장 안 하고 뒤로가기
+            }
+            return false; // 취소
+          },
+          child: Scaffold(
+            appBar: buildAppBar(
+              context: context,
+              enrollForm: widget.enrollForm,
+              productId: widget.product.productId,
+            ),
+
+            body: SafeArea(
           child: Column(
             children: [
               // 상단 제목 (padding 아래로 조금 늘림)
@@ -202,7 +239,7 @@ class _ThirdStepPageState extends State<ThirdStepPage> {
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 }

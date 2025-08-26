@@ -1,13 +1,12 @@
 // lib/pages/home_page.dart
-import 'dart:ui' show FontFeature;
 import 'dart:math' as math;
+import 'dart:ui' show FontFeature;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:reframe/constants/number_format.dart';
-import 'package:reframe/main.dart';
 
-// 모델/서비스/페이지
+import 'package:reframe/constants/number_format.dart';
 import 'package:reframe/model/account.dart';
 import 'package:reframe/pages/account/account_detail_page.dart';
 import 'package:reframe/pages/auth/login_page.dart';
@@ -16,6 +15,14 @@ import 'package:reframe/service/account_service.dart';
 
 import '../constants/text_animation.dart';
 
+/// ===================================================================
+///  홈 페이지
+///  - 상단: 총자산
+///  - 코호트 비교(현금성/예적금 비중) : BenchmarkDashboard 사용
+///  - 추천 서비스 Top5 슬라이드(파스텔 카드, 히트테스트 오류 방지)
+///  - 내 계좌(잔액 내림차순 3개 → 더보기/간략히 보기)
+///  - 마이메뉴(최대 3개, 편집 모달은 루트 네비게이터로 띄움)
+/// ===================================================================
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
   @override
@@ -26,25 +33,20 @@ class _HomePageState extends State<HomePage> {
   final _secureStorage = const FlutterSecureStorage();
   final _auth = LocalAuthentication();
 
-  // 데이터 로딩
+  // 데이터
   late final Future<List<Account>> _accountsFuture = fetchAccounts(null);
 
-  // 내 계좌 섹션 "더보기"
+  // 내 계좌: 더보기 토글
   int _visibleCount = 3;
-
-  // 코호트(벤치마크) 선택
-  final List<String> _ageBands = const ['20s', '30s', '40s'];
-  String _selectedAgeBand = '20s';
-  String _selectedGender = 'F'; // 'M' | 'F'
 
   // 추천 슬라이드
   final PageController _recController =
       PageController(viewportFraction: 0.86, keepPage: true);
   int _recPage = 0;
 
-  // 마이메뉴 (최대 3개)
+  // 마이메뉴
   static const _kMenuStorageKey = 'home_my_menu';
-  final List<_MyMenuItem> _menuPool = const [
+  final List<_MyMenuItem> _pool = const [
     _MyMenuItem(key: 'ai', title: 'AI 챗봇', icon: Icons.smart_toy_rounded),
     _MyMenuItem(key: 'trend', title: '자산추이', icon: Icons.show_chart_rounded),
     _MyMenuItem(key: 'event', title: '이벤트', icon: Icons.card_giftcard_rounded),
@@ -53,7 +55,18 @@ class _HomePageState extends State<HomePage> {
     _MyMenuItem(
         key: 'coupon', title: '쿠폰함', icon: Icons.local_activity_rounded),
   ];
-  List<String> _myMenuKeys = ['ai', 'trend', 'event']; // 기본 3개
+  List<String> _myMenu = ['ai', 'trend', 'event'];
+
+  // 코호트 선택(팝업에서 조합 문자열 사용: "20대 남성" 등)
+  final List<String> _cohorts = const [
+    '20대 남성',
+    '20대 여성',
+    '30대 남성',
+    '30대 여성',
+    '40대 남성',
+    '40대 여성',
+  ];
+  String _selectedCohort = '20대 여성';
 
   @override
   void initState() {
@@ -64,38 +77,37 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  @override
+  void dispose() {
+    _recController.dispose();
+    super.dispose();
+  }
+
   Future<void> _checkBiometricSupport() async {
-    final canCheckBiometrics = await _auth.canCheckBiometrics;
-    final isSupported = await _auth.isDeviceSupported();
+    final canCheck = await _auth.canCheckBiometrics;
+    final supported = await _auth.isDeviceSupported();
     final available = await _auth.getAvailableBiometrics();
-    final alreadyEnabled = await _secureStorage.read(key: 'biometricEnabled');
-    if (canCheckBiometrics &&
-        isSupported &&
-        available.isNotEmpty &&
-        alreadyEnabled == null) {
-      // 필요 시 생체 등록 유도 다이얼로그 표시 가능
+    final enabled = await _secureStorage.read(key: 'biometricEnabled');
+    if (canCheck && supported && available.isNotEmpty && enabled == null) {
+      // 필요 시 생체등록 안내 가능
     }
   }
 
   Future<void> _loadMyMenu() async {
     final saved = await _secureStorage.read(key: _kMenuStorageKey);
     if (saved != null && saved.isNotEmpty) {
-      final keys = saved.split(',').where((k) => k.trim().isNotEmpty).toList();
-      if (keys.isNotEmpty) {
-        setState(() => _myMenuKeys = keys.take(3).toList());
-      }
+      setState(() {
+        _myMenu = saved.split(',').where((e) => e.isNotEmpty).take(3).toList();
+      });
     }
   }
 
   Future<void> _saveMyMenu() async {
-    await _secureStorage.write(
-        key: _kMenuStorageKey, value: _myMenuKeys.join(','));
+    await _secureStorage.write(key: _kMenuStorageKey, value: _myMenu.join(','));
   }
 
-  Future<T?> _push<T>(Widget page) {
-    return Navigator.of(context)
-        .push<T>(MaterialPageRoute(builder: (_) => page));
-  }
+  Future<T?> _push<T>(Widget page) =>
+      Navigator.of(context).push<T>(MaterialPageRoute(builder: (_) => page));
 
   Future<void> _logout() async {
     final ok = await showDialog<bool>(
@@ -123,12 +135,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   @override
-  void dispose() {
-    _recController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -140,49 +146,48 @@ class _HomePageState extends State<HomePage> {
               tooltip: '로그아웃',
               icon: const Icon(Icons.logout, size: 20),
               onPressed: _logout),
-          const SizedBox(width: 4),
         ],
       ),
       body: SafeArea(
         child: FutureBuilder<List<Account>>(
           future: _accountsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
+          builder: (context, snap) {
+            if (snap.connectionState != ConnectionState.done) {
               return const Center(child: CircularProgressIndicator());
             }
-            if (snapshot.hasError) {
+            if (snap.hasError) {
               return _ErrorView(
-                  error: '${snapshot.error}', onRetry: () => setState(() {}));
+                  error: '${snap.error}', onRetry: () => setState(() {}));
             }
-            final accounts = snapshot.data ?? [];
 
-            // 분류
-            final productAccounts = accounts
-                .where((a) => a.accountType == AccountType.product)
-                .toList();
-            final demandAccounts = accounts
+            final accounts = snap.data ?? [];
+            final demand = accounts
                 .where((a) => a.accountType == AccountType.demand)
                 .toList();
+            final product = accounts
+                .where((a) => a.accountType == AccountType.product)
+                .toList();
 
-            // 합계
+            // 총자산
             final cashTotal =
-                demandAccounts.fold<int>(0, (s, a) => s + (a.balance ?? 0));
+                demand.fold<int>(0, (s, a) => s + (a.balance ?? 0));
             final savingTotal =
-                productAccounts.fold<int>(0, (s, a) => s + (a.balance ?? 0));
+                product.fold<int>(0, (s, a) => s + (a.balance ?? 0));
             final total = cashTotal + savingTotal;
 
-            // "내 계좌"는 잔액 내림차순으로 정렬
-            final allMyAccounts = [...demandAccounts, ...productAccounts]
+            // "내 계좌"는 모든 계좌(입출금+상품) 통합으로 정렬
+            final allAccounts = [...demand, ...product]
               ..sort((a, b) => (b.balance ?? 0).compareTo(a.balance ?? 0));
 
-            if (_visibleCount > allMyAccounts.length) {
-              _visibleCount = math.min(3, allMyAccounts.length);
+            // 더보기 보정
+            if (_visibleCount > allAccounts.length) {
+              _visibleCount = math.min(3, allAccounts.length);
             }
 
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
               children: [
-                // ===== 상단: 총 자산 =====
+                // 1) 상단 총자산
                 _TotalHeaderCard(
                   total: total,
                   cash: cashTotal,
@@ -192,102 +197,85 @@ class _HomePageState extends State<HomePage> {
 
                 const SizedBox(height: 12),
 
-                // ===== 코호트 선택 + 벤치마크 =====
-                _CohortPicker(
-                  ageBands: _ageBands,
-                  selectedAgeBand: _selectedAgeBand,
-                  selectedGender: _selectedGender,
-                  onChanged: (age, gender) => setState(() {
-                    _selectedAgeBand = age;
-                    _selectedGender = gender;
-                  }),
-                ),
-                const SizedBox(height: 8),
-                FutureBuilder<_BenchmarkData>(
-                  future: _fetchBenchmark(
-                      ageBand: _selectedAgeBand, gender: _selectedGender),
-                  builder: (context, snap) {
-                    if (snap.connectionState != ConnectionState.done) {
-                      return const _BenchmarkSkeleton();
-                    }
-                    final bm = snap.data;
-                    if (bm == null) return const SizedBox.shrink();
-                    return _BenchmarkCard(
-                      title: '동일 코호트 평균과 비교',
-                      cohortLabel:
-                          '${_selectedAgeBand.toUpperCase()} · ${_selectedGender == 'M' ? '남성' : '여성'}',
-                      myCash: cashTotal,
-                      mySaving: savingTotal,
-                      avgCash: bm.cashAvg,
-                      avgSaving: bm.savingAvg,
-                    );
+                // 2) 코호트 비교 (현금성/예적금 비중)
+                BenchmarkDashboard(
+                  title: '내 비중 vs 벤치마크',
+                  mineCashRatio: total == 0 ? 0 : cashTotal / total,
+                  mineDepositRatio: total == 0 ? 0 : savingTotal / total,
+                  initialSegment: _selectedCohort,
+                  localBenchmarks: const {
+                    '20대 남성': BenchmarkRatio(cash: 0.40, deposit: 0.60),
+                    '20대 여성': BenchmarkRatio(cash: 0.42, deposit: 0.58),
+                    '30대 남성': BenchmarkRatio(cash: 0.38, deposit: 0.62),
+                    '30대 여성': BenchmarkRatio(cash: 0.41, deposit: 0.59),
+                    '40대 남성': BenchmarkRatio(cash: 0.36, deposit: 0.64),
+                    '40대 여성': BenchmarkRatio(cash: 0.39, deposit: 0.61),
+                  },
+                  onFetchBenchmark: (segment) async {
+                    // 서버 연동시 이 부분만 교체하세요.
+                    await Future.delayed(const Duration(milliseconds: 180));
+                    // 간단 목업(세그먼트별 미세조정)
+                    final base = {
+                      '20대 남성': const BenchmarkRatio(cash: 0.40, deposit: 0.60),
+                      '20대 여성': const BenchmarkRatio(cash: 0.42, deposit: 0.58),
+                      '30대 남성': const BenchmarkRatio(cash: 0.38, deposit: 0.62),
+                      '30대 여성': const BenchmarkRatio(cash: 0.41, deposit: 0.59),
+                      '40대 남성': const BenchmarkRatio(cash: 0.36, deposit: 0.64),
+                      '40대 여성': const BenchmarkRatio(cash: 0.39, deposit: 0.61),
+                    }[segment]!;
+                    return base;
                   },
                 ),
 
                 const SizedBox(height: 16),
 
-                // ===== 추천 슬라이드 (Top5) =====
+                // 3) 추천 서비스(Top5 슬라이드)
                 _RecommendCarousel(
                   controller: _recController,
-                  onPageChanged: (i) => setState(() => _recPage = i),
                   page: _recPage,
+                  onPageChanged: (i) => setState(() => _recPage = i),
                 ),
 
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
 
-                // ===== 내 계좌 (잔액 높은 순 3개) + 더보기/간략히 보기 =====
+                // 4) 내 계좌 (잔액 상위 3개 → 더보기/간략히 보기)
                 Row(
-                  children: [
-                    const Padding(
+                  children: const [
+                    Padding(
                       padding: EdgeInsets.only(left: 6),
                       child: Text('내 계좌',
                           style: TextStyle(fontWeight: FontWeight.w800)),
                     ),
-                    const Spacer(),
-                    if (allMyAccounts.length > 3)
-                      Text(
-                        '총 ${allMyAccounts.length}개',
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelSmall
-                            ?.copyWith(color: Colors.black54),
-                      ),
                   ],
                 ),
                 const SizedBox(height: 8),
 
-                if (allMyAccounts.isEmpty)
+                if (allAccounts.isEmpty)
                   _EmptyAccounts(onExplore: () => _push(DepositMainPage()))
                 else ...[
-                  ...allMyAccounts.take(_visibleCount).map(
-                        (a) => _AccountCard(
-                          title: a.accountName ?? 'BNK 부산은행 계좌',
-                          subtitle: a.accountNumber ?? '-',
-                          balanceText: '${money.format(a.balance ?? 0)} 원',
-                          leading: _productBadgeIcon(a),
-                          onTap: () {
-                            Navigator.push(
+                  ...allAccounts.take(_visibleCount).map((a) => _AccountCard(
+                        title: a.accountName ?? 'BNK 부산은행 계좌',
+                        subtitle: a.accountNumber ?? '-',
+                        balanceText: '${money.format(a.balance ?? 0)} 원',
+                        leading: _productBadgeIcon(a),
+                        onTap: () {
+                          Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (_) =>
                                     AccountDetailPage(accountId: a.id),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                  if (allMyAccounts.length > 3)
+                              ));
+                        },
+                      )),
+                  if (allAccounts.length > 3)
                     Align(
                       alignment: Alignment.center,
                       child: TextButton.icon(
-                        // 한번만 눌러도 전체 펼치기 → 버튼 즉시 "간략히 보기"로 변환
                         onPressed: () {
                           setState(() {
-                            if (_visibleCount < allMyAccounts.length) {
-                              _visibleCount = allMyAccounts.length; // 전부 펼치기
-                            } else {
-                              _visibleCount = math.min(3, allMyAccounts.length);
-                            }
+                            _visibleCount = (_visibleCount < allAccounts.length)
+                                ? allAccounts.length
+                                : math.min(3, allAccounts.length);
                           });
                         },
                         style: TextButton.styleFrom(
@@ -295,13 +283,13 @@ class _HomePageState extends State<HomePage> {
                               horizontal: 10, vertical: 2),
                         ),
                         icon: Icon(
-                          (_visibleCount < allMyAccounts.length)
+                          (_visibleCount < allAccounts.length)
                               ? Icons.keyboard_arrow_down_rounded
                               : Icons.keyboard_arrow_up_rounded,
                           size: 22,
                         ),
                         label: Text(
-                          (_visibleCount < allMyAccounts.length)
+                          (_visibleCount < allAccounts.length)
                               ? '더보기'
                               : '간략히 보기',
                           style: const TextStyle(fontWeight: FontWeight.w700),
@@ -312,12 +300,12 @@ class _HomePageState extends State<HomePage> {
 
                 const SizedBox(height: 16),
 
-                // ===== 마이메뉴 (최대 3개, 편집 가능) =====
+                // 5) 마이메뉴 (편집 가능)
                 _MyMenuSection(
-                  pool: _menuPool,
-                  selectedKeys: _myMenuKeys,
-                  onTapItem: (key) => _openMenu(key),
-                  onTapEdit: () => _openMenuEditor(),
+                  pool: _pool,
+                  selectedKeys: _myMenu,
+                  onTapItem: _openMenu,
+                  onTapEdit: _openMenuEditor,
                 ),
               ],
             );
@@ -327,25 +315,9 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ===== 벤치마크 (목데이터) — API 붙일 때 이 함수만 교체 =====
-  Future<_BenchmarkData> _fetchBenchmark(
-      {required String ageBand, required String gender}) async {
-    await Future.delayed(const Duration(milliseconds: 200));
-    final base = switch (ageBand) {
-      '20s' => 600000,
-      '30s' => 1400000,
-      '40s' => 2200000,
-      _ => 1000000,
-    };
-    final bias = (gender == 'M') ? 1.08 : 0.97;
-    final cashAvg = (base * 0.42 * bias).round();
-    final savingAvg = (base * 1.9 * bias).round();
-    return _BenchmarkData(cashAvg: cashAvg, savingAvg: savingAvg);
-  }
-
-  // ===== 메뉴 실행 라우팅 (데모 페이지)
+  // 메뉴 라우팅 (데모 페이지)
   void _openMenu(String key) {
-    Widget page;
+    Widget page = _DemoPage(title: key);
     switch (key) {
       case 'ai':
         page = const _DemoPage(title: 'AI 챗봇');
@@ -362,28 +334,19 @@ class _HomePageState extends State<HomePage> {
       case 'coupon':
         page = const _DemoPage(title: '쿠폰함');
         break;
-      default:
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('준비 중인 메뉴입니다.')));
-        return;
     }
     Navigator.push(context, MaterialPageRoute(builder: (_) => page));
   }
 
-  // === 편집 시트: 네비게이션 바 위로 뜨고 배경 어둡게 보이도록 설정
+  // 편집 모달: 루트 네비게이터 + 스크림(배경 어둡게)
   Future<void> _openMenuEditor() async {
-    final current = [..._myMenuKeys];
-
-    // ✅ 전역 네비게이터 컨텍스트 확보 (main.dart에 선언된 navigatorKey 사용)
-    final BuildContext rootCtx = navigatorKey.currentContext ?? context;
-
+    final current = [..._myMenu];
     await showModalBottomSheet(
-      context: rootCtx, // ✅ 루트 컨텍스트로 고정
-      useRootNavigator: true, // ✅ 루트 네비게이터 사용
+      context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       showDragHandle: true,
-      barrierColor: Colors.black.withOpacity(0.45), // ✅ 배경 어둡게
-      useSafeArea: true, // ✅ 상태바/네비바 침범 방지
+      barrierColor: Colors.black.withOpacity(0.45),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -411,14 +374,13 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const SizedBox(height: 6),
                 const Text('마이메뉴 편집 (최대 3개)',
                     style: TextStyle(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: _menuPool.map((m) {
+                  children: _pool.map((m) {
                     final isSel = selected(m.key);
                     return ChoiceChip(
                       label: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -443,9 +405,7 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(width: 4),
                     FilledButton(
                       onPressed: () {
-                        setState(() {
-                          _myMenuKeys = current.take(3).toList();
-                        });
+                        setState(() => _myMenu = current.take(3).toList());
                         _saveMyMenu();
                         Navigator.pop(ctx);
                       },
@@ -462,9 +422,9 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-/* =============================== 위젯/모듈 =============================== */
-
-/// 상단 총자산 카드 (카운트업 + 자산구성 바)
+/* ─────────────────────────────────────────────────────────
+ * 상단 총자산 카드 (카운트업 + 자산구성 바)
+ * ───────────────────────────────────────────────────────── */
 class _TotalHeaderCard extends StatelessWidget {
   final int total;
   final int cash;
@@ -494,7 +454,7 @@ class _TotalHeaderCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic, // ✅ 숫자-원 기준선 맞춤
+            textBaseline: TextBaseline.alphabetic,
             children: [
               MoneyCountUp(
                 value: total,
@@ -568,220 +528,14 @@ class _TotalHeaderCard extends StatelessWidget {
   }
 }
 
-/* ---------- 벤치마크 ---------- */
-
-class _BenchmarkData {
-  final int cashAvg;
-  final int savingAvg;
-  const _BenchmarkData({required this.cashAvg, required this.savingAvg});
-}
-
-class _CohortPicker extends StatelessWidget {
-  final List<String> ageBands;
-  final String selectedAgeBand;
-  final String selectedGender;
-  final void Function(String ageBand, String gender) onChanged;
-
-  const _CohortPicker({
-    super.key,
-    required this.ageBands,
-    required this.selectedAgeBand,
-    required this.selectedGender,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0.4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-        child: Row(
-          children: [
-            const Text('코호트', style: TextStyle(fontWeight: FontWeight.w800)),
-            const SizedBox(width: 10),
-            DropdownButton<String>(
-              value: selectedAgeBand,
-              underline: const SizedBox.shrink(),
-              items: ageBands
-                  .map((e) => DropdownMenuItem(
-                      value: e, child: Text(e.replaceFirst('s', '대'))))
-                  .toList(),
-              onChanged: (v) => onChanged(v ?? selectedAgeBand, selectedGender),
-            ),
-            const SizedBox(width: 8),
-            ToggleButtons(
-              isSelected: [selectedGender == 'M', selectedGender == 'F'],
-              onPressed: (i) => onChanged(selectedAgeBand, i == 0 ? 'M' : 'F'),
-              constraints: const BoxConstraints(minHeight: 30, minWidth: 38),
-              borderRadius: BorderRadius.circular(8),
-              children: const [
-                Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 6),
-                    child: Text('남')),
-                Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 6),
-                    child: Text('여')),
-              ],
-            ),
-            const Spacer(),
-            const Icon(Icons.insights_rounded, size: 18, color: Colors.black45),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BenchmarkCard extends StatelessWidget {
-  final String title;
-  final String cohortLabel;
-  final int myCash, mySaving, avgCash, avgSaving;
-
-  const _BenchmarkCard({
-    super.key,
-    required this.title,
-    required this.cohortLabel,
-    required this.myCash,
-    required this.mySaving,
-    required this.avgCash,
-    required this.avgSaving,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    Widget row(String label, int mine, int avg) {
-      final diff = mine - avg;
-      final pct = (avg == 0) ? 0.0 : (diff / avg * 100);
-      final up = diff >= 0;
-      final icon = up ? Icons.trending_up_rounded : Icons.trending_down_rounded;
-      final color = up ? _kPrimary : const Color(0xFFEF5350);
-
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
-        child: Row(
-          children: [
-            SizedBox(
-                width: 64,
-                child: Text(label,
-                    style: const TextStyle(fontWeight: FontWeight.w700))),
-            Expanded(
-              child: Text('${money.format(mine)} 원',
-                  textAlign: TextAlign.right,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  )),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text('${money.format(avg)} 원',
-                  textAlign: TextAlign.right,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(color: Colors.black54)),
-            ),
-            const SizedBox(width: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                border: Border.all(color: color.withOpacity(.4)),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 16, color: color),
-                  const SizedBox(width: 4),
-                  Text('${pct.abs().toStringAsFixed(0)}%',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w700, color: color)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Card(
-      elevation: 0.4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w700)),
-                const Spacer(),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3F5F8),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: const Color(0xFFE6EAF0)),
-                  ),
-                  child: Text(cohortLabel,
-                      style: Theme.of(context)
-                          .textTheme
-                          .labelMedium
-                          ?.copyWith(fontWeight: FontWeight.w700)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 6),
-              child: Row(
-                children: [
-                  SizedBox(width: 64),
-                  Expanded(
-                      child: Text('내 자산',
-                          textAlign: TextAlign.right,
-                          style: TextStyle(fontWeight: FontWeight.w700))),
-                  SizedBox(width: 10),
-                  Expanded(
-                      child: Text('코호트 평균',
-                          textAlign: TextAlign.right,
-                          style: TextStyle(fontWeight: FontWeight.w700))),
-                  SizedBox(width: 54),
-                ],
-              ),
-            ),
-            row('현금성', myCash, avgCash),
-            row('예·적금', mySaving, avgSaving),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BenchmarkSkeleton extends StatelessWidget {
-  const _BenchmarkSkeleton();
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0.2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(height: 106, padding: const EdgeInsets.all(12)),
-    );
-  }
-}
-
-/* ---------- 추천 슬라이드 ---------- */
-
+/* ─────────────────────────────────────────────────────────
+ * 추천 슬라이드 (히트테스트 오류 방지: 크기 명시)
+ * ───────────────────────────────────────────────────────── */
 class _RecommendItem {
   final String title;
   final String caption;
-  final int subscribers; // 가입자수
-  final String emoji; // 심볼
+  final int subscribers;
+  final String emoji;
   final List<Color> gradient;
   const _RecommendItem({
     required this.title,
@@ -792,7 +546,6 @@ class _RecommendItem {
   });
 }
 
-// 파스텔 톤 (블루와 조화)
 final _kPastelCards = <_RecommendItem>[
   _RecommendItem(
     title: '정기예금 플러스',
@@ -835,7 +588,6 @@ class _RecommendCarousel extends StatelessWidget {
   final PageController controller;
   final ValueChanged<int> onPageChanged;
   final int page;
-
   const _RecommendCarousel({
     super.key,
     required this.controller,
@@ -847,49 +599,46 @@ class _RecommendCarousel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const Row(
-          children: [
-            Padding(
-              padding: EdgeInsets.only(left: 6),
-              child: Text('실시간 추천 서비스',
-                  style: TextStyle(fontWeight: FontWeight.w800)),
-            ),
-          ],
-        ),
+        Row(children: const [
+          Padding(
+            padding: EdgeInsets.only(left: 6),
+            child: Text('실시간 추천 서비스',
+                style: TextStyle(fontWeight: FontWeight.w800)),
+          ),
+        ]),
         const SizedBox(height: 10),
         SizedBox(
-          height: 170, // 🔧 카드 가시성 확보
+          height: 180, // 카드 높이 보장
           child: PageView.builder(
             controller: controller,
             itemCount: _kPastelCards.length,
             onPageChanged: onPageChanged,
+            physics: const PageScrollPhysics(),
             itemBuilder: (ctx, i) {
               final it = _kPastelCards[i];
-              return LayoutBuilder(
-                builder: (ctx, c) {
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child:
-                        _RecommendCard(index: i, item: it, width: c.maxWidth),
-                  );
-                },
+              final double cardWidth = MediaQuery.of(ctx).size.width * 0.86;
+              return Center(
+                child: SizedBox(
+                  width: cardWidth,
+                  height: 156,
+                  child: _RecommendCard(index: i, item: it),
+                ),
               );
             },
           ),
         ),
         const SizedBox(height: 8),
-        // 인디케이터
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(_kPastelCards.length, (i) {
-            final active = (i == page);
+            final active = i == page;
             return AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               margin: const EdgeInsets.symmetric(horizontal: 3),
               width: active ? 16 : 6,
               height: 6,
               decoration: BoxDecoration(
-                color: active ? _kPrimary : Colors.black26,
+                color: active ? const Color(0xFF2962FF) : Colors.black26,
                 borderRadius: BorderRadius.circular(99),
               ),
             );
@@ -903,96 +652,97 @@ class _RecommendCarousel extends StatelessWidget {
 class _RecommendCard extends StatelessWidget {
   final int index;
   final _RecommendItem item;
-  final double width;
-  const _RecommendCard(
-      {required this.index, required this.item, required this.width});
+  const _RecommendCard({required this.index, required this.item});
 
   @override
   Widget build(BuildContext context) {
     final rank = index + 1;
-    return Card(
-      elevation: 4,
-      shadowColor: const Color(0x33000000),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      clipBehavior: Clip.antiAlias,
-      child: Container(
-        width: width,
-        decoration:
-            BoxDecoration(gradient: LinearGradient(colors: item.gradient)),
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-        child: Row(
-          children: [
-            // 랭크+이모지
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(.3), shape: BoxShape.circle),
-              child: Center(
-                  child:
-                      Text(item.emoji, style: const TextStyle(fontSize: 22))),
-            ),
-            const SizedBox(width: 12),
-            // 텍스트
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(.75),
-                          borderRadius: BorderRadius.circular(99),
+    return SizedBox.expand(
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: item.gradient),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: const [
+              BoxShadow(
+                  color: Color(0x22000000),
+                  blurRadius: 12,
+                  offset: Offset(0, 6)),
+            ],
+          ),
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(.3),
+                    shape: BoxShape.circle),
+                child: Center(
+                    child:
+                        Text(item.emoji, style: const TextStyle(fontSize: 22))),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(.6),
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                          child: Text('$rank위',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w700)),
                         ),
-                        child: Text('$rank위',
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w700)),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(item.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.w900)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(item.caption,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w600, color: Colors.black87)),
-                  const SizedBox(height: 6),
-                  Text('가입자수 ${_fmtSubs(item.subscribers)}',
-                      style: const TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.w700)),
-                ],
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(item.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w900)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(item.caption,
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
+                    Text('가입자수 ${_fmtSubs(item.subscribers)}',
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w700)),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            // CTA
-            FilledButton.tonal(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('${item.title} 상세로 이동 (데모)')),
-                );
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.white.withOpacity(.82),
-                foregroundColor: Colors.black87,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              const SizedBox(width: 10),
+              FilledButton.tonal(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('${item.title} 상세로 이동 (데모)')),
+                  );
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white.withOpacity(.75),
+                  foregroundColor: Colors.black87,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+                child: const Text('신청하기',
+                    style: TextStyle(fontWeight: FontWeight.w800)),
               ),
-              child: const Text('신청하기',
-                  style: TextStyle(fontWeight: FontWeight.w800)),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1007,8 +757,9 @@ class _RecommendCard extends StatelessWidget {
   }
 }
 
-/* ---------- 마이메뉴 ---------- */
-
+/* ─────────────────────────────────────────────────────────
+ * 마이메뉴
+ * ───────────────────────────────────────────────────────── */
 class _MyMenuItem {
   final String key;
   final String title;
@@ -1035,7 +786,6 @@ class _MyMenuSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final items =
         pool.where((m) => selectedKeys.contains(m.key)).take(3).toList();
-
     return Card(
       elevation: 0.4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -1049,10 +799,9 @@ class _MyMenuSection extends StatelessWidget {
                     style: TextStyle(fontWeight: FontWeight.w800)),
                 const Spacer(),
                 TextButton.icon(
-                  onPressed: onTapEdit,
-                  icon: const Icon(Icons.edit_rounded, size: 18),
-                  label: const Text('편집'),
-                ),
+                    onPressed: onTapEdit,
+                    icon: const Icon(Icons.edit_rounded, size: 18),
+                    label: const Text('편집')),
               ],
             ),
             const SizedBox(height: 6),
@@ -1080,7 +829,7 @@ class _MyMenuSection extends StatelessWidget {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(m.icon, size: 26, color: _kPrimary),
+                        Icon(m.icon, size: 26, color: const Color(0xFF2962FF)),
                         const SizedBox(height: 6),
                         Text(m.title,
                             style:
@@ -1098,7 +847,78 @@ class _MyMenuSection extends StatelessWidget {
   }
 }
 
-/* ---------- 공통 카드/계좌 ---------- */
+/* ─────────────────────────────────────────────────────────
+ * 공통 카드/계좌/요약
+ * ───────────────────────────────────────────────────────── */
+class _AccountCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String balanceText;
+  final VoidCallback? onTap;
+  final Widget? trailing;
+  final Widget? leading;
+
+  const _AccountCard({
+    required this.title,
+    required this.subtitle,
+    required this.balanceText,
+    this.onTap,
+    this.trailing,
+    this.leading,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+        child: Row(
+          children: [
+            if (leading != null) ...[leading!, const SizedBox(width: 12)],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                      overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.color
+                              ?.withOpacity(.7),
+                        ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(balanceText,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                      fontWeight: FontWeight.w700,
+                    )),
+                if (trailing != null) ...[const SizedBox(height: 4), trailing!],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _EmptyAccounts extends StatelessWidget {
   final VoidCallback onExplore;
@@ -1161,95 +981,18 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
-class _AccountCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final String balanceText;
-  final VoidCallback? onTap;
-  final Widget? trailing;
-  final Widget? leading;
-
-  const _AccountCard({
-    required this.title,
-    required this.subtitle,
-    required this.balanceText,
-    this.onTap,
-    this.trailing,
-    this.leading,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
-        child: Row(
-          children: [
-            if (leading != null) ...[
-              leading!,
-              const SizedBox(width: 12),
-            ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
-                      overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.color
-                              ?.withOpacity(.7),
-                        ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  balanceText,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if (trailing != null) ...[
-                  const SizedBox(height: 4),
-                  trailing!,
-                ],
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/* ---------- 아이콘/컬러/자산바 ---------- */
-
+/* ─────────────────────────────────────────────────────────
+ * 아이콘/컬러 + 자산 구성 바/범례
+ * ───────────────────────────────────────────────────────── */
 class _IconMeta {
   final IconData icon;
   final Color color;
   const _IconMeta(this.icon, this.color);
 }
 
-const _kPrimary = Color(0xFF2962FF); // 브랜드 블루
+const _kPrimary = Color(0xFF2962FF);
 const _kCashSolid = _kPrimary; // 현금성
-const _kSavingSolid = Color(0xFF80A4FF); // 예적금
+const _kSavingSolid = Color(0xFF80A4FF); // 예·적금
 const _kTrack = Color(0xFFE9EEF6);
 
 const _kGreen = Color(0xFF10B981);
@@ -1261,7 +1004,6 @@ _IconMeta _iconMetaForProduct(Account a) {
     pt = (a.productType ?? '').toString();
   } catch (_) {}
   final hint = '${pt} ${a.accountName ?? ''}'.toLowerCase();
-
   if (hint.contains('walk') ||
       hint.contains('step') ||
       hint.contains('health') ||
@@ -1345,16 +1087,14 @@ class _AssetBreakdownBar extends StatelessWidget {
             final wCash = w * cashRatio * cashProgress;
             final wSaving = w * savingRatio * savingProgress;
 
-            return Stack(
-              children: [
-                Container(height: height, color: _kTrack),
-                Container(height: height, width: wCash, color: _kCashSolid),
-                Positioned(
-                    left: wCash,
-                    child: Container(
-                        height: height, width: wSaving, color: _kSavingSolid)),
-              ],
-            );
+            return Stack(children: [
+              Container(height: height, color: _kTrack),
+              Container(height: height, width: wCash, color: _kCashSolid),
+              Positioned(
+                  left: wCash,
+                  child: Container(
+                      height: height, width: wSaving, color: _kSavingSolid)),
+            ]);
           },
         );
       }),
@@ -1366,7 +1106,6 @@ class _AssetLegend extends StatelessWidget {
   final int cash;
   final int saving;
   const _AssetLegend({super.key, required this.cash, required this.saving});
-
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -1404,12 +1143,254 @@ class _LegendDot extends StatelessWidget {
   }
 }
 
-/* ---------- 데모 페이지 ---------- */
+/* ─────────────────────────────────────────────────────────
+ * 코호트 비교 재사용 위젯 (네가 준 코드 그대로 포함)
+ * ───────────────────────────────────────────────────────── */
+class BenchmarkRatio {
+  final double cash; // 0.0 ~ 1.0
+  final double deposit; // 0.0 ~ 1.0
+  const BenchmarkRatio({required this.cash, required this.deposit});
+}
 
+class BenchmarkDashboard extends StatefulWidget {
+  const BenchmarkDashboard({
+    super.key,
+    required this.mineCashRatio,
+    required this.mineDepositRatio,
+    this.initialSegment,
+    this.localBenchmarks = const {
+      '20대 남성': BenchmarkRatio(cash: 0.36, deposit: 0.64),
+      '20대 여성': BenchmarkRatio(cash: 0.42, deposit: 0.58),
+    },
+    this.onFetchBenchmark,
+    this.title = '내 비중 vs 벤치마크',
+    this.colorCash = const Color(0xFF40C4FF),
+    this.colorDeposit = const Color(0xFF7C88FF),
+  });
+
+  final double mineCashRatio;
+  final double mineDepositRatio;
+  final String? initialSegment;
+  final Map<String, BenchmarkRatio> localBenchmarks;
+  final Future<BenchmarkRatio> Function(String segment)? onFetchBenchmark;
+  final String title;
+  final Color colorCash;
+  final Color colorDeposit;
+
+  @override
+  State<BenchmarkDashboard> createState() => _BenchmarkDashboardState();
+}
+
+class _BenchmarkDashboardState extends State<BenchmarkDashboard> {
+  late String _selectedSegment;
+  BenchmarkRatio? _bm;
+  bool _loading = false;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedSegment = widget.initialSegment ??
+        (widget.localBenchmarks.isNotEmpty
+            ? widget.localBenchmarks.keys.first
+            : '기본');
+    _loadFor(_selectedSegment);
+  }
+
+  Future<void> _loadFor(String segment) async {
+    setState(() {
+      _loading = widget.onFetchBenchmark != null;
+      _error = null;
+      _bm = null;
+    });
+
+    if (widget.onFetchBenchmark != null) {
+      try {
+        final r = await widget.onFetchBenchmark!(segment);
+        if (!mounted) return;
+        setState(() {
+          _bm = r;
+          _loading = false;
+        });
+        return;
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _error = e;
+          _loading = false;
+        });
+      }
+    }
+
+    final local = widget.localBenchmarks[segment];
+    setState(() {
+      _bm = local ??
+          (widget.localBenchmarks.isNotEmpty
+              ? widget.localBenchmarks.values.first
+              : const BenchmarkRatio(cash: 0, deposit: 1));
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bm = _bm ??
+        (widget.localBenchmarks[_selectedSegment] ??
+            (widget.localBenchmarks.isNotEmpty
+                ? widget.localBenchmarks.values.first
+                : const BenchmarkRatio(cash: 0, deposit: 1)));
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Expanded(
+                child: Text(widget.title,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w700)),
+              ),
+              if (widget.localBenchmarks.isNotEmpty)
+                PopupMenuButton<String>(
+                  initialValue: _selectedSegment,
+                  onSelected: (v) {
+                    setState(() => _selectedSegment = v);
+                    _loadFor(v);
+                  },
+                  itemBuilder: (c) => widget.localBenchmarks.keys
+                      .map((k) => PopupMenuItem(value: k, child: Text(k)))
+                      .toList(),
+                  child: Row(children: [
+                    Text(_selectedSegment,
+                        style: const TextStyle(fontSize: 12)),
+                    const Icon(Icons.keyboard_arrow_down, size: 18),
+                  ]),
+                ),
+            ]),
+            const SizedBox(height: 12),
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: LinearProgressIndicator(minHeight: 2),
+              ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  '서버에서 벤치마크를 불러오지 못해 로컬값을 표시합니다.',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: Colors.red),
+                ),
+              ),
+            _CompareRow(
+                label: '현금성',
+                mine: widget.mineCashRatio,
+                bm: bm.cash,
+                color: widget.colorCash),
+            const SizedBox(height: 10),
+            _CompareRow(
+                label: '예·적금',
+                mine: widget.mineDepositRatio,
+                bm: bm.deposit,
+                color: widget.colorDeposit),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CompareRow extends StatelessWidget {
+  final String label;
+  final double mine;
+  final double bm;
+  final Color color;
+  const _CompareRow({
+    required this.label,
+    required this.mine,
+    required this.bm,
+    required this.color,
+  });
+
+  String _pct(double v) => '${(v.clamp(0.0, 1.0) * 100).toStringAsFixed(0)}%';
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      const SizedBox(
+          width: 64, child: Text('현금성', style: TextStyle(fontSize: 12))),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _CompareBar(mine: mine, benchmark: bm, color: color),
+            const SizedBox(height: 4),
+            Text('내 비중 ${_pct(mine)} / 벤치마크 ${_pct(bm)}',
+                style: const TextStyle(fontSize: 11, color: Colors.black54)),
+          ],
+        ),
+      ),
+    ]).copyWithLabel(label);
+  }
+}
+
+extension on Row {
+  /// 위의 _CompareRow에서 라벨만 바꾸기 위한 간단 헬퍼
+  Row copyWithLabel(String label) {
+    final children = this.children.toList();
+    children[0] = SizedBox(
+        width: 64, child: Text(label, style: const TextStyle(fontSize: 12)));
+    return Row(children: children);
+  }
+}
+
+class _CompareBar extends StatelessWidget {
+  final double mine;
+  final double benchmark;
+  final Color color;
+  const _CompareBar(
+      {required this.mine, required this.benchmark, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 16,
+      child: Stack(children: [
+        Container(
+          decoration: BoxDecoration(
+              color: const Color(0xFFE9ECF1),
+              borderRadius: BorderRadius.circular(999)),
+        ),
+        FractionallySizedBox(
+          widthFactor: benchmark.clamp(0.0, 1.0),
+          child: Container(
+            decoration: BoxDecoration(
+                color: color.withOpacity(.35),
+                borderRadius: BorderRadius.circular(999)),
+          ),
+        ),
+        FractionallySizedBox(
+          widthFactor: mine.clamp(0.0, 1.0),
+          child: Container(
+            decoration: BoxDecoration(
+                color: color, borderRadius: BorderRadius.circular(999)),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+/* ─────────────────────────────────────────────────────────
+ * 데모 페이지
+ * ───────────────────────────────────────────────────────── */
 class _DemoPage extends StatelessWidget {
   final String title;
   const _DemoPage({required this.title});
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

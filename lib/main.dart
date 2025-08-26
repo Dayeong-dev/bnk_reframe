@@ -90,119 +90,57 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return DeepLinkBootstrapper(
       child: MaterialApp(
-        // ✅ 루트 네비게이터에 전역 키 장착 (api_interceptor가 여기 컨텍스트를 씀)
-        navigatorKey: navigatorKey,
-        title: "BNK 부산은행",
-        debugShowCheckedModeBanner: false,
-        navigatorObservers: firebaseService.observers,
+          // ✅ 루트 네비게이터에 전역 키 장착 (api_interceptor가 여기 컨텍스트를 씀)
+          navigatorKey: navigatorKey,
+          title: "BNK 부산은행",
+          debugShowCheckedModeBanner: false,
+          navigatorObservers: firebaseService.observers,
+          home: SplashPage(),
+          routes: {
+            "/home": (context) => const HomePage(),
+            "/join": (context) => const JoinPage(),
+            "/login": (context) => const LoginPage(),
+            "/depositList": (context) => const DepositListPage(),
+            "/depositMain": (context) => DepositMainPage(),
+            "/step-debug": (context) => StepDebugPage(),
+            "/chat-debug": (context) => BnkChatScreen(),
+            "/more-page": (context) => MorePage(),
+            '/map': (context) => const MapPage(),
+            // Savings 테스트 라우트
+            '/savings/start': (_) => const StartScreen(),
+            '/savings/question': (_) => const QuestionScreen(),
+            '/savings/result': (_) => const ResultScreen(),
 
-        home: SplashPage(),
-        routes: {
-          "/home": (context) => const HomePage(),
-          "/join": (context) => const JoinPage(),
-          "/login": (context) => const LoginPage(),
-          "/depositList": (context) => const DepositListPage(),
-          "/depositMain": (context) => DepositMainPage(),
-          "/step-debug": (context) => StepDebugPage(),
-          "/chat-debug": (context) => BnkChatScreen(),
-          "/more-page": (context) => MorePage(),
-          '/map': (context) => const MapPage(),
-          // Savings 테스트 라우트
-          '/savings/start': (_) => const StartScreen(),
-          '/savings/question': (_) => const QuestionScreen(),
-          '/savings/result': (_) => const ResultScreen(),
+            // 운세 이벤트(선택) 네임드 라우트
 
-          // 운세 이벤트(선택) 네임드 라우트
+            '/event/fortune': (_) => const StartPage(),
+            '/event/coupons': (_) => const CouponsPage(stampCount: 0),
+          },
 
-          '/event/fortune': (_) => const StartPage(),
-          '/event/coupons': (_) => const CouponsPage(stampCount: 0),
-        },
+          // 👇👇 여기서 전역 AppBar 스타일 통일!
+          theme: ThemeData(
+            useMaterial3: false, // ← M3 끔 (틴트/토큰 영향 제거)
+            scaffoldBackgroundColor: Colors.white,
 
-        // 👇👇 여기서 전역 AppBar 스타일 통일!
-        theme: ThemeData(
-          useMaterial3: true,
-          scaffoldBackgroundColor: Colors.white,
-          colorScheme: const ColorScheme.light(
-            primary: primaryColor,
-            surface: Colors.white,
-            background: Colors.white,
-          ),
-
-          // ✅ ElevatedButton 전역 (흰 버튼 방지 → 무조건 primaryColor)
-          elevatedButtonTheme: ElevatedButtonThemeData(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
-              foregroundColor: Colors.white,
-              minimumSize: const Size.fromHeight(44),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+            // 버튼만 유지
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(44),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
             ),
-          ),
-
-          // ✅ FilledButton 전역 (조건 미충족 시 연한 파랑)
-          filledButtonTheme: FilledButtonThemeData(
-            style: ButtonStyle(
-              minimumSize: const MaterialStatePropertyAll(Size.fromHeight(44)),
-              shape: MaterialStatePropertyAll(
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              backgroundColor: MaterialStateProperty.resolveWith((states) {
-                if (states.contains(MaterialState.disabled)) {
-                  return const Color(0xFFDFE7FF); // ❌ 조건 미충족 시 연한 파랑
-                }
-                return primaryColor; // ✅ 조건 충족 시 진한 primaryColor
-              }),
-              foregroundColor: MaterialStateProperty.resolveWith((states) {
-                if (states.contains(MaterialState.disabled)) {
-                  return const Color(0xFF7C8DB5); // 글씨도 연한 톤
-                }
-                return Colors.white;
-              }),
-              textStyle: const MaterialStatePropertyAll(
-                TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+            // FilledButton은 M2에선 권장 X → 가능하면 Elevated로 통일 권장
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.black,
+                textStyle:
+                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
               ),
             ),
-          ),
-
-          // ✅ TextButton (기존 유지)
-          textButtonTheme: TextButtonThemeData(
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.black,
-              textStyle: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-              ),
-            ),
-          ),
-
-          // ✅ AppBar 전역 스타일 (기존 유지)
-          appBarTheme: const AppBarTheme(
-            centerTitle: true,
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black,
-            elevation: 0,
-            surfaceTintColor: Colors.transparent,
-            titleTextStyle: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: Colors.black,
-            ),
-            toolbarTextStyle: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.black,
-            ),
-            iconTheme: IconThemeData(color: Colors.black),
-            actionsIconTheme: IconThemeData(color: Colors.black),
-          ),
-
-          bottomSheetTheme: const BottomSheetThemeData(
-            surfaceTintColor: Colors.transparent,
-            backgroundColor: Colors.white,
-          ),
-        ),
-      ),
+          )),
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -5,11 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:reframe/constants/number_format.dart'; // money.format
 import 'package:reframe/model/account.dart';
 import 'package:reframe/service/account_service.dart';
-
-/// 대시보드 중심 페이지:
-/// - 이름/생년: DB(API)에서 fetchUserProfile() → 실패 시 로컬 fallback
-/// - "내 계좌" 섹션 제거
-/// - 자산추이(최근 6개월) → 목표달성률 → 자산 분포 → 내 비중 vs 벤치마크(맨 아래)
 
 class MyServiceTestPage extends StatefulWidget {
   const MyServiceTestPage({super.key});
@@ -26,10 +22,9 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
   // ===== 상태 =====
   UserProfile? _profile;
 
-  // ===== 목표금액 (SharedPreferences 저장) =====
-  static const _kGoalKey = 'saving_goal_amount';
-  int _savingGoal = 10000000; // 초깃값
-  int _savingNow = 0; // 예·적금(상품) 잔액 합계
+  // ===== 개별 적금 목표 (SharedPreferences 저장) =====
+  static const _kGoalMapKey = 'saving_goal_map_v2'; // accountKey -> int
+  Map<String, int> _goalMap = {};
 
   // ===== 벤치마크 (세그먼트 전환) =====
   String _selectedSegment = '20대 남성';
@@ -41,29 +36,19 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
 
     _futureAccounts = fetchAccounts(null);
     _futureProfile = _fetchProfileOrFallback();
-    _loadGoal();
+    _loadGoalMap();
 
-    // 예적금 합계 계산 → 상태 반영
-    _futureAccounts.then((accounts) {
-      _savingNow = _sumSavings(accounts);
-      if (mounted) setState(() {});
-    });
-
-    // 총자산 추이
     _futureTrend = _fetchAssetTrendOrFallback();
-
-    // 벤치마크
     _fetchBenchmarkOrFallback(_selectedSegment);
   }
 
   // ===== 프로필(DB에서 이름/생년 가져오기) =====
   Future<UserProfile> _fetchProfileOrFallback() async {
     try {
-      final p = await fetchUserProfile(); // ← 실제 API로 연결 (아래에 TODO)
+      final p = await fetchUserProfile(); // ← 실제 API로 연결
       _profile = p;
       return p;
     } catch (_) {
-      // 안전한 기본값
       final p = UserProfile(name: '홍길동', birth: DateTime(1998, 9, 1));
       _profile = p;
       return p;
@@ -82,16 +67,22 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
     }
   }
 
-  // ===== Goal 저장/로드 =====
-  Future<void> _loadGoal() async {
+  // ===== Goal Map 저장/로드 =====
+  Future<void> _loadGoalMap() async {
     final sp = await SharedPreferences.getInstance();
-    setState(() => _savingGoal = sp.getInt(_kGoalKey) ?? _savingGoal);
+    final raw = sp.getString(_kGoalMapKey);
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw) as Map<String, dynamic>;
+        _goalMap = decoded.map((k, v) => MapEntry(k, (v as num).toInt()));
+      } catch (_) {/* ignore */}
+    }
+    if (mounted) setState(() {});
   }
 
-  Future<void> _saveGoal(int v) async {
+  Future<void> _saveGoalMap() async {
     final sp = await SharedPreferences.getInstance();
-    await sp.setInt(_kGoalKey, v);
-    setState(() => _savingGoal = v);
+    await sp.setString(_kGoalMapKey, jsonEncode(_goalMap));
   }
 
   // ===== 총자산 추이 (엔드포인트 없으면 안전한 목데이터) =====
@@ -152,6 +143,13 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
     return sum;
   }
 
+  // 계좌별 goal key (accountNumber 우선, 없으면 이름, 최후엔 hash)
+  String _accKey(Account a) => (a.accountNumber?.trim().isNotEmpty == true)
+      ? a.accountNumber!.trim()
+      : (a.accountName?.trim().isNotEmpty == true
+          ? 'name:${a.accountName!.trim()}'
+          : 'acc_${a.hashCode}');
+
   // 최근 6개월 라벨 (MM)
   List<String> _recent6MonthsLabels() {
     final now = DateTime.now();
@@ -163,66 +161,154 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
     return out;
   }
 
+  // ===== 목표 설정 바텀시트 (계좌별) =====
+  void _openGoalSheetFor(Account acc) {
+    final key = _accKey(acc);
+    final currentGoal = _goalMap[key] ?? 0;
+    final ctrl = TextEditingController(
+        text: currentGoal == 0 ? '' : currentGoal.toString());
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      barrierColor: Colors.black.withOpacity(0.5),
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (c) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 8,
+            bottom: 16 + MediaQuery.of(c).viewInsets.bottom,
+          ),
+          child: SizedBox(
+            // ← 가로 제약 확실히
+            width: double.infinity,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                        color: Colors.black12,
+                        borderRadius: BorderRadius.circular(999))),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(acc.accountName ?? '적금 목표 설정',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 16),
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity, // ← TextField 가로고정
+                  child: TextField(
+                    controller: ctrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(),
+                      hintText: '목표 금액 (원)',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () {
+                          final raw =
+                              ctrl.text.replaceAll(RegExp(r'[^0-9]'), '');
+                          final v = int.tryParse(raw) ?? 0;
+                          setState(() {
+                            if (v <= 0) {
+                              _goalMap.remove(key);
+                            } else {
+                              _goalMap[key] = v;
+                            }
+                          });
+                          _saveGoalMap();
+                          Navigator.pop(c);
+                        },
+                        child: const Text('저장'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          setState(() {
+                            _goalMap.remove(key);
+                          });
+                          _saveGoalMap();
+                          Navigator.pop(c);
+                        },
+                        child: const Text('목표 제거'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<Account>>(
-      future: _futureAccounts,
-      builder: (context, snap) {
-        if (snap.connectionState != ConnectionState.done) {
-          return const Scaffold(
-              body:
-                  SafeArea(child: Center(child: CircularProgressIndicator())));
-        }
-        if (snap.hasError) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('내 자산 요약'), centerTitle: true),
-            body: SafeArea(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.error_outline, size: 40),
-                    const SizedBox(height: 12),
-                    const Text('계좌 정보를 불러오지 못했습니다.'),
-                    const SizedBox(height: 10),
-                    Text('${snap.error}', textAlign: TextAlign.center),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      onPressed: () =>
-                          setState(() => _futureAccounts = fetchAccounts(null)),
-                      child: const Text('다시 시도'),
-                    ),
-                  ]),
-                ),
-              ),
-            ),
-          );
-        }
+    // 내비바까지 배경이 자연스럽게 보이도록
+    return Scaffold(
+      extendBody: true,
+      appBar: AppBar(title: const Text('내 자산 요약'), centerTitle: true),
+      body: SafeArea(
+        bottom: true,
+        child: FutureBuilder<List<Account>>(
+          future: _futureAccounts,
+          builder: (context, snap) {
+            if (snap.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snap.hasError) {
+              return _ErrorBox(
+                message: '계좌 정보를 불러오지 못했습니다.',
+                detail: '${snap.error}',
+                onRetry: () =>
+                    setState(() => _futureAccounts = fetchAccounts(null)),
+              );
+            }
 
-        final accounts = snap.data ?? [];
-        final cashSum = _sumCash(accounts);
-        final depositSum = _sumSavings(accounts);
-        final total = cashSum + depositSum;
+            final accounts = snap.data ?? [];
+            final savings = accounts.where(_isSavings).toList();
+            final cashSum = _sumCash(accounts);
+            final depositSum = _sumSavings(accounts);
+            final total = cashSum + depositSum;
 
-        final safeTotal = total == 0 ? 1 : total;
-        final cashRatio = (cashSum / safeTotal).clamp(0.0, 1.0);
-        final depositRatio = (depositSum / safeTotal).clamp(0.0, 1.0);
+            final safeTotal = total == 0 ? 1 : total;
+            final cashRatio = (cashSum / safeTotal).clamp(0.0, 1.0);
+            final depositRatio = (depositSum / safeTotal).clamp(0.0, 1.0);
 
-        final name = _profile?.name ?? '홍길동';
-        final birth = _profile?.birth ?? DateTime(1998, 9, 1);
-        final age = _calcAge(birth);
-        final goalRatio =
-            (_savingNow / (_savingGoal == 0 ? 1 : _savingGoal)).clamp(0.0, 1.0);
+            final name = _profile?.name ?? '홍길동';
+            final birth = _profile?.birth ?? DateTime(1998, 9, 1);
+            final age = _calcAge(birth);
 
-        final bottomPadding = MediaQuery.of(context).padding.bottom +
-            kBottomNavigationBarHeight +
-            16;
+            final bottomPadding = MediaQuery.of(context).padding.bottom +
+                kBottomNavigationBarHeight +
+                16;
 
-        return Scaffold(
-          appBar: AppBar(title: const Text('내 자산 요약'), centerTitle: true),
-          body: SafeArea(
-            bottom: true,
-            child: ListView(
+            return ListView(
               padding: EdgeInsets.fromLTRB(16, 16, 16, bottomPadding),
               children: [
                 // ===== 0) 상단 총자산 카드 =====
@@ -236,15 +322,22 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
                 ),
                 const SizedBox(height: 16),
 
-                // ===== 1) 총자산 추이 (맨 위로 올림) =====
+                // ===== 1) 총자산 추이 =====
                 FutureBuilder<List<_MonthlyPoint>>(
                   future: _futureTrend,
                   builder: (context, tsnap) {
                     final months = _recent6MonthsLabels();
                     final series = tsnap.data ?? const <_MonthlyPoint>[];
-                    final values = series.isEmpty
+                    final baseValues = series.isEmpty
                         ? List.filled(6, total)
                         : series.map((e) => e.total).toList();
+
+                    // n < 2 가드: 최소 2개로 복제
+                    final values = (baseValues.length >= 2)
+                        ? baseValues
+                        : (baseValues.isEmpty
+                            ? [0, 0]
+                            : [baseValues.first, baseValues.first]);
 
                     return Card(
                       shape: RoundedRectangleBorder(
@@ -252,87 +345,120 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
                         child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('총자산 추이 (최근 6개월)',
-                                  style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700)),
-                              const SizedBox(height: 12),
-                              SizedBox(
-                                height: 220,
-                                child: _LineChart(
-                                    labels: months,
-                                    values: values,
-                                    lineColor: const Color(0xFF7C88FF)),
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('총자산 추이 (최근 6개월)',
+                                style: TextStyle(
+                                    fontSize: 16, fontWeight: FontWeight.w700)),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity, // ← 가로 고정
+                              height: 240,
+                              child: _LineChartAdvanced(
+                                labels: months,
+                                values: values,
+                                lineColor: const Color(0xFF7C88FF),
                               ),
-                              if (tsnap.hasError)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: Text('트렌드 데이터를 불러오지 못해 임시값을 표시합니다.',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(color: Colors.red)),
-                                ),
-                            ]),
+                            ),
+                            if (tsnap.hasError)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Text('트렌드 데이터를 불러오지 못해 임시값을 표시합니다.',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(color: Colors.red)),
+                              ),
+                          ],
+                        ),
                       ),
                     );
                   },
                 ),
                 const SizedBox(height: 16),
 
-                // ===== 2) 목표달성률 =====
-                Card(
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 120,
-                          height: 120,
-                          child: _GaugeProgress(
-                            ratio: goalRatio,
-                            color: const Color(0xFF7C88FF),
-                            label: '적금 목표',
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text('적금 목표 달성률',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.w700)),
-                                const SizedBox(height: 6),
-                                Text(
-                                  '${money.format(_savingNow)} 원 / ${money.format(_savingGoal)} 원',
-                                  style: const TextStyle(
-                                      fontSize: 12, color: Colors.black54),
-                                ),
-                                const SizedBox(height: 10),
-                                _LinearProgress(
-                                    ratio: goalRatio,
-                                    color: const Color(0xFF7C88FF),
-                                    height: 14),
-                                const SizedBox(height: 10),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: OutlinedButton.icon(
-                                    onPressed: _openGoalSheet,
-                                    icon: const Icon(Icons.flag),
-                                    label: const Text('목표 설정'),
-                                  ),
-                                ),
-                              ]),
-                        ),
-                      ],
+                // ===== 2) 적금(개별 목표) =====
+                const _SectionTitle('내 적금 목표'),
+                const SizedBox(height: 8),
+                if (savings.isEmpty)
+                  Card(
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                    child: const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text('등록된 예·적금 계좌가 없습니다.'),
                     ),
-                  ),
-                ),
+                  )
+                else
+                  ...savings.map((acc) {
+                    final bal = acc.balance ?? 0;
+                    final key = _accKey(acc);
+                    final goal = _goalMap[key] ?? 0;
+                    final ratio =
+                        goal <= 0 ? 0.0 : (bal / goal).clamp(0.0, 1.0);
+
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 88,
+                              height: 88,
+                              child: _GaugeProgressAnimated(
+                                ratio: ratio,
+                                color: const Color(0xFF7C88FF),
+                                label: '진행률',
+                                duration: const Duration(milliseconds: 700),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(acc.accountName ?? '예·적금',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w700)),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    goal <= 0
+                                        ? '목표를 설정해 주세요'
+                                        : '${money.format(bal)} 원 / ${money.format(goal)} 원',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.black.withOpacity(.6)),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  SizedBox(
+                                    width: double.infinity, // ← 가로 고정
+                                    child: _LinearProgressAnimated(
+                                      ratio: ratio,
+                                      color: const Color(0xFF7C88FF),
+                                      height: 10,
+                                      duration:
+                                          const Duration(milliseconds: 600),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            FilledButton.tonalIcon(
+                              icon: const Icon(Icons.flag),
+                              label: const Text('설정'),
+                              onPressed: () => _openGoalSheetFor(acc),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
                 const SizedBox(height: 16),
 
                 // ===== 3) 자산 분포 (도넛) =====
@@ -349,18 +475,21 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
                                   fontSize: 16, fontWeight: FontWeight.w700)),
                           const SizedBox(height: 12),
                           SizedBox(
-                            height: 160,
+                            height: 150,
                             child: Row(
                               children: [
                                 Expanded(
-                                  child: _DonutChart(slices: [
-                                    _Slice(
-                                        ratio: cashRatio,
-                                        color: const Color(0xFF40C4FF)),
-                                    _Slice(
-                                        ratio: depositRatio,
-                                        color: const Color(0xFF7C88FF)),
-                                  ]),
+                                  child: SizedBox(
+                                    width: double.infinity, // ← 가로 고정
+                                    child: _DonutChart(slices: [
+                                      _Slice(
+                                          ratio: cashRatio,
+                                          color: const Color(0xFF40C4FF)),
+                                      _Slice(
+                                          ratio: depositRatio,
+                                          color: const Color(0xFF7C88FF)),
+                                    ]),
+                                  ),
                                 ),
                                 const SizedBox(width: 12),
                                 Column(
@@ -386,7 +515,7 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
                 ),
                 const SizedBox(height: 16),
 
-                // ===== 4) 내 비중 vs 벤치마크 (맨 아래) =====
+                // ===== 4) 내 비중 vs 벤치마크 =====
                 Card(
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16)),
@@ -423,7 +552,9 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
                           _CompareRow(
                             label: '현금성',
                             mine: cashRatio,
-                            bm: (_bm ?? _benchmarksLocal[_selectedSegment]!)
+                            bm: (_bm ??
+                                    _benchmarksLocal[_selectedSegment] ??
+                                    const _Benchmark(cash: 0, deposit: 1))
                                 .cash,
                             color: const Color(0xFF40C4FF),
                           ),
@@ -431,7 +562,9 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
                           _CompareRow(
                             label: '예·적금',
                             mine: depositRatio,
-                            bm: (_bm ?? _benchmarksLocal[_selectedSegment]!)
+                            bm: (_bm ??
+                                    _benchmarksLocal[_selectedSegment] ??
+                                    const _Benchmark(cash: 0, deposit: 1))
                                 .deposit,
                             color: const Color(0xFF7C88FF),
                           ),
@@ -439,70 +572,51 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
                   ),
                 ),
               ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // ===== 목표 설정 바텀시트 =====
-  void _openGoalSheet() {
-    final ctrl = TextEditingController(text: _savingGoal.toString());
-    showModalBottomSheet(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            );
+          },
+        ),
       ),
-      builder: (c) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 12,
-            bottom: 16 + MediaQuery.of(c).viewInsets.bottom,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('목표 금액 설정',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-              const SizedBox(height: 12),
-              TextField(
-                controller: ctrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: '예: 10000000',
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  const Spacer(),
-                  FilledButton(
-                    onPressed: () {
-                      final raw = ctrl.text.replaceAll(RegExp(r'[^0-9]'), '');
-                      final v = int.tryParse(raw) ?? _savingGoal;
-                      _saveGoal(v);
-                      Navigator.pop(c);
-                    },
-                    child: const Text('저장'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 }
 
-// ========================= 위젯/그리기 =========================
+// ========================= 공용 위젯/그리기 =========================
+
+class _ErrorBox extends StatelessWidget {
+  final String message;
+  final String? detail;
+  final VoidCallback onRetry;
+  const _ErrorBox({required this.message, this.detail, required this.onRetry});
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.error_outline, size: 40),
+          const SizedBox(height: 12),
+          Text(message, style: const TextStyle(fontWeight: FontWeight.w600)),
+          if (detail != null) ...[
+            const SizedBox(height: 8),
+            Text(detail!,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall),
+          ],
+          const SizedBox(height: 16),
+          FilledButton(onPressed: onRetry, child: const Text('다시 시도')),
+        ]),
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  final String text;
+  const _SectionTitle(this.text);
+  @override
+  Widget build(BuildContext context) => Text(text,
+      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold));
+}
 
 class _TopSummaryCard extends StatelessWidget {
   final String title;
@@ -533,24 +647,27 @@ class _TopSummaryCard extends StatelessWidget {
       elevation: 0.6,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children: [
               const CircleAvatar(radius: 16, child: Icon(Icons.person)),
               const SizedBox(width: 8),
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+              Expanded(
+                  child: Text(title,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w700))),
             ]),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Text('${money.format(total)} 원',
                 style:
-                    const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                    const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
             const SizedBox(height: 8),
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: SizedBox(
-                height: 18,
+                height: 16,
                 child: Stack(children: [
                   Container(color: barBg),
                   FractionallySizedBox(
@@ -567,7 +684,7 @@ class _TopSummaryCard extends StatelessWidget {
                 ]),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Row(children: [
               Text('현금성 ${pct(cashRatio)}',
                   style: const TextStyle(fontSize: 12)),
@@ -577,8 +694,8 @@ class _TopSummaryCard extends StatelessWidget {
               Text('예·적금 ${pct(depositRatio)}',
                   style: const TextStyle(fontSize: 12)),
             ]),
-            const SizedBox(height: 8),
-            Wrap(spacing: 14, runSpacing: 6, children: [
+            const SizedBox(height: 6),
+            Wrap(spacing: 14, runSpacing: 4, children: [
               _LegendDot(color: cashColor, label: '현금성', amount: cashSum),
               _LegendDot(
                   color: depositColor, label: '예·적금', amount: depositSum),
@@ -590,28 +707,40 @@ class _TopSummaryCard extends StatelessWidget {
   }
 }
 
-// 게이지(반원)
-class _GaugeProgress extends StatelessWidget {
+// 반원 게이지 (애니메이션 지원)
+class _GaugeProgressAnimated extends StatelessWidget {
   final double ratio;
   final Color color;
   final String label;
-  const _GaugeProgress(
-      {required this.ratio, required this.color, required this.label});
+  final Duration duration;
+  const _GaugeProgressAnimated({
+    required this.ratio,
+    required this.color,
+    required this.label,
+    this.duration = const Duration(milliseconds: 600),
+  });
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _GaugePainter(ratio: ratio, color: color),
-      child: Center(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text('${(ratio * 100).toStringAsFixed(0)}%',
-              style:
-                  const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-          const SizedBox(height: 2),
-          Text(label,
-              style: const TextStyle(fontSize: 12, color: Colors.black54)),
-        ]),
-      ),
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: ratio.clamp(0.0, 1.0)),
+      duration: duration,
+      curve: Curves.easeOutCubic,
+      builder: (_, value, __) {
+        return CustomPaint(
+          painter: _GaugePainter(ratio: value, color: color),
+          child: Center(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Text('${(value * 100).toStringAsFixed(0)}%',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w900, fontSize: 16)),
+              const SizedBox(height: 2),
+              Text(label,
+                  style: const TextStyle(fontSize: 11, color: Colors.black54)),
+            ]),
+          ),
+        );
+      },
     );
   }
 }
@@ -627,12 +756,12 @@ class _GaugePainter extends CustomPainter {
     final bg = Paint()
       ..color = const Color(0xFFEFF1F5)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 14
+      ..strokeWidth = 12
       ..strokeCap = StrokeCap.round;
     final fg = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 14
+      ..strokeWidth = 12
       ..strokeCap = StrokeCap.round;
     final start = math.pi; // 왼쪽부터
     const sweepAll = math.pi;
@@ -645,6 +774,47 @@ class _GaugePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _GaugePainter old) =>
       old.ratio != ratio || old.color != color;
+}
+
+// 선형 진행바 (애니메이션 지원)
+class _LinearProgressAnimated extends StatelessWidget {
+  final double ratio; // 0.0 ~ 1.0
+  final Color color;
+  final double height;
+  final Duration duration;
+
+  const _LinearProgressAnimated({
+    required this.ratio,
+    required this.color,
+    this.height = 10,
+    this.duration = const Duration(milliseconds: 500),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: ratio.clamp(0.0, 1.0)),
+      duration: duration,
+      curve: Curves.easeOutCubic,
+      builder: (context, v, _) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: SizedBox(
+            height: height,
+            child: Stack(
+              children: [
+                Container(color: const Color(0xFFE9ECF1)), // 배경 트랙
+                FractionallySizedBox(
+                  widthFactor: v,
+                  child: Container(color: color), // 진행 구간
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 // 도넛
@@ -757,57 +927,92 @@ class _CompareBar extends StatelessWidget {
   }
 }
 
-// 라인차트(총자산)
-class _LineChart extends StatelessWidget {
+// 총자산 추이 (축/라벨/금액 표시 강화 버전)
+class _LineChartAdvanced extends StatelessWidget {
   final List<String> labels;
   final List<int> values;
   final Color lineColor;
-  const _LineChart(
+  const _LineChartAdvanced(
       {required this.labels, required this.values, required this.lineColor});
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _LineChartPainter(
+      painter: _LineChartAdvancedPainter(
           labels: labels, values: values, lineColor: lineColor),
       child: Container(),
     );
   }
 }
 
-class _LineChartPainter extends CustomPainter {
+class _LineChartAdvancedPainter extends CustomPainter {
   final List<String> labels;
   final List<int> values;
   final Color lineColor;
-  _LineChartPainter(
+  _LineChartAdvancedPainter(
       {required this.labels, required this.values, required this.lineColor});
+
   @override
   void paint(Canvas canvas, Size size) {
-    final padding = 32.0;
-    const top = 8.0, bottom = 28.0;
-    final chartW = size.width - padding * 2;
-    final chartH = size.height - top - bottom;
+    final paddingLeft = 56.0; // Y축 라벨 영역
+    const paddingRight = 12.0;
+    const paddingTop = 12.0;
+    const paddingBottom = 28.0; // X축 라벨 영역
+    final chartW = size.width - paddingLeft - paddingRight;
+    final chartH = size.height - paddingTop - paddingBottom;
 
+    if (chartW <= 0 || chartH <= 0) return; // 레이아웃 가드
+
+    // 축/가이드 스타일
+    final axis = Paint()
+      ..color = const Color(0xFFCBD3DF)
+      ..strokeWidth = 1.2;
     final guide = Paint()
       ..color = const Color(0xFFE9ECF1)
       ..strokeWidth = 1;
-    for (int i = 0; i <= 3; i++) {
-      final y = top + chartH * (i / 3);
-      canvas.drawLine(Offset(padding, y), Offset(padding + chartW, y), guide);
+
+    // 값 범위
+    int maxValI = values.reduce(math.max);
+    int minValI = values.reduce(math.min);
+    if (maxValI == minValI) {
+      maxValI += 1;
+      minValI -= 1;
+    }
+    final span = (maxValI - minValI).toDouble();
+    final step = span / 4;
+    final ticks = List<double>.generate(5, (i) => minValI + step * i);
+
+    double yForVal(num v) =>
+        paddingTop + chartH - ((v - minValI) / span) * chartH;
+    double xForIndex(int i) {
+      final n = values.length;
+      final denom = (n - 1) == 0 ? 1 : (n - 1);
+      return paddingLeft + chartW * (i / denom);
     }
 
-    final n = values.length;
-    final maxVal = values.reduce(math.max).toDouble();
-    final minVal = values.reduce(math.min).toDouble();
-    final span = (maxVal - minVal) == 0 ? 1 : (maxVal - minVal);
-
-    Offset pt(int i) {
-      final x = padding + chartW * (i / (n - 1));
-      final y = top + chartH - ((values[i] - minVal) / span) * chartH;
-      return Offset(x, y);
+    // 가이드 + Y축 라벨
+    final txtStyle = const TextStyle(fontSize: 10, color: Colors.black54);
+    for (final t in ticks) {
+      final y = yForVal(t);
+      canvas.drawLine(
+          Offset(paddingLeft, y), Offset(paddingLeft + chartW, y), guide);
+      final label = money.format(t.round());
+      final tp = TextPainter(
+        text: TextSpan(text: label, style: txtStyle),
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: paddingLeft - 8);
+      tp.paint(canvas, Offset(paddingLeft - 8 - tp.width, y - tp.height / 2));
     }
 
+    // 축선 (X, Y)
+    canvas.drawLine(Offset(paddingLeft, paddingTop),
+        Offset(paddingLeft, paddingTop + chartH), axis);
+    canvas.drawLine(Offset(paddingLeft, paddingTop + chartH),
+        Offset(paddingLeft + chartW, paddingTop + chartH), axis);
+
+    // 선 경로
+    final pt = (int i) => Offset(xForIndex(i), yForVal(values[i]));
     final path = Path()..moveTo(pt(0).dx, pt(0).dy);
-    for (int i = 1; i < n; i++) {
+    for (int i = 1; i < values.length; i++) {
       path.lineTo(pt(i).dx, pt(i).dy);
     }
     final line = Paint()
@@ -816,27 +1021,38 @@ class _LineChartPainter extends CustomPainter {
       ..strokeWidth = 2.5;
     canvas.drawPath(path, line);
 
+    // 포인트 + 금액 라벨
     final dot = Paint()
       ..color = lineColor
       ..style = PaintingStyle.fill;
-    for (int i = 0; i < n; i++) {
-      canvas.drawCircle(pt(i), 3.5, dot);
-    }
-
-    // x 라벨
-    final textStyle = const TextStyle(fontSize: 10, color: Colors.black54);
-    for (int i = 0; i < labels.length; i++) {
+    final valStyle = const TextStyle(
+        fontSize: 9, color: Colors.black87, fontWeight: FontWeight.w600);
+    for (int i = 0; i < values.length; i++) {
       final p = pt(i);
+      canvas.drawCircle(p, 3.5, dot);
+
+      final lbl = money.format(values[i]);
       final tp = TextPainter(
-        text: TextSpan(text: labels[i], style: textStyle),
+        text: TextSpan(text: lbl, style: valStyle),
         textDirection: TextDirection.ltr,
       )..layout();
-      tp.paint(canvas, Offset(p.dx - tp.width / 2, size.height - tp.height));
+      tp.paint(canvas, Offset(p.dx - tp.width / 2, p.dy - tp.height - 6));
+    }
+
+    // X축 라벨
+    final xStyle = const TextStyle(fontSize: 10, color: Colors.black54);
+    for (int i = 0; i < labels.length; i++) {
+      final x = xForIndex(i);
+      final tp = TextPainter(
+        text: TextSpan(text: labels[i], style: xStyle),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(x - tp.width / 2, paddingTop + chartH + 6));
     }
   }
 
   @override
-  bool shouldRepaint(covariant _LineChartPainter old) =>
+  bool shouldRepaint(covariant _LineChartAdvancedPainter old) =>
       old.labels != labels ||
       old.values != values ||
       old.lineColor != lineColor;
@@ -860,38 +1076,6 @@ class _LegendDot extends StatelessWidget {
       Text('$label  ${money.format(amount)}원',
           style: Theme.of(context).textTheme.bodySmall),
     ]);
-  }
-}
-
-// --- 적금 목표: Linear Progress ---
-class _LinearProgress extends StatelessWidget {
-  final double ratio; // 0.0 ~ 1.0
-  final Color color;
-  final double height;
-
-  const _LinearProgress({
-    required this.ratio,
-    required this.color,
-    this.height = 10,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(999),
-      child: SizedBox(
-        height: height,
-        child: Stack(
-          children: [
-            Container(color: const Color(0xFFE9ECF1)), // 배경 트랙
-            FractionallySizedBox(
-              widthFactor: ratio.clamp(0.0, 1.0),
-              child: Container(color: color), // 진행 구간
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 
@@ -930,28 +1114,19 @@ final Map<String, _Benchmark> _benchmarksLocal = <String, _Benchmark>{
 };
 
 // ========================= 서버 연동 가정 함수들 =========================
-// 실제 프로젝트에 맞게 구현/대체하세요. (지금은 UnimplementedError로 표시)
 
-/// 총자산 추이(최근 6개월)
 Future<List<_MonthlyPoint>> fetchAssetTrend() async {
-  // TODO: 실제 구현 (예: GET /api/asset/trend?months=6)
   throw UnimplementedError('asset trend endpoint not connected yet');
 }
 
-/// 벤치마크(세그먼트별 비중)
 Future<_Benchmark> fetchBenchmark(String segment) async {
-  // TODO: 실제 구현 (예: GET /asset/benchmark?segment=20대%20남성)
   throw UnimplementedError('benchmark endpoint not connected yet');
 }
 
-/// 사용자 프로필(이름/생년)
 Future<UserProfile> fetchUserProfile() async {
-  // TODO: 실제 구현 (예: GET /user/profile -> {name:'홍길동', birth:'1998-09-01'})
-  // DateTime 파싱 유의 (UTC/로컬)
   throw UnimplementedError('profile endpoint not connected yet');
 }
 
-// ========================= 프로필 모델 =========================
 class UserProfile {
   final String name;
   final DateTime birth;

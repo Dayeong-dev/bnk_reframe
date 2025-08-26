@@ -70,7 +70,7 @@ class _InputPageState extends State<InputPage> {
         return;
       }
       setState(
-              () => _typedTitle = _fullTitle.substring(0, _typedTitle.length + 1));
+          () => _typedTitle = _fullTitle.substring(0, _typedTitle.length + 1));
     });
   }
 
@@ -80,7 +80,7 @@ class _InputPageState extends State<InputPage> {
     final raw = ModalRoute.of(context)?.settings.arguments;
     if (raw is Map) {
       final v =
-      (raw['inviter'] ?? raw['inviteCode'] ?? raw['code'])?.toString();
+          (raw['inviter'] ?? raw['inviteCode'] ?? raw['code'])?.toString();
       if (v != null && v.isNotEmpty && invitedBy == null) {
         setState(() => invitedBy = v); // StartPage → InputPage 전달분 반영
         _recordInviteVisitIfNeeded(v, source: 'route-arg');
@@ -100,7 +100,7 @@ class _InputPageState extends State<InputPage> {
     }
 
     _linkSub = _appLinks.uriLinkStream.listen(
-          (uri) => _maybeCaptureInvite(uri, source: 'stream'),
+      (uri) => _maybeCaptureInvite(uri, source: 'stream'),
       onError: (err) => debugPrint('⚠️ uri link stream error: $err'),
     );
   }
@@ -233,11 +233,11 @@ class _InputPageState extends State<InputPage> {
     if (!mounted) return;
 
     final FortuneFlowArgs args = (
-    isAgreed: isAgreed,
-    name: isAgreed ? name : null,
-    birthDate: isAgreed ? birth : null,
-    gender: isAgreed ? gender : null,
-    invitedBy: invitedBy, // 내부 전달만, 화면 노출 없음
+      isAgreed: isAgreed,
+      name: isAgreed ? name : null,
+      birthDate: isAgreed ? birth : null,
+      gender: isAgreed ? gender : null,
+      invitedBy: invitedBy, // 내부 전달만, 화면 노출 없음
     );
 
     try {
@@ -327,7 +327,7 @@ class _InputPageState extends State<InputPage> {
     int tempDay = _day;
 
     final years =
-    List<int>.generate(_maxYear - _minYear + 1, (i) => _minYear + i);
+        List<int>.generate(_maxYear - _minYear + 1, (i) => _minYear + i);
     final months = List<int>.generate(12, (i) => i + 1);
 
     int yearIndex = years.indexOf(tempYear);
@@ -343,9 +343,9 @@ class _InputPageState extends State<InputPage> {
         final primary = const Color(0xFF2962FF);
         return Dialog(
           insetPadding:
-          const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: StatefulBuilder(
             builder: (context, setSB) {
               return ConstrainedBox(
@@ -378,7 +378,7 @@ class _InputPageState extends State<InputPage> {
                             style: FilledButton.styleFrom(
                               backgroundColor: primary,
                               padding:
-                              const EdgeInsets.symmetric(horizontal: 16),
+                                  const EdgeInsets.symmetric(horizontal: 16),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
@@ -414,11 +414,11 @@ class _InputPageState extends State<InputPage> {
                                 onSelectedItemChanged: (i) {
                                   tempYear = years[i];
                                   final newMax =
-                                  _daysInMonth(tempYear, tempMonth);
+                                      _daysInMonth(tempYear, tempMonth);
                                   if (tempDay > newMax) tempDay = newMax;
                                   dayMax = newMax;
                                   days =
-                                  List<int>.generate(newMax, (k) => k + 1);
+                                      List<int>.generate(newMax, (k) => k + 1);
                                   dayIndex = (tempDay - 1).clamp(0, newMax - 1);
                                   setSB(() {});
                                 },
@@ -435,11 +435,11 @@ class _InputPageState extends State<InputPage> {
                                 onSelectedItemChanged: (i) {
                                   tempMonth = months[i];
                                   final newMax =
-                                  _daysInMonth(tempYear, tempMonth);
+                                      _daysInMonth(tempYear, tempMonth);
                                   if (tempDay > newMax) tempDay = newMax;
                                   dayMax = newMax;
                                   days =
-                                  List<int>.generate(newMax, (k) => k + 1);
+                                      List<int>.generate(newMax, (k) => k + 1);
                                   dayIndex = (tempDay - 1).clamp(0, newMax - 1);
                                   setSB(() {});
                                 },
@@ -561,9 +561,9 @@ class _InputPageState extends State<InputPage> {
                         "남",
                         style: TextStyle(
                           color:
-                          gender == "남" ? Colors.black87 : Colors.black54,
+                              gender == "남" ? Colors.black87 : Colors.black54,
                           fontWeight:
-                          gender == "남" ? FontWeight.w600 : FontWeight.w400,
+                              gender == "남" ? FontWeight.w600 : FontWeight.w400,
                         ),
                       ),
                     ),
@@ -587,9 +587,9 @@ class _InputPageState extends State<InputPage> {
                         "여",
                         style: TextStyle(
                           color:
-                          gender == "여" ? Colors.black87 : Colors.black54,
+                              gender == "여" ? Colors.black87 : Colors.black54,
                           fontWeight:
-                          gender == "여" ? FontWeight.w600 : FontWeight.w400,
+                              gender == "여" ? FontWeight.w600 : FontWeight.w400,
                         ),
                       ),
                     ),
@@ -644,7 +644,8 @@ class _InputPageState extends State<InputPage> {
                   Checkbox(
                     value: isAgreed,
                     onChanged: (v) => setState(() => isAgreed = v ?? false),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4)),
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     visualDensity: VisualDensity.compact,
                   ),
@@ -657,7 +658,8 @@ class _InputPageState extends State<InputPage> {
                       behavior: HitTestBehavior.translucent,
                       child: const Text(
                         '개인정보 수집/이용 동의 (선택)',
-                        style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                            fontSize: 13.5, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ),
@@ -665,17 +667,17 @@ class _InputPageState extends State<InputPage> {
               );
             }),
 
-
             // 안내 문구
             const Padding(
-              padding: EdgeInsets.only(left: 7, right: 8, bottom: 4), // ← 12 → 16
+              padding:
+                  EdgeInsets.only(left: 7, right: 8, bottom: 4), // ← 12 → 16
               child: Text(
                 '동의 시 이름·생년월일·성별을 서버에 저장합니다.\n'
-                    '동의하지 않으면 결과 페이지에서만 일시적으로 사용됩니다.',
-                style: TextStyle(fontSize: 12.5, height: 1.4, color: Colors.black54),
+                '동의하지 않으면 결과 페이지에서만 일시적으로 사용됩니다.',
+                style: TextStyle(
+                    fontSize: 12.5, height: 1.4, color: Colors.black54),
               ),
             ),
-
 
             const SizedBox(height: 40),
           ],

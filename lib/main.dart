@@ -121,12 +121,20 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           useMaterial3: false,
           scaffoldBackgroundColor: Colors.white,
-
-          // 기본 팔레트 고정 (primary만 명확히)
           colorScheme: const ColorScheme.light(
-            primary: primaryColor, // 버튼/포커스/토글 기본색
+            primary: primaryColor,
             surface: Colors.white,
             background: Colors.white,
+          ),
+
+          // ✅ 전역 Card 모양/색 고정
+          cardTheme: const CardThemeData(
+            color: Colors.white,
+            surfaceTintColor: Colors.transparent, // M3 대비용(지금은 M2라 무시)
+            elevation: 0.6,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(16)),
+            ),
           ),
 
           // AppBar

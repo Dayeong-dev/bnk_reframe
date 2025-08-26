@@ -7,8 +7,22 @@ import 'package:reframe/service/account_service.dart';
 import '../../../constants/text_animation.dart';
 import '../../../model/product_account_detail.dart';
 
+/// ===== 팔레트: 리뷰 헤더 느낌과 동일 톤 =====
+const _brand = Color(0xFF304FFE); // 포인트
+const _brand2 = Color(0xFF3B82F6); // 그라데이션 앞쪽 블루
+const _ink = Color(0xFF0B0D12); // 본문 진한 텍스트
+const _inkWeak = Color(0xFF6B7280); // 보조 텍스트
+const _cardLine = Color(0xFFE6EAF0); // 옅은 보더
+const _chipBg = Color(0xFFF1F4FF); // Pill 배경(라이트)
+const _chipFg = _brand; // Pill 텍스트/아이콘
+const _headerGradA = Color(0xFFF7F9FF); // 라이트 그라데이션(미사용, 참고)
+const _headerGradB = Color(0xFFFFFFFF);
+
+/// ===== 포맷터 (₩, 날짜) =====
 final _won =
     NumberFormat.currency(locale: 'ko_KR', symbol: '₩', decimalDigits: 0);
+final _won2 =
+    NumberFormat.currency(locale: 'ko_KR', symbol: '₩', decimalDigits: 2);
 final _date = DateFormat('yyyy.MM.dd');
 
 class DepositPage extends StatefulWidget {
@@ -28,15 +42,18 @@ class _DepositPageState extends State<DepositPage> {
     _future = fetchAccountDetail(widget.accountId);
   }
 
+  Future<void> _reload() async {
+    setState(() {
+      _future = fetchAccountDetail(widget.accountId);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
     return SafeArea(
       child: RefreshIndicator(
-        onRefresh: () async => setState(() {
-          _future = fetchAccountDetail(widget.accountId);
-        }),
+        onRefresh: _reload,
+        color: Theme.of(context).colorScheme.primary,
         child: FutureBuilder<ProductAccountDetail>(
           future: _future,
           builder: (context, snap) {
@@ -44,86 +61,108 @@ class _DepositPageState extends State<DepositPage> {
               return const Center(child: CircularProgressIndicator());
             }
             if (snap.hasError || !snap.hasData) {
-              return ListView(children: const [
-                SizedBox(height: 100),
-                Center(child: Text('상세 데이터를 불러오지 못했습니다.')),
-              ]);
+              return ListView(
+                children: const [
+                  SizedBox(height: 120),
+                  Center(child: Text('상세 데이터를 불러오지 못했습니다.')),
+                ],
+              );
             }
 
             final detail = snap.data!;
             final acc = detail.account;
             final app = detail.application;
 
-            final principal = (acc?.balance ?? 0);
+            if (acc == null) {
+              return ListView(
+                children: const [
+                  SizedBox(height: 120),
+                  Center(child: Text('계좌 정보가 없습니다.')),
+                ],
+              );
+            }
+
+            // ===== 계산/가공 =====
+            final principal = (acc.balance ?? 0);
             final start = app.startAt;
             final close = app.closeAt;
             final rateBase = app.baseRateAtEnroll ?? 0;
             final rateEffective = app.effectiveRateAnnual ?? rateBase;
 
-            final now = DateTime.now();
+            // D-day 계산(만기 없는 경우 null)
             int? dday;
             if (close != null) {
-              final today = DateTime(now.year, now.month, now.day);
+              final today = DateTime.now();
               final end = DateTime(close.year, close.month, close.day);
-              dday = end.difference(today).inDays;
+              final day0 = DateTime(today.year, today.month, today.day);
+              dday = end.difference(day0).inDays;
             }
+            final ddayText =
+                close == null ? '만기 없음' : (dday! >= 0 ? 'D-$dday' : '만기 지남');
 
             final projectedInterestNow = detail.projectedInterestNow ?? 0;
             final maturityAmountProjected =
                 detail.maturityAmountProjected; // null이면 만기 없음
-            // final projectedNetInterest = (projectedInterestNow * 0.846).floor(); // 세후(15.4%)
 
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
               children: [
-                // === 헤더 요약 (토스/카카오 느낌) ===
-                _HeaderSummary(
-                    title: acc?.accountName ?? '상품계좌',
-                    accountMasked: acc!.accountNumber,
-                    principal: principal,
-                    ddayText: close == null
-                        ? '만기 없음'
-                        : (dday! >= 0 ? 'D-$dday' : '만기 지남'),
-                    start: start,
-                    close: close),
+                /// ===== 파란 그라데이션 헤더 (리뷰 헤더 스타일 적용) =====
+                _BlueHeaderCard(
+                  title: acc.accountName ?? app.product.name,
+                  accountMasked: acc.accountNumber ?? '',
+                  principal: principal,
+                  ddayText: ddayText,
+                  start: start,
+                  close: close,
+                ),
                 const SizedBox(height: 16),
 
+                /// ===== 이자/만기 예상 =====
                 _SectionGroup(children: [
                   _RowKV.withWidget(
                     '현재까지 이자(세전)',
                     LiveInterestTicker(
                       principal: principal,
-                      annualRatePercent: rateEffective, // 적용 금리(연)
-                      start: start, // 가입일
-                      end: close, // 만기(없으면 null)
-                      // 원 단위 표시(기본):
-                      // formatter: NumberFormat.currency(locale: 'ko_KR', symbol: '₩', decimalDigits: 0),
-
-                      // 소수점 둘째자리까지 보고 싶다면 아래처럼 사용
-                      formatter: NumberFormat.currency(
-                          locale: 'ko_KR', symbol: '₩', decimalDigits: 2),
+                      annualRatePercent: rateEffective, // 연이율(%)
+                      start: start,
+                      end: close,
+                      formatter: _won2, // 소수점 2자리(원하면 _won으로 교체)
                     ),
                   ),
                   if (maturityAmountProjected != null)
                     _RowKV(
                         '만기 예상 수령액(세전)', _won.format(maturityAmountProjected)),
                 ]),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
+
+                /// ===== 약정/금리 정보 =====
                 _SectionGroup(children: [
-                  _RowKV('만기일', close == null ? '만기 없음' : _date.format(close)),
                   _RowKV(
-                      '약정 개월수',
-                      app.termMonthsAtEnroll == null
-                          ? '-'
-                          : '${app.termMonthsAtEnroll}개월'),
-                  _RowKV('현재 적용금리', '${rateEffective.toStringAsFixed(2)}%'),
-                ]),
-                const SizedBox(height: 12),
-                _SectionGroup(children: [
+                    '약정 기간',
+                    (app.termMonthsAtEnroll == null)
+                        ? '-'
+                        : '${app.termMonthsAtEnroll}개월',
+                  ),
                   _RowKV('가입일', start == null ? '-' : _date.format(start)),
                   _RowKV('만기일', close == null ? '-' : _date.format(close)),
+                  _RowKV(
+                    '현재 적용 금리',
+                    '${rateEffective.toStringAsFixed(2)}%',
+                  ),
                 ]),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
+
+                /// (옵션) 참고 정보
+                if (projectedInterestNow > 0) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    '※ 세후 금액은 상품/세율에 따라 달라질 수 있어요.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                  ),
+                ],
               ],
             );
           },
@@ -133,16 +172,20 @@ class _DepositPageState extends State<DepositPage> {
   }
 }
 
-// ---------- 보조 위젯/함수 ----------
-class _HeaderSummary extends StatelessWidget {
+/// ─────────────────────────────────────────────────────────
+/// 리뷰 페이지의 파란 배너 무드를 적용한 헤더 카드
+/// - 그라데이션 배경 + 화이트 계열 칩 + 소프트 섀도
+/// - 큰 금액 카운트업 + 진행바
+/// ─────────────────────────────────────────────────────────
+class _BlueHeaderCard extends StatelessWidget {
   final String title;
   final String accountMasked;
   final num principal;
   final String ddayText;
-  DateTime? start;
-  DateTime? close;
+  final DateTime? start;
+  final DateTime? close;
 
-  _HeaderSummary({
+  const _BlueHeaderCard({
     super.key,
     required this.title,
     required this.accountMasked,
@@ -154,183 +197,174 @@ class _HeaderSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      margin: const EdgeInsets.fromLTRB(0, 0, 0, 0),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF16181A) : const Color(0xFFF7F8FA),
-        borderRadius: BorderRadius.circular(20),
+        gradient: isDark
+            ? null
+            : const LinearGradient(
+                colors: [_brand2, _brand],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+        color: isDark ? const Color(0xFF16181A) : null,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x22000000),
+            blurRadius: 16,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // 상단: 계좌명 / D-day 배지
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 상단 타이틀 + D-day 칩
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                ),
+              ),
+              _HeaderChip.light(
+                icon: Icons.event_available_rounded,
+                text: ddayText,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // 계좌번호(흰색 약간 투명)
+          Text(
+            accountMasked,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withOpacity(.9),
+                  letterSpacing: 0.2,
+                ),
+          ),
+          const SizedBox(height: 12),
+
+          // 금액 라벨
+          Text(
+            '현재 잔액(원금)',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.white.withOpacity(.85),
+                ),
+          ),
+          const SizedBox(height: 6),
+
+          // 큰 금액(애니메이션 카운트업)
+          DiffHighlight(
+            marker: principal,
+            highlightOnFirstBuild: true,
+            child: MoneyCountUp(
+              value: principal,
+              formatter: _won,
+              animateOnFirstBuild: true,
+              duration: const Duration(milliseconds: 650),
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+                fontFeatures: [FontFeature.tabularFigures()],
               ),
             ),
-            _Pill(ddayText),
+          ),
+
+          // 진행바
+          if (start != null && close != null) ...[
+            const SizedBox(height: 12),
+            _BrandCountdownBar(start: start, close: close),
           ],
-        ),
-        const SizedBox(height: 6),
+        ],
+      ),
+    );
+  }
+}
+
+/// 리뷰 헤더 느낌의 칩 (화이트/반투명)
+class _HeaderChip extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final bool inverted;
+  const _HeaderChip({
+    super.key,
+    required this.icon,
+    required this.text,
+    this.inverted = false,
+  });
+
+  factory _HeaderChip.light({required IconData icon, required String text}) {
+    return _HeaderChip(icon: icon, text: text, inverted: false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = inverted ? Colors.white : Colors.white24;
+    final fg = inverted ? _brand : Colors.white;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 14, color: fg),
+        const SizedBox(width: 6),
         Text(
-          accountMasked,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey[600],
-                letterSpacing: 0.2,
-              ),
-        ),
-        const SizedBox(height: 14),
-        Text(
-          '현재 잔액(원금)',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey[600],
-              ),
-        ),
-        const SizedBox(height: 4),
-        // 큼직한 금액
-        DiffHighlight(
-          marker: principal,
-          highlightOnFirstBuild: true,
-          child: MoneyCountUp(
-            value: principal,
-            formatter: _won,
-            animateOnFirstBuild: true, // 첫 진입에도 촤라락
-            duration: const Duration(milliseconds: 650),
-            style: Theme.of(context).textTheme.headlineSmall, // (원하면 더 크게)
+          text,
+          style: TextStyle(
+            color: fg,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.1,
           ),
         ),
-        const SizedBox(height: 4),
-        (start != null && close != null
-            ? CountdownBar(start: start, close: close)
-            : SizedBox())
       ]),
     );
   }
 }
 
-class _Pill extends StatelessWidget {
-  final String text;
-  const _Pill(this.text, {super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: cs.primary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        text,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: cs.primary,
-              fontWeight: FontWeight.w700,
-            ),
-      ),
-    );
-  }
-}
-
-class _SectionGroup extends StatelessWidget {
-  final List<Widget> children;
-  const _SectionGroup({super.key, required this.children});
-
-  @override
-  Widget build(BuildContext context) {
-    final border = Divider.createBorderSide(context,
-        width: 0.4, color: Colors.grey.withOpacity(0.25));
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? const Color(0xFF111315)
-            : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.withOpacity(0.12)),
-      ),
-      child: Column(
-        children: [
-          for (int i = 0; i < children.length; i++) ...[
-            if (i != 0) Divider(height: 1, thickness: 0.4, color: border.color),
-            children[i],
-          ]
-        ],
-      ),
-    );
-  }
-}
-
-class _RowKV extends StatelessWidget {
-  final String k;
-  final String? v;
-  final Widget? vWidget;
-
-  const _RowKV(this.k, this.v, {super.key}) : vWidget = null;
-  const _RowKV.withWidget(this.k, this.vWidget, {super.key}) : v = null;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: Colors.grey[600],
-        );
-    final valueStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
-      fontWeight: FontWeight.w700,
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Expanded(child: Text(k, style: label)),
-          const SizedBox(width: 12),
-          Flexible(
-            child: vWidget ??
-                Text(v ?? '-', textAlign: TextAlign.right, style: valueStyle),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 남은 일수 진행바 (첫 진입 애니메이션)
-class CountdownBar extends StatefulWidget {
+/// 진행바(연회색 트랙 + 브랜드 채움)
+class _BrandCountdownBar extends StatelessWidget {
   final DateTime? start;
   final DateTime? close;
-
-  /// 첫 진입 시 0→progress 애니메이션할지 여부
-  final bool animateOnFirstBuild;
-
-  /// 애니메이션 세팅
-  final Duration duration;
-  final Curve curve;
-
-  const CountdownBar({
-    super.key,
-    this.start,
-    this.close,
-    this.animateOnFirstBuild = true,
-    this.duration = const Duration(milliseconds: 700),
-    this.curve = Curves.easeOutCubic,
-  });
+  const _BrandCountdownBar({super.key, this.start, this.close});
 
   @override
-  State<CountdownBar> createState() => _CountdownBarState();
+  Widget build(BuildContext context) {
+    if (start == null || close == null) return const SizedBox.shrink();
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 1), // 내부 위젯 애니메이션만 사용
+      builder: (_, __, ___) {
+        return _CountdownBarStyled(start: start!, close: close!);
+      },
+    );
+  }
 }
 
-class _CountdownBarState extends State<CountdownBar> {
+/// 기존 로직을 유지하고 색상만 통일
+class _CountdownBarStyled extends StatefulWidget {
+  final DateTime start;
+  final DateTime close;
+  const _CountdownBarStyled(
+      {super.key, required this.start, required this.close});
+
+  @override
+  State<_CountdownBarStyled> createState() => _CountdownBarStyledState();
+}
+
+class _CountdownBarStyledState extends State<_CountdownBarStyled> {
   double _prev = 0.0;
 
-  static double _calcProgress(DateTime? start, DateTime? close) {
-    if (start == null || close == null) return 0.0;
+  static double _calcProgress(DateTime start, DateTime close) {
     final today = DateTime.now();
     final total =
         close.difference(DateTime(start.year, start.month, start.day)).inDays;
@@ -344,67 +378,56 @@ class _CountdownBarState extends State<CountdownBar> {
   @override
   void initState() {
     super.initState();
-    final p = _calcProgress(widget.start, widget.close);
-    _prev = widget.animateOnFirstBuild ? 0.0 : p;
-  }
-
-  @override
-  void didUpdateWidget(covariant CountdownBar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // 진행률이 변한 경우(날짜/데이터 갱신) 이전 진행률에서 새 진행률로 애니메이션
-    final oldP = _calcProgress(oldWidget.start, oldWidget.close);
-    _prev = oldP;
+    _prev = 0.0;
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.start == null || widget.close == null)
-      return const SizedBox.shrink();
-
     final today = DateTime.now();
-    final total = widget.close!
-        .difference(DateTime(
-            widget.start!.year, widget.start!.month, widget.start!.day))
+    final total = widget.close
+        .difference(
+            DateTime(widget.start.year, widget.start.month, widget.start.day))
         .inDays;
-    final left = widget.close!
+    final left = widget.close
         .difference(DateTime(today.year, today.month, today.day))
-        .inDays
-        .clamp(-1 << 31, 1 << 31); // 안전 클램프
+        .inDays;
     final done = (total - left).clamp(0, total);
     final target = total <= 0 ? 1.0 : (done / total);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 10),
         ClipRRect(
           borderRadius: BorderRadius.circular(999),
           child: TweenAnimationBuilder<double>(
             tween: Tween(begin: _prev, end: target),
-            duration: widget.duration,
-            curve: widget.curve,
-            onEnd: () => _prev = target, // 다음 빌드에서 재시작 방지
+            duration: const Duration(milliseconds: 700),
+            curve: Curves.easeOutCubic,
+            onEnd: () => _prev = target,
             builder: (context, value, _) {
               return LinearProgressIndicator(
                 value: value,
                 minHeight: 8,
-                backgroundColor: Colors.grey.withOpacity(0.15),
+                backgroundColor: const Color(0xFFEDEFF5), // 연회색 트랙
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                    Color(0xFFFFC107)), // 노란색 채움
               );
             },
           ),
         ),
         const SizedBox(height: 6),
-        // 라벨 숫자도 같이 자연스럽게 증가
         TweenAnimationBuilder<double>(
           tween: Tween(begin: _prev, end: target),
-          duration: widget.duration,
-          curve: widget.curve,
+          duration: const Duration(milliseconds: 700),
+          curve: Curves.easeOutCubic,
           builder: (context, value, _) {
             final currDone =
                 (value * (total <= 0 ? 0 : total)).round().clamp(0, total);
             return Text(
               '진행 ${currDone}일 / 총 ${total}일',
-              style: Theme.of(context).textTheme.bodySmall,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.white.withOpacity(.9),
+                  ),
             );
           },
         ),
@@ -413,7 +436,83 @@ class _CountdownBarState extends State<CountdownBar> {
   }
 }
 
-// 2) 자리별 롤링(오도미터)
+/// 섹션 카드(흰 배경 + 얇은 선 + 라운드)
+class _SectionGroup extends StatelessWidget {
+  final List<Widget> children;
+  const _SectionGroup({super.key, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? Colors.white.withOpacity(0.08) : _cardLine;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF111315) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: 1),
+      ),
+      child: Column(
+        children: [
+          for (int i = 0; i < children.length; i++) ...[
+            if (i != 0)
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: isDark ? borderColor.withOpacity(0.85) : borderColor,
+              ),
+            children[i],
+          ]
+        ],
+      ),
+    );
+  }
+}
+
+/// Key-Value 한 줄
+class _RowKV extends StatelessWidget {
+  final String k;
+  final String? v;
+  final Widget? vWidget;
+
+  const _RowKV(this.k, this.v, {super.key}) : vWidget = null;
+  const _RowKV.withWidget(this.k, this.vWidget, {super.key}) : v = null;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final label = Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: isDark ? Colors.white70 : _inkWeak,
+        );
+    final valueStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.w800,
+          fontFeatures: const [FontFeature.tabularFigures()],
+          color: isDark ? Colors.white : _ink,
+        );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          Expanded(child: Text(k, style: label)),
+          const SizedBox(width: 12),
+          Flexible(
+            child: vWidget ??
+                Text(
+                  v ?? '-',
+                  textAlign: TextAlign.right,
+                  style: valueStyle,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ===== 숫자 롤링/실시간 이자 틱업: 기존 로직 유지 =====
+
+/// 자리별 롤링 텍스트(탭룰라 숫자)
 class RollingNumberText extends StatefulWidget {
   final num value;
   final NumberFormat formatter;
@@ -440,8 +539,8 @@ class RollingNumberText extends StatefulWidget {
 }
 
 class _RollingNumberTextState extends State<RollingNumberText> {
-  late String _display; // 화면에 그릴 "현재 문자열" (처음엔 from, 다음 프레임에 target으로 교체)
-  late String _target; // 최종 문자열
+  late String _display;
+  late String _target;
 
   @override
   void initState() {
@@ -451,14 +550,13 @@ class _RollingNumberTextState extends State<RollingNumberText> {
     _display = widget.formatter.format(from);
     _target = widget.formatter.format(widget.value);
 
-    // 첫 진입 롤링: 다음 프레임에 target으로 교체해 AnimatedSwitcher가 작동하도록
     if (widget.animateOnFirstBuild && _display != _target) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         setState(() => _display = _target);
       });
     } else {
-      _display = _target; // 애니메이션 필요 없음
+      _display = _target;
     }
   }
 
@@ -468,7 +566,7 @@ class _RollingNumberTextState extends State<RollingNumberText> {
     final newTarget = widget.formatter.format(widget.value);
     if (newTarget != _target) {
       _target = newTarget;
-      setState(() => _display = _target); // 값 변경 시 자리별 롤링
+      setState(() => _display = _target);
     }
   }
 
@@ -501,12 +599,13 @@ class _RollingNumberTextState extends State<RollingNumberText> {
                     .chain(CurveTween(curve: widget.curve))
                     .animate(anim);
             return SlideTransition(
-                position: offset,
-                child: FadeTransition(opacity: anim, child: child));
+              position: offset,
+              child: FadeTransition(opacity: anim, child: child),
+            );
           },
           child: Text(
             ch,
-            key: ValueKey('$i-$ch'), // 같은 자릿수의 글자 바뀔 때만 애니메이션
+            key: ValueKey('$i-$ch'),
             style: style,
           ),
         );
@@ -515,17 +614,17 @@ class _RollingNumberTextState extends State<RollingNumberText> {
   }
 }
 
-/// 실시간 이자(세전) 틱업 위젯
-/// - ACT/365 단순이자 가정
-/// - 만기(end) 도달 시 자동 정지
+/// 실시간 이자(세전) 틱업
+/// - ACT/365 단리 가정
+/// - 만기 도달 시 자동 정지
 class LiveInterestTicker extends StatefulWidget {
-  final num principal; // 납입(원금)
-  final double annualRatePercent; // 연이율(%)
-  final DateTime? start; // 이자 발생 시작 시점
-  final DateTime? end; // 만기(없으면 null)
-  final NumberFormat formatter; // 표시 포맷 (소수점 2자리 원하면 decimalDigits: 2)
-  final Duration tick; // 갱신 주기
-  final bool animateOnFirstBuild; // 첫 진입 롤링 여부
+  final num principal;
+  final double annualRatePercent;
+  final DateTime? start;
+  final DateTime? end;
+  final NumberFormat formatter;
+  final Duration tick;
+  final bool animateOnFirstBuild;
 
   const LiveInterestTicker({
     super.key,
@@ -546,20 +645,20 @@ class _LiveInterestTickerState extends State<LiveInterestTicker> {
   Timer? _timer;
   num _value = 0;
 
-  static const _secondsPerYear = 365 * 24 * 60 * 60; // ACT/365
+  static const _secondsPerYear = 365 * 24 * 60 * 60;
 
   num _interestAt(DateTime now) {
     if (widget.start == null) return 0;
-    final end =
+    final effectiveEnd =
         (widget.end != null && now.isAfter(widget.end!)) ? widget.end! : now;
-    if (end.isBefore(widget.start!)) return 0;
+    if (effectiveEnd.isBefore(widget.start!)) return 0;
 
-    final elapsedSec = end.difference(widget.start!).inSeconds;
+    final elapsedSec = effectiveEnd.difference(widget.start!).inSeconds;
     final rate = widget.annualRatePercent / 100.0;
-
     final raw =
         widget.principal.toDouble() * rate * (elapsedSec / _secondsPerYear);
-    // 표시 자리수에 맞춰 반올림 (원 단위면 정수, 2자리면 소수)
+
+    // 표시 자리수 반올림
     final decimals = widget.formatter.decimalDigits ?? 0;
     final factor = MathPow.pow(10, decimals).toDouble();
     return (raw * factor).round() / factor;
@@ -571,7 +670,6 @@ class _LiveInterestTickerState extends State<LiveInterestTicker> {
     if (!mounted) return;
     setState(() => _value = newVal);
 
-    // 만기 도달 시 타이머 종료
     if (widget.end != null && now.isAfter(widget.end!)) {
       _timer?.cancel();
       _timer = null;
@@ -588,7 +686,6 @@ class _LiveInterestTickerState extends State<LiveInterestTicker> {
   @override
   void didUpdateWidget(covariant LiveInterestTicker old) {
     super.didUpdateWidget(old);
-    // 입력 값이 바뀌면 즉시 재계산
     _value = _interestAt(DateTime.now());
     _timer?.cancel();
     _timer = Timer.periodic(widget.tick, (_) => _tick());
@@ -602,7 +699,6 @@ class _LiveInterestTickerState extends State<LiveInterestTicker> {
 
   @override
   Widget build(BuildContext context) {
-    // 자리별 롤링 이미 있으니 그대로 활용
     return RollingNumberText(
       value: _value,
       formatter: widget.formatter,
@@ -617,7 +713,7 @@ class _LiveInterestTickerState extends State<LiveInterestTicker> {
   }
 }
 
-/// 간단 pow (dart:math 없이 정수 거듭제곱용)
+/// 간단 pow (정수 거듭제곱)
 class MathPow {
   static num pow(num base, int exponent) {
     num result = 1;

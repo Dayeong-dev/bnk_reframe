@@ -36,7 +36,7 @@ class _QnaListPageState extends State<QnaListPage> {
               api: widget.api,
               cameFromList: false,
             ),
-            fullscreenDialog: true,
+
           ),
         );
       });
@@ -59,7 +59,7 @@ class _QnaListPageState extends State<QnaListPage> {
           api: widget.api,
           cameFromList: true,
         ),
-        fullscreenDialog: true,
+
       ),
     );
     _openingComposer = false;
@@ -73,10 +73,6 @@ class _QnaListPageState extends State<QnaListPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('문의내역'),
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
         actions: [
           TextButton(
             onPressed: _openComposerFromList,
@@ -332,7 +328,6 @@ class _EmptyView extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                elevation: 0,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
               ),

@@ -12,7 +12,8 @@ class LoadingPage extends StatefulWidget {
   State<LoadingPage> createState() => _LoadingPageState();
 }
 
-class _LoadingPageState extends State<LoadingPage> with TickerProviderStateMixin {
+class _LoadingPageState extends State<LoadingPage>
+    with TickerProviderStateMixin {
   late final AnimationController _controller;
   bool _navigated = false;
 
@@ -54,7 +55,8 @@ class _LoadingPageState extends State<LoadingPage> with TickerProviderStateMixin
       _goResultWithData(FortuneResponse(
         fortune: '계획을 점검하기 좋은 하루예요.',
         keyword: '안정',
-        content: '큰 변화보다 작은 정리에 집중하면 좋아요. 오늘 할 일을 짧게 쪼개면 부담이 줄어요. 루틴을 정비하며 재충전해 보세요.', // ✅ 추가
+        content:
+            '큰 변화보다 작은 정리에 집중하면 좋아요. 오늘 할 일을 짧게 쪼개면 부담이 줄어요. 루틴을 정비하며 재충전해 보세요.', // ✅ 추가
         products: const [],
       ));
     }

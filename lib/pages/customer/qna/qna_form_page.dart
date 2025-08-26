@@ -27,10 +27,8 @@ class QnaFormPage extends StatefulWidget {
 class _QnaFormPageState extends State<QnaFormPage> {
   final _formKey = GlobalKey<FormState>();
 
-  // 1) 카테고리(예적금/기타)
   static const _categories = ['예적금', '기타'];
 
-  // 2) 카테고리별 "문의 유형" 하드코딩 옵션
   static const Map<String, List<String>> _typeOptions = {
     '예적금': [
       '금리 문의',
@@ -51,11 +49,11 @@ class _QnaFormPageState extends State<QnaFormPage> {
   };
 
   late String _category;
-  String? _qnaType; // 문의 유형
+  String? _qnaType;
   late TextEditingController _title;
   late TextEditingController _content;
   bool _submitting = false;
-  String? _typeErrorText; // 유형 미선택 시 에러 표시
+  String? _typeErrorText;
 
   @override
   void initState() {
@@ -74,10 +72,8 @@ class _QnaFormPageState extends State<QnaFormPage> {
   }
 
   Future<void> _submit() async {
-    // 문의 유형 필수 체크
     if (_qnaType == null) {
       setState(() => _typeErrorText = '문의 유형을 선택해 주세요');
-      // 살짝 스크롤 올려서 유형 필드를 보여줌
       Scrollable.ensureVisible(_typeFieldKey.currentContext!,
           duration: const Duration(milliseconds: 220), alignment: .1);
       return;
@@ -135,10 +131,6 @@ class _QnaFormPageState extends State<QnaFormPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('1:1 문의'),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        elevation: 0.3,
-        foregroundColor: Colors.black,
       ),
       backgroundColor: Colors.white,
       body: Form(
@@ -146,28 +138,31 @@ class _QnaFormPageState extends State<QnaFormPage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           children: [
-            // ── 1) 카테고리 세그먼트 ──────────────────────────────
             _SegmentGrid(
               items: _categories,
               selected: _category,
               onChanged: (v) {
                 setState(() {
                   _category = v;
-                  _qnaType = null; // 카테고리 바뀌면 유형 초기화
-                  _typeErrorText = null; // 에러 메시지도 초기화
+                  _qnaType = null;
+                  _typeErrorText = null;
                 });
               },
             ),
             const SizedBox(height: 20),
 
-            // ── 2) 문의 유형 (모달 시트 선택기) ────────────────────
-            Text('문의 유형', style: TextStyle(fontSize: 13, color: labelGrey)),
+            // ── 1) 문의 유형 (라벨 볼드) ───────────────────────
+            Text('문의 유형',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold, // ★ 볼드 처리
+                    color: labelGrey)),
             const SizedBox(height: 8),
             _TypePickerField(
               key: _typeFieldKey,
               value: _qnaType,
               options: types,
-              hint: '문의의 유형을 선택해 주세요.',
+              hint: '문의의 유형을 선택해주세요.',
               borderGrey: borderGrey,
               selectedBorder: selectedBorder,
               errorText: _typeErrorText,
@@ -179,41 +174,50 @@ class _QnaFormPageState extends State<QnaFormPage> {
 
             const SizedBox(height: 20),
 
-            // ── 3) 제목 ──────────────────────────────────────────
-            Text('제목', style: TextStyle(fontSize: 13, color: labelGrey)),
+            // ── 2) 제목 (라벨 볼드) ─────────────────────────────
+            Text('제목',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold, // ★ 볼드 처리
+                    color: labelGrey)),
             const SizedBox(height: 8),
             TextFormField(
               controller: _title,
               decoration: _boxInputDecoration(
-                hint: '제목을 입력해 주세요.',
+                hint: '제목을 입력해주세요.',
                 borderGrey: borderGrey,
                 selectedBorder: selectedBorder,
+                hintBold: true, // ★ 힌트 볼드
               ),
               validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? '제목을 입력해 주세요' : null,
+              (v == null || v.trim().isEmpty) ? '제목을 입력해주세요' : null,
             ),
 
             const SizedBox(height: 20),
 
-            // ── 4) 내용 ──────────────────────────────────────────
-            Text('내용', style: TextStyle(fontSize: 13, color: labelGrey)),
+            // ── 3) 내용 (라벨 볼드) ─────────────────────────────
+            Text('내용',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold, // ★ 볼드 처리
+                    color: labelGrey)),
             const SizedBox(height: 8),
             TextFormField(
               controller: _content,
               minLines: 6,
               maxLines: 12,
               decoration: _boxInputDecoration(
-                hint: '문의 내용을 입력해 주세요.',
+                hint: '문의 내용을 입력해주세요.',
                 borderGrey: borderGrey,
                 selectedBorder: selectedBorder,
+                hintBold: true, // ★ 힌트 볼드
               ),
               validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? '내용을 입력해 주세요' : null,
+              (v == null || v.trim().isEmpty) ? '내용을 입력해주세요' : null,
             ),
 
             const SizedBox(height: 24),
 
-            // ── 저장 버튼 ────────────────────────────────────────
             SizedBox(
               height: 52,
               child: ElevatedButton(
@@ -224,20 +228,19 @@ class _QnaFormPageState extends State<QnaFormPage> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  elevation: 0,
                 ),
                 child: _submitting
                     ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation(Colors.white),
-                        ),
-                      )
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation(Colors.white),
+                  ),
+                )
                     : const Text('등록하기',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w700)),
+                    style: TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w700)),
               ),
             ),
           ],
@@ -246,14 +249,18 @@ class _QnaFormPageState extends State<QnaFormPage> {
     );
   }
 
-  // 공통: 상자형 인풋 데코 (라운드 + 보더)
   InputDecoration _boxInputDecoration({
     required String hint,
     required Color borderGrey,
     required Color selectedBorder,
+    bool hintBold = false,
   }) {
     return InputDecoration(
       hintText: hint,
+      hintStyle: TextStyle(
+        fontWeight: hintBold ? FontWeight.bold : FontWeight.normal, // ★ 굵게
+        color: const Color(0xFF9CA3AF), // ★ 연한 회색(placeholder 느낌)
+      ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
@@ -271,7 +278,9 @@ class _QnaFormPageState extends State<QnaFormPage> {
       fillColor: Colors.white,
     );
   }
+
 }
+
 
 /* ───────── 세그먼트 그리드(2열) : 예적금/기타 ───────── */
 class _SegmentGrid extends StatelessWidget {
@@ -403,8 +412,11 @@ class _TypePickerField extends StatelessWidget {
                     hasValue ? value! : hint,
                     style: TextStyle(
                       fontSize: 15,
-                      fontWeight: hasValue ? FontWeight.w600 : FontWeight.w400,
-                      color: hasValue ? Colors.black : const Color(0xFF9CA3AF),
+                      fontWeight:
+                      hasValue ? FontWeight.w600 : FontWeight.bold, // ★ 힌트도 볼드
+                      color: hasValue
+                          ? Colors.black
+                          : const Color(0xFF9CA3AF), // ★ 회색 placeholder 느낌
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),

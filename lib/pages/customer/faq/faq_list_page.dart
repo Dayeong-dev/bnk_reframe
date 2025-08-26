@@ -84,7 +84,9 @@ class _FaqListPageState extends State<FaqListPage> {
     ];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('자주 묻는 질문'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('자주 묻는 질문'),
+      ),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
@@ -274,7 +276,6 @@ class _SearchBar extends StatelessWidget {
   Widget build(BuildContext context) {
     const blue = Color(0xFF2962FF);
     return Material(
-      elevation: 8,
       shadowColor: Colors.black12,
       borderRadius: BorderRadius.circular(28),
       child: Container(
@@ -449,7 +450,6 @@ class _FaqQADialogState extends State<_FaqQADialog> {
   Widget build(BuildContext context) {
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(

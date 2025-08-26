@@ -1,10 +1,10 @@
 import 'common.dart';
 
 class DepositPaymentLog {
-  final int round;               // 회차(월/일차)
-  final int amount;              // 납입 금액
-  final DateTime? paidAt;        // 실제 납입시각 또는 예정일자(UNPAID)
-  final PaymentStatus? status;   // UNPAID | PAID
+  final int round; // 회차(월/일차)
+  final int amount; // 납입 금액
+  final DateTime? paidAt; // 실제 납입시각 또는 예정일자(UNPAID)
+  final PaymentStatus? status; // UNPAID | PAID
 
   final int? walkStepsTotal;        // NUMBER(19,0)
   final int? walkLastSyncSteps;     // NUMBER(19,0)
@@ -48,6 +48,7 @@ class DepositPaymentLog {
   }
 
   Map<String, dynamic> toJson() => {
+
     'round': round,
     'amount': amount,
     'paidAt': paidAt?.toIso8601String(),
@@ -57,4 +58,5 @@ class DepositPaymentLog {
     'walkBonusApplied': walkBonusApplied,
     'walkConfirmedYn': walkConfirmed == null ? null : (walkConfirmed! ? 'Y' : 'N'),
   };
+
 }

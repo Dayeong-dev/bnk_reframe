@@ -17,12 +17,14 @@ class FortuneAuthService {
   }
 
   /// 내부: 사용자 객체가 준비될 때까지 잠깐 기다림 (최대 2초)
-  static Future<User?> _waitForUserReady({Duration timeout = const Duration(seconds: 2)}) async {
+  static Future<User?> _waitForUserReady(
+      {Duration timeout = const Duration(seconds: 2)}) async {
     final current = _auth.currentUser;
     if (current != null) return current;
 
     try {
-      return await _auth.authStateChanges()
+      return await _auth
+          .authStateChanges()
           .firstWhere((u) => u != null)
           .timeout(timeout);
     } catch (_) {

@@ -26,7 +26,6 @@ import 'event/service/deep_link_service.dart';
 import 'event/pages/start_page.dart';
 import 'event/pages/coupons_page.dart';
 
-
 // ── Savings 테스트 페이지 임포트 (기존 main.dart에 있던 것 유지) ─────────
 
 import 'package:reframe/pages/savings_test/screens/start_screen.dart';
@@ -43,7 +42,6 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-
   // 1) 날짜 포맷 로케일 데이터 로드
   await initializeDateFormatting('ko_KR', null);
 
@@ -54,13 +52,14 @@ Future<void> main() async {
     onAuthFailed: (e) => debugPrint('❌ 지도 인증 실패: $e'),
   );
 
-
   // 3) Firebase Core 초기화
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
   await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
+
+  // 4) 운세 기능: 익명 로그인 보장
 
   // 4) 운세 기능: 익명 로그인 보장
 
@@ -77,7 +76,6 @@ Future<void> main() async {
     forceRefreshToken: true,
   );
 
-
   runApp(MyApp(firebaseService: firebaseService));
 
   WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -87,7 +85,6 @@ Future<void> main() async {
       debugPrint('⚠️ LiveCouponAnnouncer start failed: $e');
     }
   });
-
 }
 
 class MyApp extends StatelessWidget {
@@ -98,91 +95,120 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return DeepLinkBootstrapper(
       child: MaterialApp(
-        // ✅ 루트 네비게이터에 전역 키 장착 (api_interceptor가 여기 컨텍스트를 씀)
-        navigatorKey: navigatorKey,
-        title: "BNK 부산은행",
-        debugShowCheckedModeBanner: false,
-        navigatorObservers: firebaseService.observers,
+          // ✅ 루트 네비게이터에 전역 키 장착 (api_interceptor가 여기 컨텍스트를 씀)
+          navigatorKey: navigatorKey,
+          title: "BNK 부산은행",
+          debugShowCheckedModeBanner: false,
+          navigatorObservers: firebaseService.observers,
+          home: SplashPage(),
+          routes: {
+            "/home": (context) => const HomePage(),
+            "/join": (context) => const JoinPage(),
+            "/login": (context) => const LoginPage(),
+            "/depositList": (context) => const DepositListPage(),
+            "/depositMain": (context) => DepositMainPage(),
+            "/step-debug": (context) => StepDebugPage(),
+            "/chat-debug": (context) => BnkChatScreen(),
+            "/more-page": (context) => MorePage(),
+            '/map': (context) => const MapPage(),
+            // Savings 테스트 라우트
+            '/savings/start': (_) => const StartScreen(),
+            '/savings/question': (_) => const QuestionScreen(),
+            '/savings/result': (_) => const ResultScreen(),
 
-        home: SplashPage(),
-        routes: {
-          "/home": (context) => const HomePage(),
-          "/join": (context) => const JoinPage(),
-          "/login": (context) => const LoginPage(),
-          "/depositList": (context) => const DepositListPage(),
-          "/depositMain": (context) => DepositMainPage(),
-          "/step-debug": (context) => StepDebugPage(),
-          "/chat-debug": (context) => BnkChatScreen(),
-          "/more-page": (context) => MorePage(),
-          '/map': (context) => const MapPage(),
-          // Savings 테스트 라우트
-          '/savings/start': (_) => const StartScreen(),
-          '/savings/question': (_) => const QuestionScreen(),
-          '/savings/result': (_) => const ResultScreen(),
+            // 운세 이벤트(선택) 네임드 라우트
+
+      //     20250826 11:00 충돌남.
+      //     // 운세 이벤트(선택) 네임드 라우트
+
+      //     '/event/fortune': (_) => const StartPage(),
+      //     '/event/coupons': (_) => const CouponsPage(stampCount: 0),
+      //   },
+
+      //   // 👇👇 여기서 전역 AppBar 스타일 통일!
+      //   theme: ThemeData(
+      //     useMaterial3: true,
+      //     scaffoldBackgroundColor: Colors.white,
+      //     colorScheme: const ColorScheme.light(
+      //       primary: primaryColor,
+      //       surface: Colors.white,
+      //       background: Colors.white,
+
+      //     ),
+      //     textButtonTheme: TextButtonThemeData(
+      //       style: TextButton.styleFrom(
+      //         foregroundColor: Colors.black,   // ← 모든 TextButton 기본 텍스트색
+      //         textStyle: const TextStyle(
+      //           fontWeight: FontWeight.w700,
+      //           fontSize: 15,
+      //         ),
+      //       ),
+      //     ),
+
+      //     // ✅ AppBar 전역 스타일
+      //     appBarTheme: const AppBarTheme(
+      //       centerTitle: true,                     // 타이틀 중앙 정렬
+      //       backgroundColor: Colors.white,         // AppBar 배경
+      //       foregroundColor: Colors.black,         // ← 뒤로가기 아이콘 / 텍스트 전부 검정
+      //       elevation: 0,
+      //       surfaceTintColor: Colors.transparent,
+
+      //       // 타이틀 텍스트 통일: 무조건 볼드, 검정
+      //       titleTextStyle: TextStyle(
+      //         fontSize: 18,
+      //         fontWeight: FontWeight.w700,         // 볼드
+      //         color: Colors.black,
+      //       ),
+
+      //       // 액션 버튼 텍스트/아이콘도 동일하게
+      //       toolbarTextStyle: TextStyle(
+      //         fontSize: 16,
+      //         fontWeight: FontWeight.w600,
+      //         color: Colors.black,
+      //       ),
+      //       iconTheme: IconThemeData(
+      //         color: Colors.black,                 // 뒤로가기/메뉴 아이콘 색
+      //       ),
+      //       actionsIconTheme: IconThemeData(
+      //         color: Colors.black,                 // 오른쪽 액션 아이콘 색
+      //       ),
+      //     ),
 
 
-          // 운세 이벤트(선택) 네임드 라우트
+      //     bottomSheetTheme: const BottomSheetThemeData(
+      //       surfaceTintColor: Colors.transparent,
+      //       backgroundColor: Colors.white,
+      //     ),
+      //   ),
+      // ),
+            '/event/fortune': (_) => const StartPage(),
+            '/event/coupons': (_) => const CouponsPage(stampCount: 0),
+          },
 
-          '/event/fortune': (_) => const StartPage(),
-          '/event/coupons': (_) => const CouponsPage(stampCount: 0),
-        },
+          // 👇👇 여기서 전역 AppBar 스타일 통일!
+          theme: ThemeData(
+            useMaterial3: false, // ← M3 끔 (틴트/토큰 영향 제거)
+            scaffoldBackgroundColor: Colors.white,
 
-        // 👇👇 여기서 전역 AppBar 스타일 통일!
-        theme: ThemeData(
-          useMaterial3: true,
-          scaffoldBackgroundColor: Colors.white,
-          colorScheme: const ColorScheme.light(
-            primary: primaryColor,
-            surface: Colors.white,
-            background: Colors.white,
-
-          ),
-          textButtonTheme: TextButtonThemeData(
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.black,   // ← 모든 TextButton 기본 텍스트색
-              textStyle: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
+            // 버튼만 유지
+            elevatedButtonTheme: ElevatedButtonThemeData(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(44),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
             ),
-          ),
-
-          // ✅ AppBar 전역 스타일
-          appBarTheme: const AppBarTheme(
-            centerTitle: true,                     // 타이틀 중앙 정렬
-            backgroundColor: Colors.white,         // AppBar 배경
-            foregroundColor: Colors.black,         // ← 뒤로가기 아이콘 / 텍스트 전부 검정
-            elevation: 0,
-            surfaceTintColor: Colors.transparent,
-
-            // 타이틀 텍스트 통일: 무조건 볼드, 검정
-            titleTextStyle: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,         // 볼드
-              color: Colors.black,
+            // FilledButton은 M2에선 권장 X → 가능하면 Elevated로 통일 권장
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.black,
+                textStyle:
+                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+              ),
             ),
-
-            // 액션 버튼 텍스트/아이콘도 동일하게
-            toolbarTextStyle: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.black,
-            ),
-            iconTheme: IconThemeData(
-              color: Colors.black,                 // 뒤로가기/메뉴 아이콘 색
-            ),
-            actionsIconTheme: IconThemeData(
-              color: Colors.black,                 // 오른쪽 액션 아이콘 색
-            ),
-          ),
-
-
-          bottomSheetTheme: const BottomSheetThemeData(
-            surfaceTintColor: Colors.transparent,
-            backgroundColor: Colors.white,
-          ),
-        ),
-      ),
+          )),
     );
   }
 }
@@ -208,7 +234,8 @@ class _DeepLinkBootstrapperState extends State<DeepLinkBootstrapper> {
       final me = await FortuneAuthService.ensureSignedIn();
 
       final inviter = uri.queryParameters['inviter'];
-      final code = uri.queryParameters['code'] ?? uri.queryParameters['inviteCode'];
+      final code =
+          uri.queryParameters['code'] ?? uri.queryParameters['inviteCode'];
       final inviterOrCode = inviter ?? code;
 
       if (!_navigatedFromLink) {

@@ -1,10 +1,13 @@
 // lib/recommender.dart
 
 // 1) 로직의 타입(문구와 분리)
-enum Term { short, long }                 // 단기/장기
-enum SavingMode { deposit, installment }  // 예금/적금
-enum Flex { rigid, flexible }             // 중도해지 없음/있음
-enum Habit { no, yes }                    // 습관형 아님/맞음
+enum Term { short, long } // 단기/장기
+
+enum SavingMode { deposit, installment } // 예금/적금
+
+enum Flex { rigid, flexible } // 중도해지 없음/있음
+
+enum Habit { no, yes } // 습관형 아님/맞음
 
 class SavingAnswers {
   final Term term;
@@ -36,14 +39,14 @@ String resultCode(SavingAnswers a) {
 
 // 3) 결과코드 → productId
 const Map<String, int> kResultCodeToProductId = {
-  'A': 20,  // 더(The) 특판 정기예금
-  'B': 21,  // LIVE 정기예금
-  'C': 18,  // bnk내맘대로예금
-  'D': 2,   // BNK내맘대로적금
-  'E': 73,  // 매일출석적금
-  'F': 2,   // BNK내맘대로적금
-  'G': 2,   // BNK내맘대로적금
-  'H': 73,  // 매일적금(= 매일출석적금)
+  'A': 20, // 더(The) 특판 정기예금
+  'B': 21, // LIVE 정기예금
+  'C': 18, // bnk내맘대로예금
+  'D': 2, // BNK내맘대로적금
+  'E': 73, // 매일출석적금
+  'F': 2, // BNK내맘대로적금
+  'G': 2, // BNK내맘대로적금
+  'H': 73, // 매일적금(= 매일출석적금)
   // RESULT_* 형태로 넘겨도 동작하게 허용
   'RESULT_A': 20,
   'RESULT_B': 21,
@@ -79,7 +82,9 @@ SavingAnswers mapStringsToAnswers(List<String> answers) {
   final term = (answers[0].contains('단기간')) ? Term.short : Term.long;
 
   // Q2: '한 번에 예치'/'한 번에 크게 저축' | '매달 조금씩 저축'
-  final mode = (answers[1].contains('한 번에')) ? SavingMode.deposit : SavingMode.installment;
+  final mode = (answers[1].contains('한 번에'))
+      ? SavingMode.deposit
+      : SavingMode.installment;
 
   // Q3: '없다' | '상황에 따라 필요할 수도'
   final flex = (answers[2] == '없다') ? Flex.rigid : Flex.flexible;
@@ -91,4 +96,5 @@ SavingAnswers mapStringsToAnswers(List<String> answers) {
 }
 
 // 6) (호출 호환) 기존 함수 시그니처 유지하고 내부는 enum 로직 사용
-String getRecommendationCode(List<String> answers) => resultCode(mapStringsToAnswers(answers));
+String getRecommendationCode(List<String> answers) =>
+    resultCode(mapStringsToAnswers(answers));

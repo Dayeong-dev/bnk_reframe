@@ -57,10 +57,6 @@ class _MyReviewsPageState extends State<MyReviewsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('내 리뷰'),
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
       ),
       backgroundColor: Colors.white,
       body: Column(
@@ -326,10 +322,10 @@ class _Chip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration:
-      BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
       child: Text(label,
           style:
-          TextStyle(color: fg, fontSize: 12, fontWeight: FontWeight.w700)),
+              TextStyle(color: fg, fontSize: 12, fontWeight: FontWeight.w700)),
     );
   }
 }
@@ -387,9 +383,8 @@ class _EmptyView extends StatelessWidget {
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
                 padding:
-                const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
               ),
             ),
           ],

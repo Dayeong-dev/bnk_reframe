@@ -15,8 +15,7 @@ class ApiInterceptor extends Interceptor {
       baseUrl: apiBaseUrl,
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 15),
-      sendTimeout: const Duration(seconds: 15)
-  ));
+      sendTimeout: const Duration(seconds: 15)));
 
   bool _refreshing = false;
   bool _dialogVisible = false;
@@ -28,7 +27,7 @@ class ApiInterceptor extends Interceptor {
 
     print(accessToken);
 
-    if(accessToken != null && accessToken.isNotEmpty) {
+    if (accessToken != null && accessToken.isNotEmpty) {
       options.headers['Authorization'] = accessToken;
     }
 
@@ -43,7 +42,6 @@ class ApiInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
-
     if (err.response?.statusCode == 401 &&
         err.requestOptions.extra['__retried__'] == true) {
       return handler.next(err);
@@ -58,11 +56,11 @@ class ApiInterceptor extends Interceptor {
       ));
     }
 
-    if(err.response?.statusCode != 401) {
+    if (err.response?.statusCode != 401) {
       return handler.next(err);
     }
 
-    if(_refreshing) {
+    if (_refreshing) {
       while (_refreshing) {
         await Future.delayed(const Duration(milliseconds: 100));
       }
@@ -91,12 +89,9 @@ class ApiInterceptor extends Interceptor {
         String msg = "세션이 존재하지 않습니다. 다시 로그인을 진행해주세요. ";
 
         await failRefresh(msg);
-        return handler.reject(
-          DioException(
+        return handler.reject(DioException(
             requestOptions: err.requestOptions,
-            response: _noRefreshResponse(err, msg)
-          )
-        );
+            response: _noRefreshResponse(err, msg)));
       }
 
       Uri url = Uri.parse("$apiBaseUrl/mobile/auth/refresh");
@@ -105,12 +100,9 @@ class ApiInterceptor extends Interceptor {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: jsonEncode({
-            'refreshToken': refreshToken
-          })
-      );
+          body: jsonEncode({'refreshToken': refreshToken}));
 
-      if(response.statusCode == 200) {
+      if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
         final accessToken = data['accessToken'];
@@ -133,26 +125,19 @@ class ApiInterceptor extends Interceptor {
         String msg = "세션이 만료되었습니다. 다시 로그인을 진행해주세요. ";
 
         await failRefresh(msg);
-        return handler.reject(
-            DioException(
-                requestOptions: err.requestOptions,
-                response: _expiredResponse(err, msg)
-            )
-        );
+        return handler.reject(DioException(
+            requestOptions: err.requestOptions,
+            response: _expiredResponse(err, msg)));
       }
-    } catch(e) {
+    } catch (e) {
       String msg = "네트워크 오류로 세션 갱신에 실패하였습니다. 다시 로그인을 진행해주세요. ";
       err.requestOptions.extra.remove('__retried__');
 
       await failRefresh(msg);
-      return handler.reject(
-          DioException(
-              requestOptions: err.requestOptions,
-              response: _networkFailResponse(err, msg)
-          )
-      );
-    }
-    finally {
+      return handler.reject(DioException(
+          requestOptions: err.requestOptions,
+          response: _networkFailResponse(err, msg)));
+    } finally {
       _refreshing = false;
     }
   }
@@ -160,26 +145,23 @@ class ApiInterceptor extends Interceptor {
   Response _noRefreshResponse(DioException err, String msg) => Response(
       requestOptions: err.requestOptions,
       statusCode: 401,
-      data: {"error": msg}
-  );
+      data: {"error": msg});
 
   Response _expiredResponse(DioException err, String msg) => Response(
       requestOptions: err.requestOptions,
       statusCode: 401,
-      data: {"error": msg}
-  );
+      data: {"error": msg});
 
   Response _networkFailResponse(DioException err, String msg) => Response(
       requestOptions: err.requestOptions,
       statusCode: 401,
-      data: {"error": msg}
-  );
+      data: {"error": msg});
 
   Future<void> failRefresh(String msg) async {
     await _secureStorage.delete(key: "refreshToken");
     clearAccessToken();
 
-    if(_dialogVisible) {
+    if (_dialogVisible) {
       _navigatingToLogin = true;
       navigatorKey.currentState?.pushNamedAndRemoveUntil(
         '/login', (route) => false, // 이전 화면 모두 제거
@@ -189,7 +171,7 @@ class ApiInterceptor extends Interceptor {
 
     final context = navigatorKey.currentState?.overlay?.context;
 
-    if(context == null) {
+    if (context == null) {
       _navigatingToLogin = true;
       navigatorKey.currentState?.pushNamedAndRemoveUntil(
         '/login', (route) => false, // 이전 화면 모두 제거
@@ -200,22 +182,21 @@ class ApiInterceptor extends Interceptor {
     _dialogVisible = true;
     try {
       await showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) {
-          return AlertDialog(
-            title: const Text('세션 만료'),
-            content: Text(msg),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(), // 닫기
-                child: const Text('확인'),
-              ),
-            ],
-          );
-        }
-      );
-    } catch(e) {
+          context: context,
+          barrierDismissible: false,
+          builder: (context) {
+            return AlertDialog(
+              title: const Text('세션 만료'),
+              content: Text(msg),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(), // 닫기
+                  child: const Text('확인'),
+                ),
+              ],
+            );
+          });
+    } catch (e) {
       // 오류 처리 뭘로 하누
     } finally {
       _dialogVisible = false;

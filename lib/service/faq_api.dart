@@ -20,7 +20,8 @@ class PagedFaq {
   });
 
   factory PagedFaq.fromJson(Map<String, dynamic> json) {
-    final items = (json['content'] as List).map((e) => Faq.fromJson(e)).toList();
+    final items =
+        (json['content'] as List).map((e) => Faq.fromJson(e)).toList();
     return PagedFaq(
       content: items,
       number: json['number'],

@@ -17,13 +17,14 @@ import 'package:reframe/service/account_service.dart';
 import '../../../service/walk_service.dart'; // dio, commonUrl
 
 // ===== 토스 스타일 색/타이포 =====
-const _bgCanvas = Color(0xFFF7F8FA);          // 화면 배경
-const _textStrong = Color(0xFF0B0D12);        // 강한 본문
-const _textWeak = Color(0xFF6B7280);          // 연한 본문
-const _line = Color(0xFFE5E7EB);              // 아주 옅은 구분선
-const _blue = Color(0xFF0064FF);              // Toss Blue
+const _bgCanvas = Color(0xFFF7F8FA); // 화면 배경
+const _textStrong = Color(0xFF0B0D12); // 강한 본문
+const _textWeak = Color(0xFF6B7280); // 연한 본문
+const _line = Color(0xFFE5E7EB); // 아주 옅은 구분선
+const _blue = Color(0xFF0064FF); // Toss Blue
 
-final _won = NumberFormat.currency(locale: 'ko_KR', symbol: '₩', decimalDigits: 0);
+final _won =
+    NumberFormat.currency(locale: 'ko_KR', symbol: '₩', decimalDigits: 0);
 
 // ===== intl 초기화 없이 쓰는 날짜 포맷 =====
 String _pad2(int n) => n.toString().padLeft(2, '0');
@@ -36,8 +37,8 @@ String fmtYmdE(DateTime d) {
 }
 
 class _StepProgress {
-  final int total;   // 이번 회차 총 걸음
-  final int target;  // 목표 (예: 100000)
+  final int total; // 이번 회차 총 걸음
+  final int target; // 목표 (예: 100000)
   double get ratio => (total / target).clamp(0.0, 1.0);
   const _StepProgress(this.total, this.target);
 }
@@ -66,9 +67,9 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
   final Health _health = Health();
   String _healthStatus = '걸음 연동 준비됨';
 
-  int? _stepsMonthOverride;    // 서버 동기화 응답의 이번 달 누적 걸음
-  int? _thresholdOverride;     // 월 목표(예: 100000)
-  double? _effRateOverride;    // 적용 금리(동기화로 변경되면 반영)
+  int? _stepsMonthOverride; // 서버 동기화 응답의 이번 달 누적 걸음
+  int? _thresholdOverride; // 월 목표(예: 100000)
+  double? _effRateOverride; // 적용 금리(동기화로 변경되면 반영)
 
   @override
   void initState() {
@@ -89,12 +90,12 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
       if (!mounted) return;
       setState(() {
         _stepsMonthOverride = r.stepsThisMonth;
-        _thresholdOverride  = r.threshold;
-        _effRateOverride    = r.effectiveRate;
-        _stepsToday         = r.todaySteps;
+        _thresholdOverride = r.threshold;
+        _effRateOverride = r.effectiveRate;
+        _stepsToday = r.todaySteps;
         _healthStatus = r.lastSyncDate != null
             ? '최근 동기화: ${r.lastSyncDate!.year}.${_pad2(r.lastSyncDate!.month)}.${_pad2(r.lastSyncDate!.day)} '
-            '${_pad2(r.lastSyncDate!.hour)}:${_pad2(r.lastSyncDate!.minute)}'
+                '${_pad2(r.lastSyncDate!.hour)}:${_pad2(r.lastSyncDate!.minute)}'
             : '걸음 연동 준비됨';
       });
     } catch (_) {}
@@ -116,11 +117,13 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
     final types = [HealthDataType.STEPS];
     final access = [HealthDataAccess.READ];
 
-    final has = await _health.hasPermissions(types, permissions: access) ?? false;
+    final has =
+        await _health.hasPermissions(types, permissions: access) ?? false;
     if (!has) {
       final ok = await _health.requestAuthorization(types, permissions: access);
       if (!ok) {
-        setState(() => _healthStatus = '❌ Health 권한 없음(Health Connect/HealthKit)');
+        setState(
+            () => _healthStatus = '❌ Health 권한 없음(Health Connect/HealthKit)');
         return false;
       }
     }
@@ -178,7 +181,8 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
   // ===== 도메인 헬퍼 =====
   DepositPaymentLog? _findNextUnpaid(ProductAccountDetail d) {
     for (final log in d.depositPaymentLogList) {
-      if ((log.status ?? PaymentStatus.unpaid) == PaymentStatus.unpaid) return log;
+      if ((log.status ?? PaymentStatus.unpaid) == PaymentStatus.unpaid)
+        return log;
     }
     return null;
   }
@@ -210,7 +214,8 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
   // r회차의 집계 기간 [start, end] (end는 inclusive로 1초 뺌)
   Period _monthCycleBounds(DateTime startAt, int round) {
     final s = _computeDueDate(startAt, round);
-    final e = _computeDueDate(startAt, round + 1).subtract(const Duration(seconds: 1));
+    final e = _computeDueDate(startAt, round + 1)
+        .subtract(const Duration(seconds: 1));
     return Period(s, e);
   }
 
@@ -224,7 +229,10 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
 
     DepositPaymentLog? curLog;
     for (final e in detail.depositPaymentLogList) {
-      if (e.round == roundNow) { curLog = e; break; }
+      if (e.round == roundNow) {
+        curLog = e;
+        break;
+      }
     }
 
     final total = curLog?.walkStepsTotal ?? 0;
@@ -234,7 +242,9 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
   String _errorMessage(Object e) {
     if (e is DioException) {
       final r = e.response;
-      final msg = (r?.data is Map && r!.data['message'] is String) ? r.data['message'] as String : null;
+      final msg = (r?.data is Map && r!.data['message'] is String)
+          ? r.data['message'] as String
+          : null;
       return msg ?? 'HTTP ${r?.statusCode ?? ''} 오류';
     }
     return '알 수 없는 오류';
@@ -263,14 +273,13 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
       if (!mounted) return;
       setState(() {
         _stepsMonthOverride = r.stepsThisMonth;
-        _thresholdOverride  = r.threshold;
-        _effRateOverride    = r.effectiveRate;
+        _thresholdOverride = r.threshold;
+        _effRateOverride = r.effectiveRate;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('걸음 동기화 완료')),
       );
-
     } catch (e) {
       if (!mounted) return;
       final msg = _errorMessage(e);
@@ -279,7 +288,6 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
       );
     }
   }
-
 
   Future<bool> _confirmPayDialog(int round, int amount) async {
     final formatted = NumberFormat('#,###').format(amount);
@@ -349,7 +357,8 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                   Expanded(
                     child: Text(
                       '확인 시 납입이 진행됩니다. \n납입 취소는 거래내역에서 가능합니다.',
-                      style: TextStyle(fontSize: 13, color: _textWeak, height: 1.4),
+                      style: TextStyle(
+                          fontSize: 13, color: _textWeak, height: 1.4),
                     ),
                   ),
                 ],
@@ -362,7 +371,6 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
 
     return result ?? false;
   }
-
 
   // ===== UI =====
   @override
@@ -397,40 +405,47 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
               final principal = (acc?.balance ?? 0);
 
               final now = DateTime.now();
-              final roundNow = (app.startAt == null) ? 1 : _currentMonthlyRound(app.startAt!, now);
+              final roundNow = (app.startAt == null)
+                  ? 1
+                  : _currentMonthlyRound(app.startAt!, now);
               final Period bounds = (app.startAt == null)
                   ? Period(
-                DateTime(now.year, now.month, 1),
-                DateTime(now.year, now.month + 1, 1).subtract(const Duration(seconds: 1)),
-              )
+                      DateTime(now.year, now.month, 1),
+                      DateTime(now.year, now.month + 1, 1)
+                          .subtract(const Duration(seconds: 1)),
+                    )
                   : _monthCycleBounds(app.startAt!, roundNow);
 
               final step = _calcMonthlyProgress(detail);
 
               // 응답이 있으면 그걸 우선 사용
-              final totalForUI  = _stepsMonthOverride ?? step.total;
-              final targetForUI = _thresholdOverride  ?? step.target;
-              final effRateForUI = _effRateOverride ?? (app.effectiveRateAnnual ?? app.baseRateAtEnroll);
+              final totalForUI = _stepsMonthOverride ?? step.total;
+              final targetForUI = _thresholdOverride ?? step.target;
+              final effRateForUI = _effRateOverride ??
+                  (app.effectiveRateAnnual ?? app.baseRateAtEnroll);
 
               final nextUnpaid = _findNextUnpaid(detail);
               final startAt = app.startAt ?? DateTime.now();
-              final nextDue = (nextUnpaid == null) ? null : _computeDueDate(startAt, nextUnpaid.round);
+              final nextDue = (nextUnpaid == null)
+                  ? null
+                  : _computeDueDate(startAt, nextUnpaid.round);
               final today = DateTime.now();
 
-              DateTime _onlyDate(DateTime d) => DateTime(d.year, d.month, d.day);
+              DateTime _onlyDate(DateTime d) =>
+                  DateTime(d.year, d.month, d.day);
               final DateTime todayOnly = _onlyDate(DateTime.now());
 
-              final canPayToday = nextDue != null && fmtYmd(nextDue) == fmtYmd(today);
-              final bool canPayNow =
-                  nextUnpaid != null &&
-                      nextDue != null &&
-                      !todayOnly.isBefore(_onlyDate(nextDue)); // 오늘 >= 예정일
+              final canPayToday =
+                  nextDue != null && fmtYmd(nextDue) == fmtYmd(today);
+              final bool canPayNow = nextUnpaid != null &&
+                  nextDue != null &&
+                  !todayOnly.isBefore(_onlyDate(nextDue)); // 오늘 >= 예정일
 
               final dueText = nextDue == null
                   ? '-'
-                  : ( _onlyDate(today).isBefore(_onlyDate(nextDue))
-                  ? '예정일 ${fmtYmd(nextDue)}'
-                  : '연체: ${fmtYmd(nextDue)}부터' );
+                  : (_onlyDate(today).isBefore(_onlyDate(nextDue))
+                      ? '예정일 ${fmtYmd(nextDue)}'
+                      : '연체: ${fmtYmd(nextDue)}부터');
 
               return ListView(
                 padding: const EdgeInsets.only(bottom: 24),
@@ -445,18 +460,24 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                         // 상단 타이틀 라인
                         Row(
                           children: [
-                            const Icon(CupertinoIcons.creditcard, size: 18, color: _textWeak),
+                            const Icon(CupertinoIcons.creditcard,
+                                size: 18, color: _textWeak),
                             const SizedBox(width: 6),
                             Text(
                               acc?.accountName ?? app.product.name,
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: _textStrong),
+                              style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: _textStrong),
                             ),
                             const Spacer(),
-                            Text(acc?.accountNumber ?? '-', style: const TextStyle(color: _textWeak)),
+                            Text(acc?.accountNumber ?? '-',
+                                style: const TextStyle(color: _textWeak)),
                           ],
                         ),
                         const SizedBox(height: 14),
-                        const Text('현재 잔액', style: TextStyle(fontSize: 13, color: _textWeak)),
+                        const Text('현재 잔액',
+                            style: TextStyle(fontSize: 13, color: _textWeak)),
                         const SizedBox(height: 6),
                         DiffHighlight(
                           marker: principal,
@@ -464,9 +485,11 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                           child: MoneyCountUp(
                             value: principal,
                             formatter: _won,
-                            animateOnFirstBuild: true,                 // 첫 진입에도 촤라락
+                            animateOnFirstBuild: true, // 첫 진입에도 촤라락
                             duration: const Duration(milliseconds: 650),
-                            style: Theme.of(context).textTheme.headlineSmall, // (원하면 더 크게)
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineSmall, // (원하면 더 크게)
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -474,14 +497,20 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            _TossChip(text: '기본 ${_pct(app.baseRateAtEnroll)}', icon: CupertinoIcons.percent),
-                            _TossChip(text: '적용 ${_pct(effRateForUI)}', icon: Icons.trending_up),
+                            _TossChip(
+                                text: '기본 ${_pct(app.baseRateAtEnroll)}',
+                                icon: CupertinoIcons.percent),
+                            _TossChip(
+                                text: '적용 ${_pct(effRateForUI)}',
+                                icon: Icons.trending_up),
                             if (nextDue != null)
                               _TossChip(
                                 text: dueText,
                                 icon: CupertinoIcons.calendar,
-                                tone: (nextDue != null && !_onlyDate(today).isBefore(_onlyDate(nextDue)))
-                                    ? _ChipTone.warning    // 연체면 경고 톤
+                                tone: (nextDue != null &&
+                                        !_onlyDate(today)
+                                            .isBefore(_onlyDate(nextDue)))
+                                    ? _ChipTone.warning // 연체면 경고 톤
                                     : _ChipTone.neutral,
                               ),
                           ],
@@ -498,20 +527,27 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('오늘 걸음 수', style: TextStyle(fontWeight: FontWeight.w700, color: _textStrong)),
+                              const Text('오늘 걸음 수',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: _textStrong)),
                               const SizedBox(height: 10),
                               AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 200),
                                 child: Text(
                                   '$_stepsToday 걸음',
                                   key: ValueKey(_stepsToday),
-                                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: _textStrong),
+                                  style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w800,
+                                      color: _textStrong),
                                 ),
                               ),
                               const SizedBox(height: 6),
                               Text(
                                 _healthStatus,
-                                style: const TextStyle(fontSize: 12, color: _textWeak),
+                                style: const TextStyle(
+                                    fontSize: 12, color: _textWeak),
                               ),
                             ],
                           ),
@@ -532,7 +568,10 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                         const SizedBox(height: 8),
                         Text(
                           '${NumberFormat('#,###').format(totalForUI)} / ${NumberFormat('#,###').format(targetForUI)} 보',
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _textStrong),
+                          style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: _textStrong),
                         ),
                         const SizedBox(height: 6),
                         Text(
@@ -541,7 +580,6 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                         ),
                         const SizedBox(height: 12),
                         AnimatedStepBar(total: totalForUI, target: targetForUI),
-
                       ],
                     ),
                   ),
@@ -552,15 +590,21 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                       children: [
                         const _SectionTitle('다음 납입'),
                         const SizedBox(height: 10),
-                        _KvRow('회차', nextUnpaid == null ? '-' : '${nextUnpaid.round}회차'),
+                        _KvRow('회차',
+                            nextUnpaid == null ? '-' : '${nextUnpaid.round}회차'),
                         _KvRow('예정일', nextDue == null ? '-' : fmtYmdE(nextDue)),
-                        _KvRow('회차 금액', nextUnpaid == null ? '-' : _won.format(nextUnpaid.amount)),
+                        _KvRow(
+                            '회차 금액',
+                            nextUnpaid == null
+                                ? '-'
+                                : _won.format(nextUnpaid.amount)),
                         const SizedBox(height: 14),
                         _TossPrimaryButton(
                           label: canPayToday ? '이번 회차 납입' : '오늘은 납입일이 아니에요',
-                          onPressed: (nextUnpaid == null || !canPayToday || _paying)
-                              ? null
-                              : () async => _onPressPay(detail),
+                          onPressed:
+                              (nextUnpaid == null || !canPayToday || _paying)
+                                  ? null
+                                  : () async => _onPressPay(detail),
                           busy: _paying,
                         ),
                       ],
@@ -574,9 +618,15 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                       children: [
                         const _SectionTitle('요약'),
                         const SizedBox(height: 10),
-                        _KvRow('약정 개월수', app.termMonthsAtEnroll == null ? '-' : '${app.termMonthsAtEnroll}개월'),
-                        _KvRow('가입일', app.startAt == null ? '-' : fmtYmdE(app.startAt!)),
-                        _KvRow('만기일', app.closeAt == null ? '-' : fmtYmdE(app.closeAt!)),
+                        _KvRow(
+                            '약정 개월수',
+                            app.termMonthsAtEnroll == null
+                                ? '-'
+                                : '${app.termMonthsAtEnroll}개월'),
+                        _KvRow('가입일',
+                            app.startAt == null ? '-' : fmtYmdE(app.startAt!)),
+                        _KvRow('만기일',
+                            app.closeAt == null ? '-' : fmtYmdE(app.closeAt!)),
                       ],
                     ),
                   ),
@@ -591,24 +641,34 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                         if (detail.depositPaymentLogList.isEmpty)
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 12),
-                            child: Text('표시할 납입 내역이 없습니다.', style: TextStyle(color: _textWeak)),
+                            child: Text('표시할 납입 내역이 없습니다.',
+                                style: TextStyle(color: _textWeak)),
                           )
                         else
                           ...detail.depositPaymentLogList.map((e) {
-                            final isPaid = (e.status ?? PaymentStatus.unpaid) == PaymentStatus.paid;
+                            final isPaid = (e.status ?? PaymentStatus.unpaid) ==
+                                PaymentStatus.paid;
                             final due = _computeDueDate(startAt, e.round);
-                            final subtitle = isPaid ? '납입일 ${fmtYmd(e.paidAt ?? due)}' : '예정일 ${fmtYmd(due)}';
+                            final subtitle = isPaid
+                                ? '납입일 ${fmtYmd(e.paidAt ?? due)}'
+                                : '예정일 ${fmtYmd(due)}';
                             return Column(
                               children: [
                                 ListTile(
                                   dense: true,
                                   contentPadding: EdgeInsets.zero,
-                                  title: Text('${e.round}회차  ${_won.format(e.amount)}',
-                                      style: const TextStyle(fontWeight: FontWeight.w700, color: _textStrong)),
-                                  subtitle: Text(subtitle, style: const TextStyle(color: _textWeak)),
+                                  title: Text(
+                                      '${e.round}회차  ${_won.format(e.amount)}',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          color: _textStrong)),
+                                  subtitle: Text(subtitle,
+                                      style: const TextStyle(color: _textWeak)),
                                   trailing: _StatusPill(
                                     text: isPaid ? '납입완료' : '미납입',
-                                    tone: isPaid ? _ChipTone.success : _ChipTone.warning,
+                                    tone: isPaid
+                                        ? _ChipTone.success
+                                        : _ChipTone.warning,
                                   ),
                                 ),
                                 const Divider(height: 16, color: _line),
@@ -653,7 +713,9 @@ class _SectionTitle extends StatelessWidget {
   const _SectionTitle(this.text);
   @override
   Widget build(BuildContext context) {
-    return Text(text, style: const TextStyle(fontWeight: FontWeight.w800, color: _textStrong));
+    return Text(text,
+        style:
+            const TextStyle(fontWeight: FontWeight.w800, color: _textStrong));
   }
 }
 
@@ -669,7 +731,9 @@ class _KvRow extends StatelessWidget {
         children: [
           Expanded(child: Text(k, style: const TextStyle(color: _textWeak))),
           const SizedBox(width: 8),
-          Text(v, style: const TextStyle(fontWeight: FontWeight.w700, color: _textStrong)),
+          Text(v,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w700, color: _textStrong)),
         ],
       ),
     );
@@ -682,11 +746,13 @@ class _TossChip extends StatelessWidget {
   final String text;
   final IconData icon;
   final _ChipTone tone;
-  const _TossChip({required this.text, required this.icon, this.tone = _ChipTone.neutral});
+  const _TossChip(
+      {required this.text, required this.icon, this.tone = _ChipTone.neutral});
 
   @override
   Widget build(BuildContext context) {
-    Color fg; Color bg;
+    Color fg;
+    Color bg;
     switch (tone) {
       case _ChipTone.success:
         fg = const Color(0xFF0A7A33);
@@ -702,7 +768,8 @@ class _TossChip extends StatelessWidget {
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(icon, size: 14, color: fg),
         const SizedBox(width: 6),
@@ -718,7 +785,8 @@ class _StatusPill extends StatelessWidget {
   const _StatusPill({required this.text, this.tone = _ChipTone.neutral});
   @override
   Widget build(BuildContext context) {
-    Color fg; Color bg;
+    Color fg;
+    Color bg;
     switch (tone) {
       case _ChipTone.success:
         fg = const Color(0xFF0A7A33);
@@ -734,8 +802,10 @@ class _StatusPill extends StatelessWidget {
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
-      child: Text(text, style: TextStyle(color: fg, fontWeight: FontWeight.w700)),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
+      child:
+          Text(text, style: TextStyle(color: fg, fontWeight: FontWeight.w700)),
     );
   }
 }
@@ -744,7 +814,8 @@ class _TossPrimaryButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
   final bool busy;
-  const _TossPrimaryButton({required this.label, required this.onPressed, this.busy = false});
+  const _TossPrimaryButton(
+      {required this.label, required this.onPressed, this.busy = false});
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null && !busy;
@@ -757,10 +828,15 @@ class _TossPrimaryButton extends StatelessWidget {
           backgroundColor: enabled ? _blue : const Color(0xFFE5E7EB),
           foregroundColor: enabled ? Colors.white : const Color(0xFF9CA3AF),
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         child: busy
-            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white))
             : Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
       ),
     );
@@ -780,7 +856,8 @@ class _TossOutlineButton extends StatelessWidget {
         style: OutlinedButton.styleFrom(
           foregroundColor: _textStrong,
           side: const BorderSide(color: _line),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         ),
         child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
@@ -809,7 +886,11 @@ class _TossSheet extends StatelessWidget {
   final Widget child;
   final Widget primary;
   final Widget? secondary;
-  const _TossSheet({required this.title, required this.child, required this.primary, this.secondary});
+  const _TossSheet(
+      {required this.title,
+      required this.child,
+      required this.primary,
+      this.secondary});
 
   @override
   Widget build(BuildContext context) {
@@ -822,16 +903,20 @@ class _TossSheet extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: _textStrong)),
+            Text(title,
+                style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: _textStrong)),
             const SizedBox(height: 10),
             child,
             if (secondary != null) ...[
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(child: secondary!),   // 취소 버튼
-                  const SizedBox(width: 8),      // 버튼 간격
-                  Expanded(child: primary),      // 납입 버튼
+                  Expanded(child: secondary!), // 취소 버튼
+                  const SizedBox(width: 8), // 버튼 간격
+                  Expanded(child: primary), // 납입 버튼
                 ],
               ),
             ] else ...[
@@ -848,8 +933,8 @@ class _TossSheet extends StatelessWidget {
 String _pct(num? v) => '${(v ?? 0).toStringAsFixed(2)}%';
 
 class AnimatedStepBar extends StatefulWidget {
-  final int total;   // 현재 걸음
-  final int target;  // 목표 걸음
+  final int total; // 현재 걸음
+  final int target; // 목표 걸음
   final Duration duration;
   final Curve curve;
 
@@ -873,15 +958,17 @@ class _AnimatedStepBarState extends State<AnimatedStepBar> {
     super.didUpdateWidget(oldWidget);
     // 목표는 동일하지만 total 값이 갱신된 경우 이전 ratio 기억
     if (oldWidget.total != widget.total || oldWidget.target != widget.target) {
-      _prevRatio = (oldWidget.total / (oldWidget.target == 0 ? 1 : oldWidget.target))
-          .clamp(0.0, 1.0);
+      _prevRatio =
+          (oldWidget.total / (oldWidget.target == 0 ? 1 : oldWidget.target))
+              .clamp(0.0, 1.0);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final targetRatio = (widget.total / (widget.target == 0 ? 1 : widget.target))
-        .clamp(0.0, 1.0);
+    final targetRatio =
+        (widget.total / (widget.target == 0 ? 1 : widget.target))
+            .clamp(0.0, 1.0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

@@ -41,30 +41,97 @@ class _QnaDetailPageState extends State<QnaDetailPage> {
     }
   }
 
-  Future<void> _delete() async {
-    if (_deleting) return;
+  // ===== 공통: 상태 라벨/색상 매핑 =====
+  // 백엔드 status 값이 'WAIT', 'PENDING', '대기중', 'ANSWERED', 'DONE', 'COMPLETE', '답변완료' 등
+  // 어떤 것이 와도 일관된 라벨/색상을 뱃지에 적용
+  ({String label, Color bg, Color fg}) _statusChipStyle(String raw) {
+    final s = (raw.trim().toUpperCase());
+    final isWaiting =
+        s == 'WAIT' || s == 'WAITING' || s == 'PENDING' || s == '대기중';
+    final isAnswered =
+        s == 'ANSWERED' || s == 'DONE' || s == 'COMPLETE' || s == '답변완료';
 
+    if (isAnswered) {
+      return (
+        label: '답변완료',
+        bg: const Color(0xFFE8F5E9),
+        fg: const Color(0xFF2E7D32),
+      );
+    } else if (isWaiting) {
+      return (
+        label: '대기중',
+        bg: const Color(0xFFF1F5F9),
+        fg: const Color(0xFF334155),
+      );
+    }
+    // 알 수 없는 값일 때는 중립 스타일
+    return (
+      label: raw,
+      bg: const Color(0xFFF1F5F9),
+      fg: const Color(0xFF334155),
+    );
+  }
+
+  // ===== 리뷰 페이지와 통일된 삭제 다이얼로그 =====
+  Future<bool> _showDeleteConfirmDialog() async {
+    final primary = Theme.of(context).colorScheme.primary;
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('삭제'),
-        content: const Text('이 문의를 삭제하시겠어요?'),
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+        contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+        actionsPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+        title: Row(
+          children: [
+            Icon(Icons.delete_outline_rounded, color: primary, size: 20),
+            const SizedBox(width: 8),
+            const Text(
+              '문의 삭제',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+            ),
+          ],
+        ),
+        content: const Text(
+          '이 문의를 삭제하시겠어요?',
+          style: TextStyle(color: Colors.black87, fontSize: 14),
+        ),
         actions: [
           TextButton(
-            // 상세 State의 context를 쓰지 말고 dialogCtx 사용!
             onPressed: () => Navigator.of(dialogCtx).pop(false),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.black87,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
             child: const Text('취소'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.of(dialogCtx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
             child: const Text('삭제'),
           ),
         ],
       ),
     );
-    if (ok != true) return;
+    return ok == true;
+  }
 
-    if (!mounted) return; // 다이얼로그 닫히는 사이에 해제됐을 가능성 방어
+  Future<void> _delete() async {
+    if (_deleting) return;
+
+    final ok = await _showDeleteConfirmDialog();
+    if (ok != true || !mounted) return;
 
     setState(() => _deleting = true);
     try {
@@ -74,13 +141,11 @@ class _QnaDetailPageState extends State<QnaDetailPage> {
       // 삭제 성공: 이전 화면으로 true 전달
       Navigator.of(context).pop(true);
     } catch (e) {
-      // 서버 응답 message 우선 노출
       String msg = '삭제 실패: $e';
       try {
         final m = (e as dynamic).response?.data?['message'];
         if (m is String && m.isNotEmpty) msg = m;
       } catch (_) {}
-
       if (mounted) {
         final messenger = ScaffoldMessenger.maybeOf(context);
         messenger?.showSnackBar(SnackBar(content: Text(msg)));
@@ -97,10 +162,6 @@ class _QnaDetailPageState extends State<QnaDetailPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('문의 상세'),
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
         actions: [
           if (!_loading &&
               _error == null &&
@@ -127,59 +188,60 @@ class _QnaDetailPageState extends State<QnaDetailPage> {
             ),
           _deleting
               ? const Padding(
-            padding: EdgeInsets.only(right: 16),
-            child: Center(
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            ),
-          )
+                  padding: EdgeInsets.only(right: 16),
+                  child: Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                )
               : IconButton(
-            tooltip: '삭제',
-            icon: const Icon(Icons.delete_outline_rounded),
-            onPressed: _delete,
-          ),
+                  tooltip: '삭제',
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  onPressed: _delete,
+                ),
         ],
       ),
       backgroundColor: const Color(0xFFF7F8FA),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-          ? _ErrorView(message: '오류: $_error', onRetry: _load)
-          : q == null
-          ? const Center(child: Text('데이터 없음'))
-          : RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          padding: const EdgeInsets.only(bottom: 24),
-          children: [
-            const _GradientHeader(
-              title: '1:1 문의',
-              subtitle: '등록하신 문의의 상세 내용을 확인하세요.',
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _QuestionCard(
-                title: q.title,
-                category: q.category,
-                status: q.status,
-                content: q.content,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: _AnswerCard(
-                answerText: q.answer?.trim().isNotEmpty == true
-                    ? q.answer!.trim()
-                    : null,
-                answerAt: q.moddate,
-              ),
-            ),
-          ],
-        ),
-      ),
+              ? _ErrorView(message: '오류: $_error', onRetry: _load)
+              : q == null
+                  ? const Center(child: Text('데이터 없음'))
+                  : RefreshIndicator(
+                      onRefresh: _load,
+                      child: ListView(
+                        padding: const EdgeInsets.only(bottom: 24),
+                        children: [
+                          const _GradientHeader(
+                            title: '1:1 문의',
+                            subtitle: '등록하신 문의의 상세 내용을 확인하세요.',
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: _QuestionCard(
+                              title: q.title,
+                              category: q.category,
+                              status: q.status, // ✔ 실제 상태 전달
+                              content: q.content,
+                              statusMapper: _statusChipStyle, // ✔ 스타일 매퍼
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                            child: _AnswerCard(
+                              answerText: q.answer?.trim().isNotEmpty == true
+                                  ? q.answer!.trim()
+                                  : null,
+                              answerAt: q.moddate,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
     );
   }
 }
@@ -236,23 +298,26 @@ class _QuestionCard extends StatelessWidget {
   final String status;
   final String content;
 
+  // 상태 매핑 함수 주입(상세 빌드에서 전달)
+  final ({String label, Color bg, Color fg}) Function(String raw) statusMapper;
+
   const _QuestionCard({
     required this.title,
     required this.category,
     required this.status,
     required this.content,
+    required this.statusMapper,
   });
 
-  static const _chipBg = Color(0xFFEFF4FF);
-  static const _chipText = Color(0xFF1E40AF);
-  static const _statusBg = Color(0xFFF1F5F9);
-  static const _statusText = Color(0xFF334155);
+  static const _catBg = Color(0xFFEFF4FF);
+  static const _catText = Color(0xFF1E40AF);
 
   @override
   Widget build(BuildContext context) {
+    final mapped = statusMapper(status); // ✔ 상태 라벨/색상 변환
+
     final cs = Theme.of(context).colorScheme;
     return Material(
-      elevation: 6,
       shadowColor: Colors.black12,
       borderRadius: BorderRadius.circular(14),
       child: Container(
@@ -264,11 +329,12 @@ class _QuestionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ✔ 실제 카테고리/상태 뱃지 표기
             Row(
-              children: const [
-                _Chip(label: '카테고리', bg: _chipBg, fg: _chipText), // 자리표시자
-                SizedBox(width: 6),
-                _Chip(label: '상태', bg: _statusBg, fg: _statusText), // 자리표시자
+              children: [
+                _Chip(label: category, bg: _catBg, fg: _catText),
+                const SizedBox(width: 6),
+                _Chip(label: mapped.label, bg: mapped.bg, fg: mapped.fg),
               ],
             ),
             const SizedBox(height: 10),
@@ -335,7 +401,6 @@ class _AnswerCard extends StatelessWidget {
     final hasAnswer = (answerText != null && answerText!.isNotEmpty);
 
     return Material(
-      elevation: 6,
       shadowColor: Colors.black12,
       borderRadius: BorderRadius.circular(14),
       child: Container(

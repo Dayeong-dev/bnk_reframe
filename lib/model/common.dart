@@ -26,17 +26,18 @@ ApplicationStatus? applicationStatus(dynamic v) {
   if (v == null) return null;
   final s = v.toString().toLowerCase();
   return ApplicationStatus.values.firstWhere(
-        (e) => e.name == s,
+    (e) => e.name == s,
     orElse: () => ApplicationStatus.started,
   );
 }
 
 enum PaymentStatus { unpaid, paid }
+
 PaymentStatus? paymentStatus(dynamic v) {
   if (v == null) return null;
   final s = v.toString().toLowerCase();
   return PaymentStatus.values.firstWhere(
-        (e) => e.name == s,
+    (e) => e.name == s,
     orElse: () => PaymentStatus.unpaid,
   );
 }

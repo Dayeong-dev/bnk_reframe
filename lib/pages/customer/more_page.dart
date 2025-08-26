@@ -54,9 +54,6 @@ class MorePage extends StatelessWidget {
           backgroundColor: const Color(0xFFFFFFFF),
           appBar: AppBar(
             scrolledUnderElevation: 0,
-            backgroundColor: Colors.white,
-            elevation: 0.6,
-            centerTitle: false,
             titleSpacing: 20,
             title: const Text(
               '모든 서비스',
@@ -99,7 +96,7 @@ class MorePage extends StatelessWidget {
 
                 // ======================= 나의 서비스 =======================
                 const _SectionHeader('나의 서비스'),
-                const SizedBox(height: 0),
+                const SizedBox(height:8),
 
                 _ServiceTile(
                   section: _SectionKind.myServices,
@@ -168,7 +165,7 @@ class MorePage extends StatelessWidget {
 
                 // ======================= 고객센터 =======================
                 const _SectionHeader('고객센터'),
-                const SizedBox(height: 0),
+                const SizedBox(height: 8),
 
                 _ServiceTile(
                   section: _SectionKind.customer,
@@ -237,13 +234,16 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontSize: 18, //섹션 제목
-        fontWeight: FontWeight.w800,
-        color: Colors.black87,
-        letterSpacing: -0.1,
+    return Padding(
+      padding: const EdgeInsets.only(left: 4), // ← 원하는 만큼 밀기 (예: 4~8px)
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w800,
+          color: Colors.black87,
+          letterSpacing: -0.1,
+        ),
       ),
     );
   }
@@ -281,7 +281,7 @@ class _ServiceTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Ink(
-          height: 64,
+          height: 60,
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),

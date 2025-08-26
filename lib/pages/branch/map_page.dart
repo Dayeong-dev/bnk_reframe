@@ -500,8 +500,8 @@ class _MapPageState extends State<MapPage> {
   Widget _buildCategoryRow() {
     const selectedBg = Color(0xFF2962FF);
     const selectedFg = Colors.white;
-    const unselectedBg = Color(0xFFEAF1FF);
-    const unselectedFg = Color(0xFF1B3B8A);
+    const unselectedBg = Colors.white;
+    const unselectedFg = Color(0xFF2962FF);
 
     return Container(
       color: Colors.white,
@@ -645,10 +645,8 @@ class _MapPageState extends State<MapPage> {
         },
         borderRadius: BorderRadius.circular(16),
         child: Card(
-          elevation: 3,
           margin: EdgeInsets.zero,
           color: Colors.white,
-          surfaceTintColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -782,7 +780,7 @@ class _MapPageState extends State<MapPage> {
       context: context,
       // showDragHandle: false,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -1119,26 +1117,34 @@ class _CategoryPill extends StatelessWidget {
     final bg = selected ? selectedBg : unselectedBg;
     final fg = selected ? selectedFg : unselectedFg;
 
-    return Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(999),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 16, color: fg),
-              const SizedBox(width: 6),
-              Text(label,
-                  style: TextStyle(
-                    color: fg,
-                    fontWeight: FontWeight.w600,
-                  )),
-            ],
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected
+                ? Colors.transparent
+                : const Color(0xFF2962FF), // ✅ 선택 안됐을 때만 테두리
+            width: 1.5,
           ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: fg),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: fg,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );

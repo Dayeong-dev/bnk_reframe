@@ -26,10 +26,12 @@ class _StepDebugPageState extends State<StepDebugPage> {
     final types = [HealthDataType.STEPS];
     final permissions = [HealthDataAccess.READ];
 
-    final hasPerm = await _health.hasPermissions(types, permissions: permissions);
+    final hasPerm =
+        await _health.hasPermissions(types, permissions: permissions);
     debugPrint("현재 권한 상태: ${hasPerm ?? false}");
 
-    final granted = await _health.requestAuthorization(types, permissions: permissions);
+    final granted =
+        await _health.requestAuthorization(types, permissions: permissions);
     debugPrint("권한 요청 결과: $granted");
 
     if (granted) {
@@ -57,7 +59,9 @@ class _StepDebugPageState extends State<StepDebugPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(_status, style: const TextStyle(fontSize: 20), textAlign: TextAlign.center),
+            Text(_status,
+                style: const TextStyle(fontSize: 20),
+                textAlign: TextAlign.center),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: _checkPermissions,

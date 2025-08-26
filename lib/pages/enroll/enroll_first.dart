@@ -126,6 +126,31 @@ class _FirstStepPageState extends State<FirstStepPage> {
     super.initState();
   }
 
+  // 유틸 getter
+  List<_ConsentItem> get _pdfItems =>
+      _items.where((e) => e.kind == ConsentKind.pdf && e.required).toList();
+
+  bool get _allPdfChecked => _pdfItems.every((e) => e.checked);
+
+  Future<void> _runPdfReviewFlow() async {
+    for (final item in _pdfItems.where((e) => !e.checked)) {
+      final confirmed = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PdfViewerPage(
+            title: item.title,
+            pdfUrl: item.pdfUrl ?? '',
+          ),
+        ),
+      );
+      if (confirmed == true) {
+        setState(() => item.checked = true);
+      } else {
+        break;
+      }
+    }
+  }
+
   bool get _allChecked =>
       _items.where((e) => e.required).every((e) => e.checked == true);
 
@@ -139,13 +164,29 @@ class _FirstStepPageState extends State<FirstStepPage> {
     );
   }
 
+  Future<bool?> _openPdfAndConfirm(_ConsentItem item) async {
+    final confirmed = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PdfViewerPage(
+          title: item.title,
+          pdfUrl: item.pdfUrl ?? '',
+        ),
+      ),
+    );
+    if (confirmed == true) {
+      await _logStep(stepIndex: 1, stepName: '약관열람', stage: 'submit');
+    }
+    return confirmed;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: buildAppBar(context),
+      appBar: buildAppBar(context: context),
       body: SafeArea(
         child: Column(
           children: [
@@ -153,7 +194,7 @@ class _FirstStepPageState extends State<FirstStepPage> {
               child: ListView.separated(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                itemCount: _items.length + 1,
+                itemCount: _items.length + 2,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   if (index == 0) {
@@ -163,56 +204,73 @@ class _FirstStepPageState extends State<FirstStepPage> {
                     );
                   }
 
-                  final item = _items[index - 1];
-
-                  if (item.kind == ConsentKind.pdf) {
+                  // index == 1 : PDF 전체 확인 마스터 타일
+                  if (index == 1) {
                     return _ConsentTile(
-                      title: item.title,
-                      checked: item.checked,
-                      trailingChevron: true,
+                      title: '필수 약관 전체 동의',
+                      checked: _allPdfChecked,
+                      trailingChevron: false,
                       onTap: () async {
                         HapticFeedback.selectionClick();
-                        final confirmed = await Navigator.push<bool>(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => PdfViewerPage(
-                              title: item.title,
-                              pdfUrl: item.pdfUrl ?? '',
-                            ),
-                          ),
-                        );
-                        if (confirmed == true) {
-                          setState(() => item.checked = true);
-                        }
-                      },
-                      onCheckboxTapped: () {
-                        HapticFeedback.selectionClick();
-                        if (item.checked) {
-                          setState(() => item.checked = false);
+                        if (_allPdfChecked) {
+                          // 전부 해제 허용 (원치 않으면 이 분기 제거)
+                          setState(() {
+                            for (final i in _pdfItems) i.checked = false;
+                          });
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('문서를 열람하고 하단의 확인 버튼을 눌러주세요.'),
-                            ),
-                          );
+                          await _runPdfReviewFlow();
                         }
                       },
+                      onCheckboxTapped: () async {
+                        HapticFeedback.selectionClick();
+                        if (_allPdfChecked) {
+                          setState(() {
+                            for (final i in _pdfItems) i.checked = false;
+                          });
+                        } else {
+                          await _runPdfReviewFlow();
+                        }
+                      },
+                      // infoText를 넣어 사용자에게 “전체 확인 시 문서가 순차로 열립니다” 안내해도 좋아요
+                      infoText: '필수 PDF 문서를 순서대로 열람 후 하단에서 확인을 눌러야 동의 처리됩니다.',
                     );
                   }
+
+                  // 이하 기존 아이템들은 인덱스 보정(+1)
+                  final item = _items[index - 2];
 
                   return _ConsentTile(
                     title: item.title,
                     checked: item.checked,
-                    onTap: () {
+                    onTap: () async {
                       HapticFeedback.selectionClick();
-                      setState(() => item.checked = !item.checked);
+                      if (item.kind == ConsentKind.pdf) {
+                        if (!item.checked) {
+                          final ok = await _openPdfAndConfirm(item);
+                          if (ok == true) setState(() => item.checked = true);
+                        } else {
+                          // 이미 동의된 PDF는 탭 시 해제만 허용 (원치 않으면 이 분기 제거)
+                          setState(() => item.checked = false);
+                        }
+                      } else {
+                        setState(() => item.checked = !item.checked);
+                      }
                     },
-                    onCheckboxTapped: () {
+                    onCheckboxTapped: () async {
                       HapticFeedback.selectionClick();
-                      setState(() => item.checked = !item.checked);
+                      if (item.kind == ConsentKind.pdf) {
+                        if (!item.checked) {
+                          final ok = await _openPdfAndConfirm(item);
+                          if (ok == true) setState(() => item.checked = true);
+                        } else {
+                          setState(() => item.checked = false);
+                        }
+                      } else {
+                        setState(() => item.checked = !item.checked);
+                      }
                     },
                     infoText: item.infoText,
-                    trailingChevron: false,
+                    trailingChevron: (item.kind == ConsentKind.pdf), // PDF는 화살표 아이콘 표시(선택)
                   );
                 },
               ),
@@ -236,7 +294,6 @@ class _FirstStepPageState extends State<FirstStepPage> {
       context: context,
       isDismissible: true,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -268,8 +325,6 @@ class _FirstStepPageState extends State<FirstStepPage> {
                     _nextStep();
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: theme.colorScheme.primary,
-                    foregroundColor: theme.colorScheme.onPrimary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),

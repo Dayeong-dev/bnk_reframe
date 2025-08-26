@@ -18,7 +18,8 @@ class FaqScope extends StatelessWidget {
     return MultiProvider(
       providers: [
         Provider<FaqApi>(create: (_) => FaqApi(baseUrl: baseUrl)),
-        ChangeNotifierProvider<FaqStore>(create: (ctx) => FaqStore(api: ctx.read<FaqApi>())),
+        ChangeNotifierProvider<FaqStore>(
+            create: (ctx) => FaqStore(api: ctx.read<FaqApi>())),
       ],
       child: child,
     );

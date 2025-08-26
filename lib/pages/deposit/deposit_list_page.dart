@@ -4,6 +4,7 @@ import 'package:reframe/pages/deposit/deposit_detail_page.dart';
 import 'package:reframe/service/deposit_service.dart' as DepositService;
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:reframe/service/analytics_service.dart';
+import 'package:reframe/service/subscriber_service.dart'; // ← 가입자수 API
 
 /// 예적금 목록 (아이콘 자동 추천 + HOT 배지)
 class DepositListPage extends StatefulWidget {
@@ -30,6 +31,69 @@ class _DepositListPageState extends State<DepositListPage>
   int itemsToShow = 12;
   bool _loading = true;
   bool _gridMode = false;
+
+  // 가입자수(고유 사용자 수) 캐시: productId -> distinctUsers
+  final Map<int, int> _subscriberCountByProduct = {};
+
+// 디버그 스위치: true면 가입자수 기반 HOT, false면 기존 조회수 폴백(테스트용)
+  bool _useSubscriberHot = true;
+
+// 디버그 로그 on/off
+  bool _debugHot = true;
+
+  Future<void> _rebuildHotBySubscribers() async {
+    if (!_useSubscriberHot) return;
+
+    final ids = allProducts
+        .map((e) => e.productId)
+        .where((id) => id != null)
+        .map((id) => id!)
+        .toList();
+
+    if (_debugHot) debugPrint('[HOT] 가입자수 수집 대상: ${ids.length}개');
+
+    // 너무 많은 동시 요청 방지용 배치
+    const batchSize = 10;
+    _subscriberCountByProduct.clear();
+
+    for (int i = 0; i < ids.length; i += batchSize) {
+      final batch = ids.sublist(i, (i + batchSize).clamp(0, ids.length));
+      if (_debugHot) {
+        debugPrint('[HOT] 배치 ${i ~/ batchSize + 1} 요청 (size=${batch.length})');
+      }
+
+      await Future.wait(batch.map((pid) async {
+        try {
+          final distinct = await SubscriberService.fetchDistinctUsers(pid);
+          _subscriberCountByProduct[pid] = distinct;
+          if (_debugHot) {
+            debugPrint('[HOT] OK product=$pid, distinct=$distinct');
+          }
+        } catch (e) {
+          if (_debugHot) {
+            debugPrint('[HOT] FAIL product=$pid, error=$e');
+          }
+        }
+      }));
+    }
+
+    // 내림차순 정렬 → TOP10 뽑기
+    final sorted = _subscriberCountByProduct.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final top10 = sorted.take(10).map((e) => e.key.toString()).toSet();
+
+    // 가입자수 데이터가 전무하면 안전하게 HOT 비우기(또는 필요시 조회수 폴백 켜도 됨)
+    if (top10.isEmpty) {
+      if (_debugHot) debugPrint('[HOT] 가입자수 데이터 없음 → HOT 비움');
+      setState(() => _hotIds = <String>{});
+      return;
+    }
+
+    setState(() {
+      _hotIds = top10;
+    });
+    if (_debugHot) debugPrint('[HOT] 가입자수 기반 TOP10: $_hotIds');
+  }
 
   // 🔥 전체 TOP10 id(문자열로 통일) — 로컬에서 계산
   Set<String> _hotIds = <String>{};
@@ -69,7 +133,7 @@ class _DepositListPageState extends State<DepositListPage>
     );
   }
 
-  // [beobjin] 20250825 17:36 -  AnalyticsService.logSelectProduct() 로 대체함. 
+  // [beobjin] 20250825 17:36 -  AnalyticsService.logSelectProduct() 로 대체함.
   // Future<void> _logProductClick(
   //   DepositProduct item,
   //   int index, {
@@ -86,7 +150,6 @@ class _DepositListPageState extends State<DepositListPage>
   //     },
   //   );
   // }
-
 
   void _scheduleImpressionLog(List<DepositProduct> visible, int pageIndex) {
     final ids = visible.map((e) => e.productId).map((v) => '$v').join(',');
@@ -133,11 +196,8 @@ class _DepositListPageState extends State<DepositListPage>
         _loading = false;
       });
 
-      // 🔥 전체 기준 TOP10 (조회수 기반)
-      final top = [...allProducts]
-        ..removeWhere((e) => e.productId == null)
-        ..sort((a, b) => (b.viewCount ?? 0).compareTo(a.viewCount ?? 0));
-      _hotIds = top.take(10).map((e) => '${e.productId}').toSet();
+      // 🔥 전체 기준 TOP10 (가입자수 기반)
+      await _rebuildHotBySubscribers();
 
       _applyFilter();
     } catch (e) {
@@ -155,8 +215,7 @@ class _DepositListPageState extends State<DepositListPage>
     final cat = categories[catIndex];
     if (cat != '전체') {
       if (cat == '입출금') {
-        result =
-            result.where((e) => (e.category ?? '') == '입출금자유').toList();
+        result = result.where((e) => (e.category ?? '') == '입출금자유').toList();
       } else {
         result = result.where((e) => (e.category ?? '') == cat).toList();
       }
@@ -285,7 +344,7 @@ class _DepositListPageState extends State<DepositListPage>
                       style: TextStyle(
                         color: selected ? Colors.white : Colors.black87,
                         fontWeight:
-                        selected ? FontWeight.w800 : FontWeight.w500,
+                            selected ? FontWeight.w800 : FontWeight.w500,
                       ),
                     ),
                   ),
@@ -480,14 +539,14 @@ class _DepositListPageState extends State<DepositListPage>
 
     return InkWell(
       onTap: () async {
-      // [beobjin] 20250825 17:36 -  AnalyticsService.logSelectProduct() 로 대체함. 
-      //   await _logProductClick(item, index, source: 'grid');
-      await AnalyticsService.logSelectProduct(
-        productId: item.productId,
-        name: item.name,
-        category: item.category,
-        listName: 'deposit_list', 
-      );
+        // [beobjin] 20250825 17:36 -  AnalyticsService.logSelectProduct() 로 대체함.
+        //   await _logProductClick(item, index, source: 'grid');
+        await AnalyticsService.logSelectProduct(
+          productId: item.productId,
+          name: item.name,
+          category: item.category,
+          listName: 'deposit_list',
+        );
         if (!mounted) return;
         Navigator.push(
           context,
@@ -497,13 +556,13 @@ class _DepositListPageState extends State<DepositListPage>
           ),
         );
       },
-      
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           boxShadow: const [
-            BoxShadow(color: Color(0x14000000), blurRadius: 5, offset: Offset(0, 2)),
+            BoxShadow(
+                color: Color(0x14000000), blurRadius: 5, offset: Offset(0, 2)),
           ],
         ),
         child: Column(
@@ -512,7 +571,8 @@ class _DepositListPageState extends State<DepositListPage>
           children: [
             // ===== 상단 썸네일 영역 =====
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(12)),
               child: Stack(
                 children: [
                   SizedBox(
@@ -535,7 +595,8 @@ class _DepositListPageState extends State<DepositListPage>
                       ),
                     ),
                   ),
-                  if (_isHot(item)) const Positioned(top: 8, right: 8, child: _HotTextBadge()),
+                  if (_isHot(item))
+                    const Positioned(top: 8, right: 8, child: _HotTextBadge()),
                 ],
               ),
             ),
@@ -553,9 +614,11 @@ class _DepositListPageState extends State<DepositListPage>
                     height: 32,
                     child: _AutoVCenterTitle(
                       text: name,
-                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                          fontSize: 13.5, fontWeight: FontWeight.w600),
                       maxLines: 2,
-                      strutStyle: const StrutStyle(forceStrutHeight: true, height: 1.20),
+                      strutStyle: const StrutStyle(
+                          forceStrutHeight: true, height: 1.20),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -567,7 +630,10 @@ class _DepositListPageState extends State<DepositListPage>
                       Text(
                         '최고 ${item.maxRate.toStringAsFixed(2)}%',
                         softWrap: false,
-                        style: const TextStyle(color: _brand, fontSize: 13, fontWeight: FontWeight.w800),
+                        style: const TextStyle(
+                            color: _brand,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(width: 8),
                       Flexible(
@@ -575,7 +641,8 @@ class _DepositListPageState extends State<DepositListPage>
                           '기본 ${item.minRate.toStringAsFixed(2)}%',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 11.5, color: Colors.black54),
+                          style: const TextStyle(
+                              fontSize: 11.5, color: Colors.black54),
                         ),
                       ),
                     ],
@@ -590,7 +657,6 @@ class _DepositListPageState extends State<DepositListPage>
       ),
     );
   }
-
 
   // ---------- LIST 카드 ----------
   Widget _listCard(DepositProduct item, int index) {
@@ -613,9 +679,9 @@ class _DepositListPageState extends State<DepositListPage>
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () async {
-          // [beobjin] 20250825 17:36 -  AnalyticsService.logSelectProduct() 로 대체함. 
+          // [beobjin] 20250825 17:36 -  AnalyticsService.logSelectProduct() 로 대체함.
           // await _logProductClick(item, index, source: 'list');
-           await AnalyticsService.logSelectProduct(
+          await AnalyticsService.logSelectProduct(
             productId: item.productId,
             name: item.name,
             category: item.category,
@@ -729,8 +795,8 @@ class _DepositListPageState extends State<DepositListPage>
           width: double.infinity,
           child: ElevatedButton.icon(
             icon: const Icon(Icons.expand_more, size: 18),
-            label:
-            const Text('더보기', style: TextStyle(fontWeight: FontWeight.w700)),
+            label: const Text('더보기',
+                style: TextStyle(fontWeight: FontWeight.w700)),
             style: ElevatedButton.styleFrom(
               backgroundColor: _brand,
               foregroundColor: Colors.white,
@@ -758,7 +824,7 @@ class _DepositListPageState extends State<DepositListPage>
             foregroundColor: Colors.black54,
             minimumSize: const Size.fromHeight(40),
             shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
           onPressed: () => setState(() => itemsToShow = _gridMode ? 8 : 6),
         ),
@@ -773,9 +839,9 @@ class _DepositListPageState extends State<DepositListPage>
         child: Column(
           children: [
             ...controls.map((w) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: w,
-            )),
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: w,
+                )),
           ],
         ),
       ),
@@ -795,38 +861,38 @@ class _DepositListPageState extends State<DepositListPage>
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Column(
-        children: [
-          _topControls(totalCurrent),
-          Expanded(
-            child: PageView.builder(
-              controller: _pageController,
-              onPageChanged: (i) {
-                setState(() {
-                  selectedIndex = i;
-                  itemsToShow = _gridMode ? 8 : 6;
-                });
-                _applyFilter();
-                _logCategoryView(i);
-              },
-              itemCount: categories.length,
-              itemBuilder: (context, pageIndex) {
-                final pageList = _computeFiltered(pageIndex);
-                final visible = pageList.take(itemsToShow).toList();
+              children: [
+                _topControls(totalCurrent),
+                Expanded(
+                  child: PageView.builder(
+                    controller: _pageController,
+                    onPageChanged: (i) {
+                      setState(() {
+                        selectedIndex = i;
+                        itemsToShow = _gridMode ? 8 : 6;
+                      });
+                      _applyFilter();
+                      _logCategoryView(i);
+                    },
+                    itemCount: categories.length,
+                    itemBuilder: (context, pageIndex) {
+                      final pageList = _computeFiltered(pageIndex);
+                      final visible = pageList.take(itemsToShow).toList();
 
-                _scheduleImpressionLog(visible, pageIndex);
+                      _scheduleImpressionLog(visible, pageIndex);
 
-                return RefreshIndicator(
-                  onRefresh: _loadProducts,
-                  color: _brand,
-                  child: _gridMode
-                      ? _buildGridForPage(visible, pageList.length)
-                      : _buildListForPage(visible, pageList.length),
-                );
-              },
+                      return RefreshIndicator(
+                        onRefresh: _loadProducts,
+                        color: _brand,
+                        child: _gridMode
+                            ? _buildGridForPage(visible, pageList.length)
+                            : _buildListForPage(visible, pageList.length),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -867,10 +933,10 @@ class _DepositListPageState extends State<DepositListPage>
           slivers: [
             SliverPadding(
               padding:
-              const EdgeInsets.fromLTRB(hPad, vPadTop, hPad, vPadBottom),
+                  const EdgeInsets.fromLTRB(hPad, vPadTop, hPad, vPadBottom),
               sliver: SliverGrid(
                 delegate: SliverChildBuilderDelegate(
-                      (context, i) => _gridCard(visible[i], i),
+                  (context, i) => _gridCard(visible[i], i),
                   childCount: visible.length,
                 ),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -1002,10 +1068,10 @@ class _OverlappedFlatBowPainter extends CustomPainter {
   final double overlap;
 
   _OverlappedFlatBowPainter(
-      this.leftColor,
-      this.rightColor, {
-        this.overlap = 0.8,
-      });
+    this.leftColor,
+    this.rightColor, {
+    this.overlap = 0.8,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1261,7 +1327,7 @@ class RoundProductIcon extends StatelessWidget {
   Color _seedColor(String seed) {
     if (seed.isEmpty) seed = 'seed';
     final code =
-    seed.codeUnits.fold<int>(0, (a, b) => (a * 31 + b) & 0x7fffffff);
+        seed.codeUnits.fold<int>(0, (a, b) => (a * 31 + b) & 0x7fffffff);
     final hue = (code % 360).toDouble();
     final hsl = HSLColor.fromAHSL(1, hue, 0.58, 0.55);
     return hsl.toColor();

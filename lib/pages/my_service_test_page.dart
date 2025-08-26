@@ -31,27 +31,10 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
   @override
   void initState() {
     super.initState();
-
     _futureAccounts = fetchAccounts(null);
     _loadGoalMap();
-
     _futureTrend = _fetchAssetTrendOrFallback();
   }
-
-  // ===== 프로필(DB에서 이름/생년 가져오기) =====
-  // Future<UserProfile> _fetchProfileOrFallback() async {
-  //   try {
-  //     final p = await fetchUserProfile(); // ← 실제 API로 연결
-  //     _profile = p;
-  //     return p;
-  //   } catch (_) {
-  //     final p = UserProfile(name: '홍길동', birth: DateTime(1998, 9, 1));
-  //     _profile = p;
-  //     return p;
-  //   } finally {
-  //     if (mounted) setState(() {});
-  //   }
-  // }
 
   // ===== Goal Map 저장/로드 =====
   Future<void> _loadGoalMap() async {
@@ -71,20 +54,22 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
     await sp.setString(_kGoalMapKey, jsonEncode(_goalMap));
   }
 
-  // ===== 총자산 추이 (엔드포인트 없으면 안전한 목데이터) =====
+  // ===== 총자산 추이 =====
   Future<List<_MonthlyPoint>> _fetchAssetTrendOrFallback() async {
     try {
-      final data = await fetchAssetTrend(); // 실제 연결 시 구현
+      // 👉 실제 API 연결 포인트
+      // ex) final data = await dio.get('/mobile/asset/trend');
+      final data = await fetchAssetTrend(); // 현재는 아래쪽에서 UnimplementedError 던짐
       if (data.isNotEmpty) return data;
       throw Exception('empty trend');
     } catch (_) {
+      // 폴백(목데이터): 계좌 합산 기준으로 6개월 추정 생성
       final accounts = await _futureAccounts;
       final totalNow = _sumCash(accounts) + _sumSavings(accounts);
       final months = _recent6MonthsLabels();
 
       final name = accounts.elementAt(0).user.name ?? '홍길동';
       final birth = accounts.elementAt(0).user.birth ?? DateTime(1998, 9, 1);
-
       _profile = UserProfile(name: name, birth: birth);
 
       final rand = math.Random(1129);
@@ -157,7 +142,9 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
     final key = _accKey(acc);
     final currentGoal = _goalMap[key] ?? 0;
     final ctrl = TextEditingController(
-        text: currentGoal == 0 ? '' : currentGoal.toString());
+      text: currentGoal == 0 ? '' : currentGoal.toString(),
+    );
+    final primary = Theme.of(context).colorScheme.primary;
 
     showModalBottomSheet(
       context: context,
@@ -166,57 +153,69 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
       barrierColor: Colors.black.withOpacity(0.5),
       backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
       builder: (c) {
         return Padding(
           padding: EdgeInsets.only(
             left: 16,
             right: 16,
-            top: 8,
+            top: 16, // 핸들바 제거 → 상단 여백만
             bottom: 16 + MediaQuery.of(c).viewInsets.bottom,
           ),
-          child: SizedBox(
-            width: double.infinity,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 12),
-                    decoration: BoxDecoration(
-                        color: Colors.black12,
-                        borderRadius: BorderRadius.circular(999))),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(acc.accountName ?? '적금 목표 설정',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 16),
-                          overflow: TextOverflow.ellipsis),
-                    ),
-                  ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 제목 중앙 정렬
+              Center(
+                child: Text(
+                  acc.accountName ?? '적금 목표 설정',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800, fontSize: 18),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: TextField(
-                    controller: ctrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(),
-                      hintText: '목표 금액 (원)',
-                    ),
+              ),
+              const SizedBox(height: 14),
+
+              // 텍스트박스: filled + focus 파란 보더
+              TextField(
+                controller: ctrl,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  hintText: '목표 금액 (원)',
+                  isDense: true,
+                  filled: true,
+                  fillColor: const Color(0xFFF7F8FA),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: primary, width: 1.8),
                   ),
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
+              ),
+
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  // 저장(Filled) — 고정 높이/라운드 동일
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
                       child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
                         onPressed: () {
                           final raw =
                               ctrl.text.replaceAll(RegExp(r'[^0-9]'), '');
@@ -234,27 +233,63 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
                         child: const Text('저장'),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
+                  ),
+                  const SizedBox(width: 8),
+                  // 목표 제거(Outlined 흰색) — 저장과 동일 사이즈/라운드
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
                       child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: primary,
+                          backgroundColor: Colors.white,
+                          side: BorderSide(color: primary, width: 1.2),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
                         onPressed: () {
-                          setState(() {
-                            _goalMap.remove(key);
-                          });
+                          setState(() => _goalMap.remove(key));
                           _saveGoalMap();
                           Navigator.pop(c);
                         },
                         child: const Text('목표 제거'),
                       ),
                     ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                ],
+              ),
+            ],
           ),
         );
       },
     );
+  }
+
+  // ===== 적금 선택: "모달 리스트" (드롭다운 제거, 요청 반영) =====
+  Future<void> _openSavingsPicker(List<Account> savings) async {
+    if (savings.isEmpty) return;
+
+    final selected = await showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      barrierColor: Colors.black.withOpacity(0.5),
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (c) {
+        return _SavingsPickerSheet(
+          savings: savings,
+          selectedIndex: _selectedSavingIndex,
+        );
+      },
+    );
+
+    if (selected != null && mounted) {
+      setState(() => _selectedSavingIndex = selected);
+    }
   }
 
   // ===== 적금 선택 보조: 좌/우 이동 =====
@@ -275,7 +310,6 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
 
   @override
   Widget build(BuildContext context) {
-    // 내비바까지 배경이 자연스럽게 보이도록
     return Scaffold(
       extendBody: true,
       appBar: AppBar(title: const Text('내 자산 요약'), centerTitle: true),
@@ -374,11 +408,13 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
                             if (tsnap.hasError)
                               Padding(
                                 padding: const EdgeInsets.only(top: 6),
-                                child: Text('트렌드 데이터를 불러오지 못해 임시값을 표시합니다.',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(color: Colors.red)),
+                                child: Text(
+                                  '트렌드 데이터를 불러오지 못해 임시값을 표시합니다.',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(color: Colors.red),
+                                ),
                               ),
                           ],
                         ),
@@ -409,9 +445,8 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
                     onTapPrev: () => _selectPrevSaving(savings),
                     onTapNext: () => _selectNextSaving(savings),
                     onOpenSheet: _openGoalSheetFor,
+                    onOpenPicker: () => _openSavingsPicker(savings), // ✅ 추가
                   ),
-
-                // ===== (요청 3) 벤치마크 위젯 제거됨 =====
               ],
             );
           },
@@ -557,6 +592,7 @@ class _SingleSavingGoalCard extends StatelessWidget {
   final VoidCallback onTapPrev;
   final VoidCallback onTapNext;
   final void Function(Account) onOpenSheet;
+  final VoidCallback onOpenPicker; // 모달 리스트 열기
 
   const _SingleSavingGoalCard({
     required this.savings,
@@ -566,6 +602,7 @@ class _SingleSavingGoalCard extends StatelessWidget {
     required this.onTapPrev,
     required this.onTapNext,
     required this.onOpenSheet,
+    required this.onOpenPicker,
   });
 
   @override
@@ -582,7 +619,7 @@ class _SingleSavingGoalCard extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
         child: Column(
           children: [
-            // 상단: 좌우 이동 + 드롭다운으로 계좌 전환
+            // 상단: 좌/우 이동 + 제목 중앙정렬(아이콘 제거)
             Row(
               children: [
                 IconButton(
@@ -591,15 +628,23 @@ class _SingleSavingGoalCard extends StatelessWidget {
                   icon: const Icon(Icons.chevron_left),
                 ),
                 Expanded(
-                  child: _SavingDropdown(
-                    savings: savings,
-                    selectedIndex: index,
-                    onChangedIndex: (i) {
-                      // 외부 setState를 쓰지 않으므로 Navigator trick 없이
-                      // 부모가 setState 하도록 요구되면 구조를 상태ful로 옮길 수 있음.
-                      // 여기서는 간단히 하도록, onChangedIndex는 상위에서 처리하는게 이상적.
-                      // 다만 지금 한 파일에서 바로 쓰려면, InkWell 가이드로만 구성.
-                    },
+                  child: Center(
+                    child: TextButton(
+                      onPressed: onOpenPicker, // 계좌 선택 모달
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 8),
+                      ),
+                      child: Text(
+                        acc.accountName ?? '예·적금',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
                 IconButton(
@@ -627,17 +672,14 @@ class _SingleSavingGoalCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(acc.accountName ?? '예·적금',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 6),
                       Text(
                         goal <= 0
                             ? '목표를 설정해 주세요'
                             : '${money.format(bal)} 원 / ${money.format(goal)} 원',
                         style: TextStyle(
-                            fontSize: 12, color: Colors.black.withOpacity(.6)),
+                          fontSize: 12,
+                          color: Colors.black.withOpacity(.6),
+                        ),
                       ),
                       const SizedBox(height: 8),
                       _LinearProgressAnimated(
@@ -650,10 +692,10 @@ class _SingleSavingGoalCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                FilledButton.tonalIcon(
-                  icon: const Icon(Icons.flag),
-                  label: const Text('설정'),
+                TextButton.icon(
                   onPressed: () => onOpenSheet(acc),
+                  icon: const Icon(Icons.settings_outlined),
+                  label: const Text('목표 설정'),
                 ),
               ],
             ),
@@ -664,49 +706,104 @@ class _SingleSavingGoalCard extends StatelessWidget {
   }
 }
 
-// 드롭다운(표시만 담당, 선택 변경은 상위에서 처리 권장)
-class _SavingDropdown extends StatelessWidget {
+// ====== "적금 계좌 선택" 바텀시트 UI ======
+class _SavingsPickerSheet extends StatelessWidget {
   final List<Account> savings;
   final int selectedIndex;
-  final void Function(int) onChangedIndex;
-  const _SavingDropdown({
+  const _SavingsPickerSheet({
     required this.savings,
     required this.selectedIndex,
-    required this.onChangedIndex,
   });
+
+  String _maskedAccountNo(String? no) {
+    if (no == null || no.isEmpty) return '계좌번호 미지정';
+    // 간단 마스킹: 앞 3자리 + **** + 끝 3자리
+    if (no.length <= 6) return '${no.substring(0, 1)}****';
+    final prefix = no.substring(0, 3);
+    final suffix = no.substring(no.length - 3);
+    return '$prefix****$suffix';
+  }
+
   @override
   Widget build(BuildContext context) {
-    return DropdownButton<int>(
-      isExpanded: true,
-      value: selectedIndex,
-      items: [
-        for (int i = 0; i < savings.length; i++)
-          DropdownMenuItem(
-            value: i,
-            child: Text(
-              savings[i].accountName ?? '예·적금 ${i + 1}',
-              overflow: TextOverflow.ellipsis,
+    return Padding(
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 8),
+          Container(
+            width: 44,
+            height: 4,
+            decoration: BoxDecoration(
+                color: Colors.black12,
+                borderRadius: BorderRadius.circular(999)),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            '적금 계좌 선택',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          Flexible(
+            child: ListView.separated(
+              shrinkWrap: true,
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+              itemCount: savings.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, i) {
+                final a = savings[i];
+                final isSelected = i == selectedIndex;
+                final name = a.accountName ?? '예·적금 ${i + 1}';
+                final no = _maskedAccountNo(a.accountNumber);
+                final bal = money.format(a.balance ?? 0);
+                return ListTile(
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  leading: CircleAvatar(
+                    backgroundColor: isSelected
+                        ? const Color(0xFFE8ECFF)
+                        : const Color(0xFFF1F3F6),
+                    child: Icon(
+                      isSelected ? Icons.check_circle : Icons.savings_outlined,
+                      color:
+                          isSelected ? const Color(0xFF5B6CFF) : Colors.black54,
+                    ),
+                  ),
+                  title: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  subtitle: Text(no, style: const TextStyle(fontSize: 12)),
+                  trailing: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text('잔액',
+                          style:
+                              TextStyle(fontSize: 11, color: Colors.black54)),
+                      Text(bal,
+                          style: const TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w800)),
+                    ],
+                  ),
+                  onTap: () => Navigator.pop(context, i),
+                );
+              },
             ),
           ),
-      ],
-      onChanged: (v) {
-        if (v == null) return;
-        // 현재 파일 구조에서는 상위 setState 접근이 어려우므로, 간단히
-        // SnackBar로 안내만 하고 좌우 버튼 사용을 권장.
-        // 필요 시 이 드롭다운을 Stateful로 승격해 콜백 연결하면 됨.
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('좌/우 버튼으로 계좌를 전환하세요. (드롭다운 즉시전환은 추후 연결)'),
-            duration: Duration(milliseconds: 900),
-          ),
-        );
-        onChangedIndex(v);
-      },
+          const SizedBox(height: 6),
+        ],
+      ),
     );
   }
 }
 
-// 반원 게이지 (애니메이션 지원)
+// ===== 게이지/프로그레스/범례/차트 =====
+
 class _GaugeProgressAnimated extends StatelessWidget {
   final double ratio;
   final Color color;
@@ -775,7 +872,6 @@ class _GaugePainter extends CustomPainter {
       old.ratio != ratio || old.color != color;
 }
 
-// 선형 진행바 (애니메이션 지원)
 class _LinearProgressAnimated extends StatelessWidget {
   final double ratio; // 0.0 ~ 1.0
   final Color color;
@@ -816,7 +912,6 @@ class _LinearProgressAnimated extends StatelessWidget {
   }
 }
 
-// 범례
 class _LegendDot extends StatelessWidget {
   final Color color;
   final String label;
@@ -865,59 +960,42 @@ class _LineChartAdvancedPainter extends CustomPainter {
   // 10만 / 100만 / 1000만 … 같은 "깔끔한 단위"를 자동 선택
   int _pickNiceStep(int minV, int maxV) {
     final span = (maxV - minV).abs();
-    // span이 너무 작아도 최소 단위 유지
     const candidates = <int>[
-      100000, // 10만
+      100000,
       200000,
       500000,
-      1000000, // 100만
+      1000000,
       2000000,
       5000000,
-      10000000, // 1000만
+      10000000,
       20000000,
       50000000,
-      100000000, // 1억
+      100000000,
       200000000,
       500000000,
-      1000000000, // 10억
+      1000000000,
     ];
-    // 목표: 4~6칸 사이로 보이게 적당한 step 선택
     for (final s in candidates) {
       final tickCount = (span / s).ceil();
       if (tickCount >= 4 && tickCount <= 6) return s;
     }
-    // 못 찾으면 span을 5등분
     final approx = (span / 5).clamp(1, 1 << 31).toInt();
-    // approx를 가장 가까운 candidate로 올림
     for (final s in candidates) {
       if (s >= approx) return s;
     }
     return candidates.last;
   }
 
-  // Y축 라벨 포맷: 10만 / 100만 / 1000만 / 1억 / 10억 …
   String _formatKoreanShort(int v) {
-    if (v >= 1000000000) {
-      // 10억 이상
-      final n = (v / 100000000).toStringAsFixed(0); // 억 단위
-      return '${n}억';
-    } else if (v >= 100000000) {
-      // 1억 이상
-      final n = (v / 100000000).toStringAsFixed(0);
-      return '${n}억';
-    } else if (v >= 10000000) {
-      // 1000만 이상
-      final n = (v / 10000).toStringAsFixed(0); // 만원 단위로 표현하면 숫자 큼
-      // 1000만은 그냥 '1000만' 식으로 보여주기
-      return '${(v / 10000).toStringAsFixed(0)}만';
+    if (v >= 100000000) {
+      // 억 단위 표시(간단화)
+      return '${(v / 100000000).toStringAsFixed(0)}억';
     } else if (v >= 1000000) {
-      // 100만 이상
+      // 만원 단위
       return '${(v / 10000).toStringAsFixed(0)}만';
     } else if (v >= 100000) {
-      // 10만 이상
       return '${(v / 10000).toStringAsFixed(0)}만';
     }
-    // 그 외는 그냥 천 단위 콤마
     return money.format(v);
   }
 
@@ -932,7 +1010,6 @@ class _LineChartAdvancedPainter extends CustomPainter {
 
     if (chartW <= 0 || chartH <= 0 || values.isEmpty) return;
 
-    // 축/가이드 스타일
     final axis = Paint()
       ..color = const Color(0xFFCBD3DF)
       ..strokeWidth = 1.2;
@@ -940,7 +1017,6 @@ class _LineChartAdvancedPainter extends CustomPainter {
       ..color = const Color(0xFFE9ECF1)
       ..strokeWidth = 1;
 
-    // 값 범위
     int maxValI = values.reduce(math.max);
     int minValI = values.reduce(math.min);
     if (maxValI == minValI) {
@@ -949,7 +1025,6 @@ class _LineChartAdvancedPainter extends CustomPainter {
     }
 
     final step = _pickNiceStep(minValI, maxValI);
-    // 아래/위로 step의 배수까지 확장(그래프 여백 상향)
     final yMin = (minValI / step).floor() * step;
     final yMax = (maxValI / step).ceil() * step;
 
@@ -1007,7 +1082,6 @@ class _LineChartAdvancedPainter extends CustomPainter {
     for (int i = 0; i < values.length; i++) {
       final p = pt(i);
       canvas.drawCircle(p, 3.5, dot);
-
       final lbl = money.format(values[i]);
       final tp = TextPainter(
         text: TextSpan(text: lbl, style: valStyle),
@@ -1051,9 +1125,11 @@ int _calcAge(DateTime birth) {
   return math.max(age, 0);
 }
 
-// ========================= 서버 연동 가정 함수들 =========================
+// ===== 서버 연동 가정 함수들 (지금은 미구현) =====
 
 Future<List<_MonthlyPoint>> fetchAssetTrend() async {
+  // 👉 지금은 미구현이라 폴백(목데이터)로 내려감.
+  // 여기에 실제 API 연동을 넣으면 총자산 추이는 실데이터로 표시돼.
   throw UnimplementedError('asset trend endpoint not connected yet');
 }
 

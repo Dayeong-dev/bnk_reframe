@@ -142,11 +142,11 @@ class _LoginPageState extends State<LoginPage> {
                   mainAxisAlignment: MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const SizedBox(height: 40), // 상단 여백
+                    const SizedBox(height: 0), // 상단 여백
                     // ===== 로고 =====
                     Image.asset(
                       "assets/images/logo/logo_small.png",
-                      width: 160,
+                      width: 220,
                       fit: BoxFit.contain,
                     ),
                     // ===== 로고 바로 아래 한 줄 텍스트(딱 붙음) =====

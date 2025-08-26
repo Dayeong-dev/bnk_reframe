@@ -24,37 +24,17 @@ import 'package:reframe/service/subscriber_service.dart';
 import 'package:reframe/pages/my_service_test_page.dart'; // 자산추이
 import 'package:reframe/event/pages/coupons_screen.dart'; // 쿠폰함
 
-/// 문자열 정리:
-/// - <br>, </br>, <br/> (대소문자 무시) → 공백
-/// - 나머지 HTML 태그 제거
-/// - &nbsp; 같은 공백 엔티티 치환
-/// - 연속 공백 1칸으로 정규화
 String normalizeHtmlPlainText(String? input) {
   if (input == null || input.isEmpty) return '';
-
   var t = input;
-
-  // 1) <br>, </br>, <br/> → 공백 (대소문자 무시)
   t = t.replaceAll(
-    RegExp(r'<\s*\/?\s*br\s*\/?\s*>', caseSensitive: false),
-    ' ',
-  );
-
-  // 2) HTML 엔티티 일부 공백 계열 치환
+      RegExp(r'<\s*\/?\s*br\s*\/?\s*>', caseSensitive: false), ' ');
   t = t.replaceAll(RegExp(r'&nbsp;|&#160;', caseSensitive: false), ' ');
-
-  // 3) 기타 태그 제거
   t = t.replaceAll(RegExp(r'<[^>]+>'), ' ');
-
-  // 4) 공백 정규화
   t = t.replaceAll(RegExp(r'\s+'), ' ').trim();
-
   return t;
 }
 
-/// ===================================================================
-///  홈 페이지
-/// ===================================================================
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
   @override
@@ -65,34 +45,29 @@ class _HomePageState extends State<HomePage> {
   final _secureStorage = const FlutterSecureStorage();
   final _auth = LocalAuthentication();
 
-  // 데이터
   late final Future<List<Account>> _accountsFuture = fetchAccounts(null);
-
-  // 내 계좌: 더보기 토글
   int _visibleCount = 3;
 
-  // 추천 슬라이드(가로, 카드 세로형)
   late final PageController _recController =
       PageController(viewportFraction: 0.62, keepPage: true, initialPage: 1000);
-  int _recIndex = 0;
-
-  // 추천 항목(Top5 + 더보기)
   List<_RecommendItem> _recommendItems = [];
 
-  // 마이메뉴
   static const _kMyMenuPrefsKey = 'home_my_menu_keys_v1';
   final List<_MyMenuItem> _allMenus = const [
     _MyMenuItem(key: 'ai', title: 'AI 챗봇', icon: Icons.smart_toy_rounded),
     _MyMenuItem(key: 'trend', title: '자산추이', icon: Icons.show_chart_rounded),
-    _MyMenuItem(
-        key: 'event2',
-        title: '운세',
-        icon: Icons.auto_awesome_rounded), // 이벤트2(운세)
+    _MyMenuItem(key: 'event2', title: '운세', icon: Icons.auto_awesome_rounded),
     _MyMenuItem(
         key: 'coupon', title: '쿠폰함', icon: Icons.local_activity_rounded),
     _MyMenuItem(key: 'event', title: '이벤트', icon: Icons.card_giftcard_rounded),
   ];
-  List<String> _selectedKeys = const ['ai', 'trend', 'event2']; // 초기 3개
+  List<String> _selectedKeys = const ['ai', 'trend', 'event2'];
+
+  bool _hideAssets = false;
+
+  // 파스텔 카드 색상
+  static const Color _avgCardColor = Color(0xFFF3F6FF); // 연블루
+  static const Color _menuCardColor = Color(0xFFFFF3F8); // 연핑크
 
   @override
   void initState() {
@@ -102,12 +77,6 @@ class _HomePageState extends State<HomePage> {
       await _checkBiometricSupport();
       await _loadTop5BySubscribers();
     });
-  }
-
-  @override
-  void dispose() {
-    _recController.dispose();
-    super.dispose();
   }
 
   Future<void> _checkBiometricSupport() async {
@@ -120,7 +89,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// 가입자수 Top5 로드(실패 시 정렬 없이 5개)
   Future<void> _loadTop5BySubscribers() async {
     try {
       final List<DepositProduct> products = await fetchAllProducts();
@@ -129,7 +97,6 @@ class _HomePageState extends State<HomePage> {
         if (mounted) setState(() => _recommendItems = []);
         return;
       }
-
       final ids = withId.map((p) => p.productId!).toList();
       Map<int, int> counts = {};
       try {
@@ -137,10 +104,8 @@ class _HomePageState extends State<HomePage> {
       } catch (_) {
         counts = {};
       }
-
       withId.sort((a, b) =>
           (counts[b.productId] ?? 0).compareTo(counts[a.productId] ?? 0));
-
       final top5 = withId.take(5).toList();
       if (!mounted) return;
       setState(() {
@@ -158,7 +123,6 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // 마이메뉴 저장/복원
   Future<void> _restoreMyMenuSelection() async {
     final sp = await SharedPreferences.getInstance();
     final saved = sp.getStringList(_kMyMenuPrefsKey);
@@ -170,9 +134,12 @@ class _HomePageState extends State<HomePage> {
   Future<void> _saveMyMenuSelection(List<String> keys) async {
     final sp = await SharedPreferences.getInstance();
     await sp.setStringList(_kMyMenuPrefsKey, keys.take(3).toList());
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('마이메뉴 구성이 저장되었어요.')),
+    );
   }
 
-  // 라우팅
   Future<T?> _push<T>(Widget page) =>
       Navigator.of(context).push<T>(MaterialPageRoute(builder: (_) => page));
 
@@ -181,22 +148,20 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16), // ✅ 모달 둥근 보더
-          side: const BorderSide(color: Color(0xFFE0E3E7), width: 1), // ✅ 외곽선
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFFE0E3E7), width: 1),
         ),
         title:
             const Text('로그아웃', style: TextStyle(fontWeight: FontWeight.w700)),
         content: const Text('정말 로그아웃하시겠어요?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('아니요'),
-          ),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('아니요')),
           FilledButton(
             style: FilledButton.styleFrom(
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8), // 버튼 개별 라운드
-              ),
+                  borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('네'),
@@ -204,7 +169,6 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
     );
-
     if (ok != true) return;
     await _secureStorage.deleteAll();
     if (!mounted) return;
@@ -214,13 +178,28 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // 평균자산 폴백
   Future<int> _fetchAverageAssetPerUser() async {
-    await Future.delayed(const Duration(milliseconds: 250));
-    return 12000000;
+    try {
+      final resp = await getGlobalAvg();
+      try {
+        final dynamic d = resp as dynamic;
+        final v = d.avgUserTotal;
+        if (v is num) return v.toInt();
+      } catch (_) {}
+      try {
+        final dynamic d = resp as dynamic;
+        if (d.toJson != null) {
+          final map = Map<String, dynamic>.from(d.toJson() as Map);
+          final v = map['avgUserTotal'];
+          if (v is num) return v.toInt();
+        }
+      } catch (_) {}
+      return 0;
+    } catch (_) {
+      return 0;
+    }
   }
 
-  // 마이메뉴 라우팅
   void _openMenu(String key) {
     switch (key) {
       case 'ai':
@@ -229,13 +208,13 @@ class _HomePageState extends State<HomePage> {
       case 'trend':
         _push(const MyServiceTestPage());
         break;
-      case 'event2': // 운세
+      case 'event2':
         _push(const StartScreen());
         break;
-      case 'coupon': // 쿠폰함
+      case 'coupon':
         _push(const CouponsScreen());
         break;
-      case 'event': // 이벤트(기획전/목록) → 임시로 쿠폰함 재사용
+      case 'event':
         _push(const CouponsScreen());
         break;
       default:
@@ -244,25 +223,18 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // 마이메뉴 편집
+  /// 편집: 중앙 다이얼로그 + 실제 타일 스타일
   Future<void> _editMyMenu() async {
-    final result = await showModalBottomSheet<List<String>>(
+    final initial = _selectedKeys.toSet();
+    final result = await showDialog<List<String>>(
       context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        final temp = _selectedKeys.toSet();
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-            left: 16,
-            right: 16,
-            top: 8,
-          ),
-          child: StatefulBuilder(builder: (ctx, setSheet) {
+      barrierDismissible: true,
+      builder: (ctx) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: StatefulBuilder(
+          builder: (ctx, setSheet) {
+            final temp = initial.toSet();
             void toggle(String k) {
               if (temp.contains(k)) {
                 temp.remove(k);
@@ -275,56 +247,139 @@ class _HomePageState extends State<HomePage> {
                 }
                 temp.add(k);
               }
-              setSheet(() {});
+              setSheet(() => {});
             }
 
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('마이메뉴 편집',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 8),
-                Text('최대 3개 선택 (현재 ${temp.length}개)',
-                    style: TextStyle(color: Colors.grey.shade600)),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _allMenus.map((m) {
-                    final selected = temp.contains(m.key);
-                    return ChoiceChip(
-                      label: Text(m.title,
-                          style: const TextStyle(fontWeight: FontWeight.w700)),
-                      selected: selected,
-                      onSelected: (_) => toggle(m.key),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('취소'),
-                      ),
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('마이메뉴 편집',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 6),
+                  Text('최대 ${temp.length}/3개 선택',
+                      style: TextStyle(color: Colors.grey.shade600)),
+                  const SizedBox(height: 12),
+                  // 실제 타일과 동일한 스타일의 선택 그리드
+                  GridView.builder(
+                    shrinkWrap: true,
+                    itemCount: _allMenus.length,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      mainAxisExtent: 96,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: () => Navigator.pop(ctx, temp.toList()),
-                        child: const Text('저장'),
+                    itemBuilder: (ctx, i) {
+                      final m = _allMenus[i];
+                      final grad = _menuGradients[i % _menuGradients.length];
+                      final glow = grad.last;
+                      final selected = temp.contains(m.key);
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () => toggle(m.key),
+                        child: Stack(
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                gradient: LinearGradient(
+                                  colors: grad,
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                      color: glow.withOpacity(.35),
+                                      blurRadius: 18,
+                                      spreadRadius: 1,
+                                      offset: const Offset(0, 6))
+                                ],
+                                border: Border.all(
+                                    color: Colors.white.withOpacity(.45)),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Stack(alignment: Alignment.center, children: [
+                                    Container(
+                                      width: 34,
+                                      height: 34,
+                                      decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                                color: Colors.white
+                                                    .withOpacity(.6),
+                                                blurRadius: 12,
+                                                spreadRadius: 2)
+                                          ]),
+                                    ),
+                                    Icon(m.icon,
+                                        size: 26, color: Colors.black87),
+                                  ]),
+                                  const SizedBox(height: 8),
+                                  Text(m.title,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 12)),
+                                ],
+                              ),
+                            ),
+                            // 선택 체크 표시
+                            Positioned(
+                              right: 6,
+                              top: 6,
+                              child: AnimatedOpacity(
+                                duration: const Duration(milliseconds: 140),
+                                opacity: selected ? 1 : 0.0,
+                                child: Container(
+                                  width: 22,
+                                  height: 22,
+                                  decoration: BoxDecoration(
+                                    color: Colors.black87,
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: Border.all(
+                                        color: Colors.white, width: 1.2),
+                                  ),
+                                  child: const Icon(Icons.check_rounded,
+                                      size: 16, color: Colors.white),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('취소'),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () => Navigator.pop(ctx, temp.toList()),
+                          child: const Text('저장'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             );
-          }),
-        );
-      },
+          },
+        ),
+      ),
     );
 
     if (result != null && result.isNotEmpty) {
@@ -332,6 +387,8 @@ class _HomePageState extends State<HomePage> {
       _saveMyMenuSelection(_selectedKeys);
     }
   }
+
+  String _maskMoney(int value) => _hideAssets ? '•••••' : money.format(value);
 
   @override
   Widget build(BuildContext context) {
@@ -367,14 +424,12 @@ class _HomePageState extends State<HomePage> {
                 .where((a) => a.accountType == AccountType.product)
                 .toList();
 
-            // 총자산
             final cashTotal =
                 demand.fold<int>(0, (s, a) => s + (a.balance ?? 0));
             final savingTotal =
                 product.fold<int>(0, (s, a) => s + (a.balance ?? 0));
             final total = cashTotal + savingTotal;
 
-            // 내 계좌 통합 정렬
             final allAccounts = [...demand, ...product]
               ..sort((a, b) => (b.balance ?? 0).compareTo(a.balance ?? 0));
 
@@ -385,29 +440,15 @@ class _HomePageState extends State<HomePage> {
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
               children: [
-                _TotalHeaderCard(
-                  total: total,
-                  cash: cashTotal,
-                  saving: savingTotal,
+                // 총자산 헤더
+                _TotalHeaderPlain(
+                  totalText: _maskMoney(total),
+                  hideOn: _hideAssets,
+                  onToggleHide: () =>
+                      setState(() => _hideAssets = !_hideAssets),
                   onDeposit: () => _push(DepositMainPage()),
                 ),
                 const SizedBox(height: 12),
-                _AverageCompareCard(
-                  myTotal: total,
-                  onFetchAverage: _fetchAverageAssetPerUser,
-                ),
-                const SizedBox(height: 16),
-
-                // 추천 서비스(가로 슬라이드 / 세로형 카드 / 간격 넉넉 / 6번째 전체보기-대형)
-                _RecommendHorizontalSection(
-                  controller: _recController,
-                  items: _recommendItems,
-                  onMore: () => _push(DepositMainPage()),
-                  onTapItem: (pid) => _push(DepositDetailPage(productId: pid)),
-                  onIndexChanged: (i) => setState(() => _recIndex = i),
-                ),
-
-                const SizedBox(height: 16),
 
                 // 내 계좌
                 Row(
@@ -426,15 +467,14 @@ class _HomePageState extends State<HomePage> {
                   ...allAccounts.take(_visibleCount).map((a) => _AccountCard(
                         title: a.accountName ?? 'BNK 부산은행 계좌',
                         subtitle: a.accountNumber ?? '-',
-                        balanceText: '${money.format(a.balance ?? 0)} 원',
-                        leading: _productBadgeIcon(a),
+                        balanceText: '${_maskMoney(a.balance ?? 0)} 원',
+                        leading: _fancyProductIcon(a),
                         onTap: () {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) =>
-                                  AccountDetailPage(accountId: a.id),
-                            ),
+                                builder: (_) =>
+                                    AccountDetailPage(accountId: a.id)),
                           );
                         },
                       )),
@@ -449,10 +489,6 @@ class _HomePageState extends State<HomePage> {
                                 : math.min(3, allAccounts.length);
                           });
                         },
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 2),
-                        ),
                         icon: Icon(
                           (_visibleCount < allAccounts.length)
                               ? Icons.keyboard_arrow_down_rounded
@@ -471,12 +507,47 @@ class _HomePageState extends State<HomePage> {
 
                 const SizedBox(height: 16),
 
-                // 마이메뉴(편집)
-                _MyMenuSection(
-                  allItems: _allMenus,
-                  selectedKeys: _selectedKeys,
-                  onTapItem: _openMenu,
-                  onEdit: _editMyMenu,
+                // 평균자산: 카드 배경색 지정
+                const _SectionTitle('평균자산'),
+                Card(
+                  color: _avgCardColor,
+                  child: _AverageCompareCard(
+                    myTotal: _hideAssets ? 0 : total,
+                    showMasked: _hideAssets,
+                    onFetchAverage: _fetchAverageAssetPerUser,
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // 마이메뉴: 카드 배경색 지정
+                Card(
+                  color: _menuCardColor,
+                  child: _MyMenuSection(
+                    allItems: _allMenus,
+                    selectedKeys: _selectedKeys,
+                    onTapItem: _openMenu,
+                    onEdit: _editMyMenu,
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // 실시간 추천 - Outlined Card 유지
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: const BorderSide(color: Color(0xFFE6EAF0)),
+                  ),
+                  child: _RecommendHorizontalSection(
+                    controller: _recController,
+                    items: _recommendItems,
+                    onMore: () => _push(DepositMainPage()),
+                    onTapItem: (pid) =>
+                        _push(DepositDetailPage(productId: pid)),
+                    onIndexChanged: (_) {},
+                  ),
                 ),
               ],
             );
@@ -487,43 +558,78 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-/* ─────────────────────────────────────────────────────────
- * 상단 총자산 / 평균자산 카드 (미변경)
- * ───────────────────────────────────────────────────────── */
-class _TotalHeaderCard extends StatelessWidget {
-  final int total;
-  final int cash;
-  final int saving;
+/* ───────────────────────────────── UI CHUNKS ───────────────────────────────── */
+
+class _SectionTitle extends StatelessWidget {
+  final String text;
+  const _SectionTitle(this.text);
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 6, bottom: 8),
+      child: Text(text, style: const TextStyle(fontWeight: FontWeight.w800)),
+    );
+  }
+}
+
+// 총자산 헤더: “총 자산” 텍스트 옆에 눈 아이콘
+class _TotalHeaderPlain extends StatelessWidget {
+  final String totalText;
+  final bool hideOn;
+  final VoidCallback onToggleHide;
   final VoidCallback onDeposit;
 
-  const _TotalHeaderCard({
-    required this.total,
-    required this.cash,
-    required this.saving,
+  const _TotalHeaderPlain({
+    required this.totalText,
+    required this.hideOn,
+    required this.onToggleHide,
     required this.onDeposit,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text('총 자산',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey.shade500,
-                    fontWeight: FontWeight.w700,
-                  )),
+          // 타이틀 + 눈 버튼
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('총 자산',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w700,
+                      )),
+              const SizedBox(width: 6),
+              InkWell(
+                onTap: onToggleHide,
+                borderRadius: BorderRadius.circular(20),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    hideOn
+                        ? Icons.visibility_rounded
+                        : Icons.visibility_off_rounded,
+                    size: 18,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 6),
+          // 금액 줄
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
-                money.format(total),
+                totalText,
                 style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                  color: Colors.black,
                   fontWeight: FontWeight.w800,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
@@ -531,14 +637,15 @@ class _TotalHeaderCard extends StatelessWidget {
               const SizedBox(width: 6),
               Text('원',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.black,
                         fontWeight: FontWeight.w700,
                       )),
             ],
           ),
           const SizedBox(height: 14),
           SizedBox(
-            width: 140,
-            height: 42,
+            width: 160,
+            height: 44,
             child: OutlinedButton(
               onPressed: onDeposit,
               style: OutlinedButton.styleFrom(
@@ -546,55 +653,35 @@ class _TotalHeaderCard extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14)),
                 side: BorderSide(color: Colors.grey.shade400),
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
               ),
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.add_rounded, size: 20),
-                  SizedBox(width: 4),
+                  SizedBox(width: 6),
                   Text('예적금 만들기',
                       style: TextStyle(fontWeight: FontWeight.w700)),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              const Icon(Icons.monetization_on_rounded,
-                  size: 16, color: Colors.black38),
-              const SizedBox(width: 4),
-              Text('자산 구성',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: Colors.grey.shade600,
-                      )),
-              const Spacer(),
-              Text('총 ${money.format(total)} 원',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Colors.grey.shade600,
-                        fontWeight: FontWeight.w700,
-                      )),
-            ],
-          ),
-          const SizedBox(height: 8),
-          _AssetBreakdownBar(cash: cash, saving: saving),
-          const SizedBox(height: 8),
-          _AssetLegend(cash: cash, saving: saving),
         ],
       ),
     );
   }
 }
 
+// 평균자산 카드 (가독성 업)
 class _AverageCompareCard extends StatefulWidget {
   final int myTotal;
+  final bool showMasked;
   final Future<int> Function() onFetchAverage;
 
   const _AverageCompareCard({
     required this.myTotal,
     required this.onFetchAverage,
+    this.showMasked = false,
   });
 
   @override
@@ -643,47 +730,41 @@ class _AverageCompareCardState extends State<_AverageCompareCard> {
     final double myRatio = (myD / maxV).clamp(0.0, 1.0);
     final double avgRatio = (avgD / maxV).clamp(0.0, 1.0);
 
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: const [
-              Expanded(
-                child: Text('평균자산 대비 내 자산',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-              ),
-            ]),
-            const SizedBox(height: 12),
-            if (_loading) const LinearProgressIndicator(minHeight: 2),
-            if (_err != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  '평균자산을 불러오지 못해 0으로 표시합니다.',
+    String fmt(int v) => money.format(v);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('내 자산 vs 평균',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 12),
+          if (_loading) const LinearProgressIndicator(minHeight: 2),
+          if (_err != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text('평균자산을 불러오지 못해 0으로 표시합니다.',
                   style: Theme.of(context)
                       .textTheme
                       .bodySmall
-                      ?.copyWith(color: Colors.red),
-                ),
-              ),
-            const SizedBox(height: 8),
-            _AvgRow(
-                label: '내 총자산',
-                value: my,
-                ratio: myRatio,
-                color: const Color(0xFF2962FF)),
-            const SizedBox(height: 10),
-            _AvgRow(
-                label: '평균자산',
-                value: avg,
-                ratio: avgRatio,
-                color: const Color(0xFF7C88FF)),
-          ],
-        ),
+                      ?.copyWith(color: Colors.red)),
+            ),
+          const SizedBox(height: 8),
+          _AvgRow(
+            label: '내 총자산',
+            valueText: widget.showMasked ? '••••• 원' : '${fmt(my)} 원',
+            ratio: widget.showMasked ? 0.0 : myRatio,
+            color: const Color(0xFF2962FF),
+          ),
+          const SizedBox(height: 12),
+          _AvgRow(
+            label: '평균자산',
+            valueText: '${fmt(avg)} 원',
+            ratio: avgRatio,
+            color: const Color(0xFF7C88FF),
+          ),
+        ],
       ),
     );
   }
@@ -691,60 +772,75 @@ class _AverageCompareCardState extends State<_AverageCompareCard> {
 
 class _AvgRow extends StatelessWidget {
   final String label;
-  final int value;
+  final String valueText;
   final double ratio;
   final Color color;
   const _AvgRow({
     required this.label,
-    required this.value,
+    required this.valueText,
     required this.ratio,
     required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(children: [
-      SizedBox(
-          width: 64, child: Text(label, style: const TextStyle(fontSize: 12))),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              height: 16,
-              child: Stack(children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE9ECF1),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-                FractionallySizedBox(
-                  widthFactor: ratio,
-                  child: Container(
+    return Row(
+      children: [
+        SizedBox(
+            width: 72,
+            child: Text(label,
+                style: const TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w700))),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 바
+              SizedBox(
+                height: 18,
+                child: Stack(children: [
+                  Container(
                     decoration: BoxDecoration(
-                      color: color,
+                      color: const Color(0xFFE9ECF1),
                       borderRadius: BorderRadius.circular(999),
                     ),
                   ),
+                  FractionallySizedBox(
+                    widthFactor: ratio,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(999),
+                        boxShadow: [
+                          BoxShadow(
+                              color: color.withOpacity(0.35),
+                              blurRadius: 10,
+                              spreadRadius: 1)
+                        ],
+                      ),
+                    ),
+                  ),
+                ]),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                valueText,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.black87,
                 ),
-              ]),
-            ),
-            const SizedBox(height: 4),
-            Text(money.format(value) + ' 원',
-                style: const TextStyle(fontSize: 11, color: Colors.black54)),
-          ],
+              ),
+            ],
+          ),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 }
 
-/* ─────────────────────────────────────────────────────────
- * 추천 슬라이드 [가로 섹션] - 세로형 카드 / 간격 넉넉 / 큰 전체보기
- *  - 밝은 파스텔 5종 / 통일된 레이아웃(제목·요약 고정 높이)
- *  - 텍스트는 normalizeHtmlPlainText로 <br> → 공백 치환
- * ───────────────────────────────────────────────────────── */
+/* ───────────────────────────── 추천 섹션 ───────────────────────────── */
+
 class _RecommendItem {
   final int productId;
   final String title;
@@ -778,13 +874,11 @@ class _RecommendHorizontalSection extends StatelessWidget {
   Widget build(BuildContext context) {
     if (items.isEmpty) {
       return Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 0.4,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
+        child: const Padding(
+          padding: EdgeInsets.fromLTRB(12, 14, 12, 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
+            children: [
               Text('실시간 추천 서비스', style: TextStyle(fontWeight: FontWeight.w800)),
               SizedBox(height: 8),
               Text('추천 상품이 없습니다'),
@@ -796,51 +890,41 @@ class _RecommendHorizontalSection extends StatelessWidget {
 
     final listWithMore = List<_RecommendItem?>.from(items.take(5))..add(null);
 
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 0.4,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('실시간 추천 서비스',
-                style: TextStyle(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 308, // 카드가 세로로 길게 보이도록
-              child: PageView.builder(
-                controller: controller,
-                scrollDirection: Axis.horizontal,
-                onPageChanged: onIndexChanged,
-                itemBuilder: (ctx, rawIndex) {
-                  final i = rawIndex % listWithMore.length;
-                  final data = listWithMore[i];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('실시간 추천 서비스',
+              style: TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 308,
+            child: PageView.builder(
+              controller: controller,
+              scrollDirection: Axis.horizontal,
+              onPageChanged: onIndexChanged,
+              itemBuilder: (ctx, rawIndex) {
+                final i = rawIndex % listWithMore.length;
+                final data = listWithMore[i];
 
-                  // 각 아이템 간격을 넉넉히
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: data == null
-                        ? const _MoreTallCard()
-                        : _RecommendTallCard(
-                            item: data,
-                            styleIndex: i % 5,
-                          ),
-                  );
-                },
-              ),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: data == null
+                      ? const _MoreTallCard()
+                      : _RecommendTallCard(item: data, styleIndex: i % 5),
+                );
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-/// ‘전체 보기’ (대형) 카드
 class _MoreTallCard extends StatelessWidget {
   const _MoreTallCard({super.key});
-
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -848,18 +932,18 @@ class _MoreTallCard extends StatelessWidget {
         width: 236,
         child: _GlassContainer(
           gradient: const [Color(0xFFEBF2FF), Color(0xFFFFEEF5)],
+          glowColor: const Color(0xFF7C88FF),
           child: InkWell(
             onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => DepositMainPage()),
-              );
+              Navigator.of(context)
+                  .push(MaterialPageRoute(builder: (_) => DepositMainPage()));
             },
             borderRadius: BorderRadius.circular(24),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 22, 18, 22),
+            child: const Padding(
+              padding: EdgeInsets.fromLTRB(18, 22, 18, 22),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
+                children: [
                   Icon(Icons.grid_view_rounded, size: 44),
                   SizedBox(height: 12),
                   Text('전체 보기',
@@ -879,14 +963,16 @@ class _MoreTallCard extends StatelessWidget {
   }
 }
 
-// 공통 글라스 컨테이너
+// 공통 글래스 컨테이너
 class _GlassContainer extends StatelessWidget {
   final Widget child;
   final List<Color>? gradient;
-  const _GlassContainer({required this.child, this.gradient});
+  final Color? glowColor;
+  const _GlassContainer({required this.child, this.gradient, this.glowColor});
 
   @override
   Widget build(BuildContext context) {
+    final gc = glowColor ?? Colors.black12;
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: Stack(
@@ -906,8 +992,8 @@ class _GlassContainer extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  Colors.white.withOpacity(0.5),
-                  Colors.white.withOpacity(0.18),
+                  Colors.white.withOpacity(0.55),
+                  Colors.white.withOpacity(0.20)
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -921,11 +1007,11 @@ class _GlassContainer extends StatelessWidget {
             decoration: BoxDecoration(
               border:
                   Border.all(color: Colors.white.withOpacity(0.55), width: 1.2),
-              boxShadow: const [
+              boxShadow: [
                 BoxShadow(
-                    color: Color(0x33000000),
-                    blurRadius: 14,
-                    offset: Offset(0, 8)),
+                    color: gc.withOpacity(0.45),
+                    blurRadius: 28,
+                    spreadRadius: 2)
               ],
             ),
           ),
@@ -936,53 +1022,32 @@ class _GlassContainer extends StatelessWidget {
   }
 }
 
-/// 세로형 추천 카드 (밝은 파스텔 5종 + 통일 레이아웃: 제목/요약 고정)
 class _RecommendTallCard extends StatelessWidget {
   final _RecommendItem item;
-  final int styleIndex; // 0~4
+  final int styleIndex;
 
   static const double _cardWidth = 228;
-  static const double _titleHeight = 52; // 2줄 고정
-  static const double _summaryHeight = 44; // 2줄 고정
+  static const double _titleHeight = 52;
+  static const double _summaryHeight = 44;
 
-  const _RecommendTallCard({
-    super.key,
-    required this.item,
-    required this.styleIndex,
-  });
+  const _RecommendTallCard(
+      {super.key, required this.item, required this.styleIndex});
 
-  // 밝은 파스텔 5종 (가벼운 대비)
   List<Color> get _bg {
     switch (styleIndex % 5) {
       case 0:
-        return [
-          const Color(0xFFEEF2FF),
-          const Color(0xFFFFF0F6)
-        ]; // 라이트 라일락 → 핑크
+        return [const Color(0xFFDBE4FF), const Color(0xFFFFE3EC)];
       case 1:
-        return [
-          const Color(0xFFEFF8FF),
-          const Color(0xFFFFF7E8)
-        ]; // 라이트 블루 → 라이트 옐로
+        return [const Color(0xFFCFE9FF), const Color(0xFFFFF0CD)];
       case 2:
-        return [
-          const Color(0xFFF3EDFF),
-          const Color(0xFFEAF3FF)
-        ]; // 라이트 퍼플 → 스카이
+        return [const Color(0xFFE2D6FF), const Color(0xFFCCE2FF)];
       case 3:
-        return [
-          const Color(0xFFFFEEF3),
-          const Color(0xFFEFF7FF)
-        ]; // 라이트 핑크 → 페일 블루
+        return [const Color(0xFFFFD8E6), const Color(0xFFD9ECFF)];
       default:
-        return [
-          const Color(0xFFF6FAFF),
-          const Color(0xFFFFF0FF)
-        ]; // 화이트 블루 → 라이트 라벤더
+        return [const Color(0xFFDEEEFF), const Color(0xFFF5E0FF)];
     }
   }
 
-  // 미세한 데코(통일성 유지: 과하지 않게)
   Widget _accent() {
     switch (styleIndex % 5) {
       case 0:
@@ -1045,6 +1110,7 @@ class _RecommendTallCard extends StatelessWidget {
         width: _cardWidth,
         child: _GlassContainer(
           gradient: tones,
+          glowColor: const Color(0xFF7C88FF),
           child: Stack(
             children: [
               _accent(),
@@ -1053,7 +1119,6 @@ class _RecommendTallCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 제목(2줄 고정)
                     SizedBox(
                       height: _titleHeight,
                       child: Align(
@@ -1068,8 +1133,6 @@ class _RecommendTallCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-
-                    // 요약(2줄 고정)
                     SizedBox(
                       height: _summaryHeight,
                       child: Align(
@@ -1083,27 +1146,22 @@ class _RecommendTallCard extends StatelessWidget {
                         ),
                       ),
                     ),
-
                     const Spacer(),
-
                     Text('가입자수 ${_fmtSubs(item.subscribers)}',
                         style: const TextStyle(
                             fontSize: 12, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 12),
-
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton(
                         onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  DepositDetailPage(productId: item.productId),
-                            ),
-                          );
+                          Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) =>
+                                DepositDetailPage(productId: item.productId),
+                          ));
                         },
                         style: FilledButton.styleFrom(
-                          backgroundColor: Colors.white.withOpacity(.92),
+                          backgroundColor: Colors.white.withOpacity(.94),
                           foregroundColor: Colors.black87,
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16)),
@@ -1134,11 +1192,9 @@ class _RecommendTallCard extends StatelessWidget {
   }
 }
 
-/// 대각선 패턴(은은하게)
 class _DiagonalPainter extends CustomPainter {
   final double opacity;
   const _DiagonalPainter({this.opacity = .22});
-
   @override
   void paint(Canvas canvas, Size size) {
     final p = Paint()
@@ -1154,9 +1210,8 @@ class _DiagonalPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-/* ─────────────────────────────────────────────────────────
- * 마이메뉴/계좌/공통 (그대로)
- * ───────────────────────────────────────────────────────── */
+/* ───────────────────────────── COMMON ───────────────────────────── */
+
 class _MyMenuItem {
   final String key;
   final String title;
@@ -1184,70 +1239,179 @@ class _MyMenuSection extends StatelessWidget {
     final visible =
         allItems.where((m) => selectedKeys.contains(m.key)).take(3).toList();
 
-    return Card(
-      elevation: 0.4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                const Text('마이메뉴',
-                    style: TextStyle(fontWeight: FontWeight.w800)),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.tune_rounded, size: 18),
-                  label: const Text('편집',
-                      style: TextStyle(fontWeight: FontWeight.w700)),
-                  style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            GridView.builder(
-              shrinkWrap: true,
-              itemCount: visible.length,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                mainAxisExtent: 78,
-                crossAxisSpacing: 6,
-                mainAxisSpacing: 6,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Text('마이메뉴', style: TextStyle(fontWeight: FontWeight.w800)),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: onEdit,
+                icon: const Icon(Icons.tune_rounded, size: 18),
+                label: const Text('편집',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
+                style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8)),
               ),
-              itemBuilder: (ctx, i) {
-                final m = visible[i];
-                return InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: () => onTapItem(m.key),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF4F6FA),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0xFFE6EAF0)),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(m.icon, size: 26, color: const Color(0xFF2962FF)),
-                        const SizedBox(height: 6),
-                        Text(m.title,
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w700)),
-                      ],
-                    ),
-                  ),
-                );
-              },
+            ],
+          ),
+          const SizedBox(height: 6),
+          GridView.builder(
+            shrinkWrap: true,
+            itemCount: visible.length,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              mainAxisExtent: 88,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
             ),
-          ],
-        ),
+            itemBuilder: (ctx, i) {
+              final m = visible[i];
+              final grad = _menuGradients[i % _menuGradients.length];
+              final glow = grad.last;
+              return InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => onTapItem(m.key),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: LinearGradient(
+                        colors: grad,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight),
+                    boxShadow: [
+                      BoxShadow(
+                          color: glow.withOpacity(.35),
+                          blurRadius: 18,
+                          spreadRadius: 1,
+                          offset: const Offset(0, 6))
+                    ],
+                    border: Border.all(color: Colors.white.withOpacity(.45)),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Stack(alignment: Alignment.center, children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                    color: Colors.white.withOpacity(.6),
+                                    blurRadius: 12,
+                                    spreadRadius: 2)
+                              ]),
+                        ),
+                        Icon(m.icon, size: 26, color: Colors.black87),
+                      ]),
+                      const SizedBox(height: 8),
+                      Text(m.title,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w800, fontSize: 12)),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
 }
+
+const List<List<Color>> _menuGradients = [
+  [Color(0xFFE3F2FF), Color(0xFFD7E0FF)],
+  [Color(0xFFFFF1D6), Color(0xFFFFD6E8)],
+  [Color(0xFFE7E4FF), Color(0xFFD4EEFF)],
+  [Color(0xFFFFE2EE), Color(0xFFDDEBFF)],
+  [Color(0xFFEAF6FF), Color(0xFFF0E1FF)],
+];
+
+/* ───── 계좌 아이콘: 사각형 + 파스텔 채움 + 글로우 ───── */
+
+class _IconMeta {
+  final IconData icon;
+  final Color fill; // 내부 채움(파스텔)
+  const _IconMeta(this.icon, this.fill);
+}
+
+_IconMeta _iconMetaForProduct(Account a) {
+  String pt = '';
+  try {
+    pt = (a.productType ?? '').toString();
+  } catch (_) {}
+  final hint = '${pt} ${a.accountName ?? ''}'.toLowerCase();
+  if (hint.contains('walk') || hint.contains('step') || hint.contains('헬스')) {
+    return const _IconMeta(
+        Icons.directions_walk_rounded, Color(0xFFB8FFDA)); // mint
+  }
+  if (hint.contains('savings') ||
+      hint.contains('installment') ||
+      hint.contains('적금')) {
+    return const _IconMeta(Icons.savings_outlined, Color(0xFFFFD6E8)); // pink
+  }
+  if (hint.contains('deposit') || hint.contains('예금') || hint.contains('정기')) {
+    return const _IconMeta(
+        Icons.account_balance_rounded, Color(0xFFD7E0FF)); // periwinkle
+  }
+  if (a.accountType == AccountType.demand ||
+      hint.contains('입출금') ||
+      hint.contains('checking')) {
+    return const _IconMeta(
+        Icons.account_balance_wallet_outlined, Color(0xFFFFF1D6)); // butter
+  }
+  return const _IconMeta(
+      Icons.account_balance_outlined, Color(0xFFE7E4FF)); // lavender
+}
+
+Widget _fancyProductIcon(Account a) {
+  final m = _iconMetaForProduct(a);
+  return Container(
+    width: 48,
+    height: 48,
+    decoration: BoxDecoration(
+      color: m.fill,
+      borderRadius: BorderRadius.circular(14),
+      boxShadow: [
+        BoxShadow(
+            color: m.fill.withOpacity(.55),
+            blurRadius: 18,
+            spreadRadius: 1,
+            offset: const Offset(0, 8)),
+        BoxShadow(
+            color: Colors.black.withOpacity(.06),
+            blurRadius: 6,
+            offset: const Offset(0, 2)),
+      ],
+      border: Border.all(color: Colors.white.withOpacity(.6), width: 1),
+    ),
+    child: Stack(
+      children: [
+        Align(
+          alignment: Alignment.topCenter,
+          child: Container(
+            margin: const EdgeInsets.only(top: 6),
+            width: 28,
+            height: 10,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(.4),
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+        ),
+        Center(child: Icon(m.icon, size: 22, color: Colors.black87)),
+      ],
+    ),
+  );
+}
+
+/* ───── 공통 카드/상태 ───── */
 
 class _AccountCard extends StatelessWidget {
   final String title;
@@ -1270,6 +1434,7 @@ class _AccountCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
         child: Row(
@@ -1379,168 +1544,5 @@ class _ErrorView extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-/* ─────────────────────────────────────────────────────────
- * 아이콘/컬러 + 자산 구성 바/범례 (미변경)
- * ───────────────────────────────────────────────────────── */
-class _IconMeta {
-  final IconData icon;
-  final Color color;
-  const _IconMeta(this.icon, this.color);
-}
-
-const _kPrimary = Color(0xFF2962FF);
-const _kCashSolid = _kPrimary; // 현금성
-const _kSavingSolid = Color(0xFF80A4FF); // 예·적금
-const _kTrack = Color(0xFFE9EEF6);
-
-const _kGreen = Color(0xFF10B981);
-const _kGray = Color(0xFF6B7280);
-
-_IconMeta _iconMetaForProduct(Account a) {
-  String pt = '';
-  try {
-    pt = (a.productType ?? '').toString();
-  } catch (_) {}
-  final hint = '${pt} ${a.accountName ?? ''}'.toLowerCase();
-  if (hint.contains('walk') ||
-      hint.contains('step') ||
-      hint.contains('health') ||
-      hint.contains('걷') ||
-      hint.contains('헬스')) {
-    return _IconMeta(Icons.directions_walk_rounded, _kGreen);
-  }
-  if (hint.contains('savings') ||
-      hint.contains('installment') ||
-      hint.contains('적금')) {
-    return _IconMeta(Icons.savings_outlined, _kSavingSolid);
-  }
-  if (hint.contains('deposit') || hint.contains('예금') || hint.contains('정기')) {
-    return _IconMeta(Icons.account_balance_rounded, _kCashSolid);
-  }
-  if (a.accountType == AccountType.demand ||
-      hint.contains('입출금') ||
-      hint.contains('checking')) {
-    return _IconMeta(Icons.account_balance_wallet_outlined, _kCashSolid);
-  }
-  return _IconMeta(Icons.account_balance_outlined, _kGray);
-}
-
-Widget _productBadgeIcon(Account a) {
-  final m = _iconMetaForProduct(a);
-  return Container(
-    width: 42,
-    height: 42,
-    decoration: BoxDecoration(
-        color: m.color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(12)),
-    alignment: Alignment.center,
-    child: Icon(m.icon, color: m.color, size: 22),
-  );
-}
-
-class _AssetBreakdownBar extends StatelessWidget {
-  final int cash;
-  final int saving;
-  final double height;
-  final Duration duration;
-  final Curve curve;
-  final double split;
-
-  const _AssetBreakdownBar({
-    super.key,
-    required this.cash,
-    required this.saving,
-    this.height = 8,
-    this.duration = const Duration(milliseconds: 900),
-    this.curve = Curves.easeOutCubic,
-    this.split = 0.6,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final total = (cash + saving).toDouble();
-    final cashRatio = total == 0 ? 0.0 : cash / total;
-    final savingRatio = total == 0 ? 0.0 : saving / total;
-    final safeSplit = split.clamp(0.1, 0.9);
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(999),
-      child: LayoutBuilder(builder: (context, c) {
-        final w = c.maxWidth;
-        return TweenAnimationBuilder<double>(
-          key: ValueKey('$cash-$saving'),
-          tween: Tween(begin: 0, end: 1),
-          duration: duration,
-          curve: curve,
-          builder: (context, t, _) {
-            if (total == 0) return Container(height: height, color: _kTrack);
-
-            final cashPhaseEnd = safeSplit;
-            final cashProgress = (t <= cashPhaseEnd) ? (t / cashPhaseEnd) : 1.0;
-            final savingPhaseStart = safeSplit;
-            final savingProgress = (t <= savingPhaseStart)
-                ? 0.0
-                : ((t - savingPhaseStart) / (1 - savingPhaseStart));
-
-            final wCash = w * cashRatio * cashProgress;
-            final wSaving = w * savingRatio * savingProgress;
-
-            return Stack(children: [
-              Container(height: height, color: _kTrack),
-              Container(height: height, width: wCash, color: _kCashSolid),
-              Positioned(
-                left: wCash,
-                child: Container(
-                    height: height, width: wSaving, color: _kSavingSolid),
-              ),
-            ]);
-          },
-        );
-      }),
-    );
-  }
-}
-
-class _AssetLegend extends StatelessWidget {
-  final int cash;
-  final int saving;
-  const _AssetLegend({super.key, required this.cash, required this.saving});
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _LegendDot(color: _kCashSolid),
-        const SizedBox(width: 6),
-        Text('현금성  ${money.format(cash)} 원',
-            style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.black54)),
-        const SizedBox(width: 16),
-        _LegendDot(color: _kSavingSolid),
-        const SizedBox(width: 6),
-        Text('예·적금  ${money.format(saving)} 원',
-            style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.black54)),
-      ],
-    );
-  }
-}
-
-class _LegendDot extends StatelessWidget {
-  final Color color;
-  const _LegendDot({super.key, required this.color});
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-        width: 10,
-        height: 10,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle));
   }
 }

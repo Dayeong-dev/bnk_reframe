@@ -1,3 +1,4 @@
+import 'package:reframe/model/account.dart';
 import 'package:reframe/model/deposit_product.dart';
 
 import 'common.dart';
@@ -5,6 +6,7 @@ import 'common.dart';
 class ProductApplication {
   final int id;
   final DepositProduct product;
+  final Account productAccount;
   final ApplicationStatus? status;
   final DateTime? startAt;
   final DateTime? closeAt;
@@ -19,6 +21,7 @@ class ProductApplication {
   ProductApplication({
     required this.id,
     required this.product,
+    required this.productAccount,
     this.status,
     this.startAt,
     this.closeAt,
@@ -32,6 +35,7 @@ class ProductApplication {
     return ProductApplication(
       id: json['id'] as int,
       product: DepositProduct.fromJson(json['product']),
+      productAccount: Account.fromJson(json['productAccount']),
       status: applicationStatus(json['status']),
       startAt: parseDate(json['startAt']),
       closeAt: parseDate(json['closeAt']),

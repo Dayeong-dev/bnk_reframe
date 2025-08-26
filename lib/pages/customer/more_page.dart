@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:reframe/constants/api_constants.dart';
 import 'package:reframe/event/pages/coupons_screen.dart';
+import 'package:reframe/pages/customer/application/my_application_page.dart';
 import 'package:reframe/pages/my_service_test_page.dart';
 
 // FAQ
@@ -157,7 +158,10 @@ class MorePage extends StatelessWidget {
                   title: '내가 가입한 상품 보기',
                   trailingInfo: '계약 · 만기 · 혜택',
                   onTap: () {
-                    // TODO: /product/my-contracts
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MyApplicationsPage()),
+                    );
                   },
                 ),
 

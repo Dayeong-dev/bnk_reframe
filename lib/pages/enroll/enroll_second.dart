@@ -278,7 +278,7 @@ class _SecondStepPageState extends State<SecondStepPage> {
         return SafeArea(
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              minHeight: MediaQuery.of(context).size.height * 0.6,
+              minHeight: MediaQuery.of(context).size.height * 0.3
             ),
             child: Padding(
               padding: EdgeInsets.only(
@@ -597,6 +597,7 @@ class _Badge extends StatelessWidget {
       child: Text(
         text,
         style: theme.textTheme.labelSmall?.copyWith(
+          fontSize: 12,
           color: fg,
           fontWeight: FontWeight.w800,
         ),
@@ -665,7 +666,7 @@ class _DebitPreviewCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 12),
           _Badge(isThisMonth ? '이번달' : '다음달', primary: !isThisMonth),
         ],
       ),

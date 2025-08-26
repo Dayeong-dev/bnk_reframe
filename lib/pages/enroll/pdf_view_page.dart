@@ -43,6 +43,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
         return Scaffold(
           appBar: AppBar(
             title: Text(widget.title),
+            centerTitle: true,
           ),
           body: Builder(builder: (_) {
             if (waiting) {

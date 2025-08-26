@@ -325,8 +325,6 @@ class _FirstStepPageState extends State<FirstStepPage> {
                     _nextStep();
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: primaryColor,
-                    foregroundColor: theme.colorScheme.onPrimary,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),

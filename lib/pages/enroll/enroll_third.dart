@@ -7,25 +7,8 @@ import 'package:reframe/model/group_type.dart';
 import 'package:reframe/service/enroll_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 
-/// ==============
-/// Toss 스타일 토큰
-/// ==============
-class TossTokens {
-  static const Color primary = Color(0xFF3182F6);
-  static const Color bg = Colors.white;
-  static const Color card = Colors.white;
-  static const Color border = Color(0xFFE5E8EB);
-  static const Color textStrong = Color(0xFF111827);
-  static const Color text = Color(0xFF374151);
-  static const Color textWeak = Color(0xFF6B7280);
-  static const Color fieldFill = Color(0xFFF2F4F6);
-  static const Color disabled = Color(0xFFD1D5DB);
-
-  static const double r10 = 10;
-  static const double r12 = 12;
-}
-
 const int kLastDay = 99; // '말일' 표기용
+const double kRadius = 12;
 
 class ThirdStepPage extends StatefulWidget {
   const ThirdStepPage({
@@ -103,14 +86,7 @@ class _ThirdStepPageState extends State<ThirdStepPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context).copyWith(
-      scaffoldBackgroundColor: TossTokens.bg,
-      colorScheme: Theme.of(context).colorScheme.copyWith(
-            primary: TossTokens.primary,
-            onPrimary: Colors.white,
-          ),
-      dividerColor: TossTokens.border,
-    );
+    final theme = Theme.of(context);
 
     final rows = <_KV>[
       _KV('상품명', widget.product.name),
@@ -130,64 +106,52 @@ class _ThirdStepPageState extends State<ThirdStepPage> {
         _KV('모임 이름', widget.enrollForm.groupName!),
     ];
 
-    return Theme(
-        data: theme,
-        child: WillPopScope(
-          onWillPop: () async {
-            // 나가기 버튼과 동일한 UX를 사용하고 싶으면 appbar.dart의 다이얼로그 로직을
-            // 여기로 복붙해도 되고, 간단히 임시저장만 하고 나가도 됩니다.
-            // 여기서는 "저장 여부 묻기" 간소화 예시:
-            final shouldSave = await showDialog<bool>(
-              context: context,
-              builder: (_) => AlertDialog(
-                title: const Text('나가기'),
-                content: const Text('작성한 내용을 저장하고 나가시겠습니까?'),
-                actions: [
-                  TextButton(onPressed: () => Navigator.pop(context, null), child: const Text('취소')),
-                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('저장 안함')),
-                  ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('저장 후 나가기')),
-                ],
-              ),
-            );
-            if (shouldSave == true) {
-              await saveDraft(widget.product.productId, widget.enrollForm, context);
-              return true; // 뒤로가기 진행
-            } else if (shouldSave == false) {
-              return true; // 저장 안 하고 뒤로가기
-            }
-            return false; // 취소
-          },
-          child: Scaffold(
-            appBar: buildAppBar(
-              context: context,
-              enrollForm: widget.enrollForm,
-              productId: widget.product.productId,
-            ),
-
-            body: SafeArea(
+    return WillPopScope(
+      onWillPop: () async {
+        final shouldSave = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('나가기'),
+            content: const Text('작성한 내용을 저장하고 나가시겠습니까?'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, null), child: const Text('취소')),
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('저장 안함')),
+              ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('저장 후 나가기')),
+            ],
+          ),
+        );
+        if (shouldSave == true) {
+          await saveDraft(widget.product.productId, widget.enrollForm, context);
+          return true;
+        } else if (shouldSave == false) {
+          return true;
+        }
+        return false;
+      },
+      child: Scaffold(
+        appBar: buildAppBar(
+          context: context,
+          enrollForm: widget.enrollForm,
+          productId: widget.product.productId,
+        ),
+        body: SafeArea(
           child: Column(
             children: [
-              // 상단 제목 (padding 아래로 조금 늘림)
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
                     '상품을 가입하시겠습니까?',
-                    style: const TextStyle(
-                      fontSize: 22,
+                    style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w800,
-                      color: TossTokens.textStrong,
                     ),
                   ),
                 ),
               ),
-
-              // 내용 스크롤 영역
               Expanded(
                 child: ListView(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                   children: [
                     _InfoCard(rows: rows),
                     const SizedBox(height: 20),
@@ -197,16 +161,13 @@ class _ThirdStepPageState extends State<ThirdStepPage> {
                         '본 상품 해지 시 원리금은 연결계좌(신규시 사용된 출금계좌)로만 입금 가능하며, 영업점에서 해지 시 연결계좌가 한도제한계좌인 경우 금융거래목적을 입증하는 서류를 지참해야 해지가 가능합니다.',
                       ],
                     ),
-                    const SizedBox(height: 40), // ✅ 버튼과 간격 최소화
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),
-
-              // 하단 버튼
               Container(
-                color: TossTokens.card,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                color: theme.cardColor,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 child: SafeArea(
                   top: false,
                   child: SizedBox(
@@ -216,10 +177,8 @@ class _ThirdStepPageState extends State<ThirdStepPage> {
                       onPressed: _submit,
                       style: ElevatedButton.styleFrom(
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(TossTokens.r12),
+                          borderRadius: BorderRadius.circular(kRadius),
                         ),
-                        backgroundColor: TossTokens.primary,
-                        foregroundColor: TossTokens.card,
                       ),
                       child: const Text(
                         '네! 가입하겠습니다.',
@@ -235,7 +194,7 @@ class _ThirdStepPageState extends State<ThirdStepPage> {
             ],
           ),
         ),
-      )),
+      ),
     );
   }
 }
@@ -255,11 +214,12 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: TossTokens.card,
-        borderRadius: BorderRadius.circular(TossTokens.r12),
-        border: Border.all(color: TossTokens.border),
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(kRadius),
+        border: Border.all(color: theme.dividerColor),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Column(
@@ -267,7 +227,7 @@ class _InfoCard extends StatelessWidget {
           for (int i = 0; i < rows.length; i++) ...[
             _KeyValueRow(k: rows[i].k, v: rows[i].v),
             if (i != rows.length - 1)
-              const Divider(height: 16, color: TossTokens.border),
+              Divider(height: 16, color: theme.dividerColor),
           ],
         ],
       ),
@@ -282,6 +242,7 @@ class _KeyValueRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -291,9 +252,8 @@ class _KeyValueRow extends StatelessWidget {
             width: 110,
             child: Text(
               k,
-              style: const TextStyle(
-                color: TossTokens.textWeak,
-                fontSize: 14,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -303,9 +263,7 @@ class _KeyValueRow extends StatelessWidget {
             child: Text(
               v,
               textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: TossTokens.text,
-                fontSize: 14,
+              style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -322,11 +280,12 @@ class _NoticeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: TossTokens.fieldFill,
-        borderRadius: BorderRadius.circular(TossTokens.r12),
-        border: Border.all(color: TossTokens.border),
+        color: theme.colorScheme.surfaceVariant.withOpacity(.5),
+        borderRadius: BorderRadius.circular(kRadius),
+        border: Border.all(color: theme.dividerColor),
       ),
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -335,9 +294,8 @@ class _NoticeCard extends StatelessWidget {
           for (final t in items) ...[
             Text(
               t,
-              style: const TextStyle(
-                color: TossTokens.textWeak,
-                fontSize: 12,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
                 height: 1.4,
               ),
             ),

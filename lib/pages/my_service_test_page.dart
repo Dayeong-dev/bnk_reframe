@@ -17,7 +17,6 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
   // ===== 서버 데이터 =====
   late Future<List<Account>> _futureAccounts;
   late Future<List<_MonthlyPoint>> _futureTrend;
-  late Future<UserProfile> _futureProfile;
 
   // ===== 상태 =====
   UserProfile? _profile;
@@ -35,7 +34,6 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
     super.initState();
 
     _futureAccounts = fetchAccounts(null);
-    _futureProfile = _fetchProfileOrFallback();
     _loadGoalMap();
 
     _futureTrend = _fetchAssetTrendOrFallback();
@@ -43,19 +41,19 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
   }
 
   // ===== 프로필(DB에서 이름/생년 가져오기) =====
-  Future<UserProfile> _fetchProfileOrFallback() async {
-    try {
-      final p = await fetchUserProfile(); // ← 실제 API로 연결
-      _profile = p;
-      return p;
-    } catch (_) {
-      final p = UserProfile(name: '홍길동', birth: DateTime(1998, 9, 1));
-      _profile = p;
-      return p;
-    } finally {
-      if (mounted) setState(() {});
-    }
-  }
+  // Future<UserProfile> _fetchProfileOrFallback() async {
+  //   try {
+  //     final p = await fetchUserProfile(); // ← 실제 API로 연결
+  //     _profile = p;
+  //     return p;
+  //   } catch (_) {
+  //     final p = UserProfile(name: '홍길동', birth: DateTime(1998, 9, 1));
+  //     _profile = p;
+  //     return p;
+  //   } finally {
+  //     if (mounted) setState(() {});
+  //   }
+  // }
 
   // ===== 벤치마크 =====
   Future<void> _fetchBenchmarkOrFallback(String segment) async {
@@ -95,6 +93,11 @@ class _MyServiceTestPageState extends State<MyServiceTestPage> {
       final accounts = await _futureAccounts;
       final totalNow = _sumCash(accounts) + _sumSavings(accounts);
       final months = _recent6MonthsLabels();
+
+      final name = accounts.elementAt(0).user.name ?? '홍길동';
+      final birth = accounts.elementAt(0).user.birth ?? DateTime(1998, 9, 1);
+
+      _profile = UserProfile(name: name, birth: birth);
 
       final rand = math.Random(1129);
       double base = totalNow * 0.92; // 6개월 전을 현재보다 8% 낮게 시작

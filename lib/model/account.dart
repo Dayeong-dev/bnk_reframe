@@ -1,3 +1,6 @@
+
+import 'package:reframe/model/user.dart';
+
 enum AccountType {
   demand, // 입출금
   product // 예적금
@@ -27,6 +30,7 @@ DateTime? _parseDate(dynamic v) {
 class Account {
   final int id;
   final String accountNumber;
+  final User user;
   final String bankName;
   final AccountType accountType;
   final int balance;
@@ -39,6 +43,7 @@ class Account {
   Account(
       {required this.id,
       required this.accountNumber,
+      required this.user,
       required this.bankName,
       required this.accountType,
       required this.balance,
@@ -52,6 +57,7 @@ class Account {
         id: json['id'] as int,
         accountNumber: json['accountNumber'],
         bankName: json['bankName'],
+        user: User.fromJson(json['user']),
         accountType: AccountType.values
             .byName(json['accountType'].toString().toLowerCase()),
         balance: json['balance'],
@@ -66,6 +72,7 @@ class Account {
   Map<String, dynamic> toJson() => {
         "id": id,
         "accountNumber": accountNumber,
+        "user": user,
         "bankName": bankName,
         "accountType": accountType,
         "balance": balance,

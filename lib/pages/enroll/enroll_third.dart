@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:reframe/constants/number_format.dart';
 import 'package:reframe/model/deposit_product.dart';
 import 'package:reframe/model/enroll_form.dart';
@@ -6,6 +7,8 @@ import 'package:reframe/pages/enroll/appbar.dart';
 import 'package:reframe/model/group_type.dart';
 import 'package:reframe/service/enroll_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+
+import '../../common/biometric_auth.dart';
 
 const int kLastDay = 99; // '말일' 표기용
 const double kRadius = 12;
@@ -25,6 +28,8 @@ class ThirdStepPage extends StatefulWidget {
 }
 
 class _ThirdStepPageState extends State<ThirdStepPage> {
+  final _secure = const FlutterSecureStorage();
+
   Future<void> _logStep({required String stage}) {
     final Map<String, Object> params = <String, Object>{
       'funnel_id': 'deposit_apply_v1',
@@ -57,6 +62,15 @@ class _ThirdStepPageState extends State<ThirdStepPage> {
       widget.enrollForm.paymentAmount = widget.enrollForm.paymentAmount! * 10000;
     }
 
+    // 가입 전 생체 인증 요구
+    final ok = await requireBiometricForEnroll();
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('본인 확인이 취소/실패되었습니다')),
+      );
+      return; // 진입 차단
+    }
+
     try {
       await addApplication(
         widget.product.productId,
@@ -69,6 +83,16 @@ class _ThirdStepPageState extends State<ThirdStepPage> {
         const SnackBar(content: Text('가입 처리에 실패했습니다. 잠시 후 다시 시도해주세요.')),
       );
     }
+  }
+
+  Future<bool> requireBiometricForEnroll() async {
+    // 정책 A: 생체 보호 ON 사용자에게만 요구
+    final enabled = await _secure.read(key: 'biometricEnabled');
+    if (enabled == 'true') {
+      final ok = await BiometricAuth.authenticateOnlyBio('상품 가입을 위해 본인 확인이 필요합니다');
+      return ok;
+    }
+    return true;
   }
 
   String _fmtTransfer(int? d) {

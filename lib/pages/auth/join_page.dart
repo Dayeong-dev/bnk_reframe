@@ -17,7 +17,9 @@ class JoinPage extends StatefulWidget {
 
 class _JoinPageState extends State<JoinPage> {
   final _formKey = GlobalKey<FormState>();
-// === 성별 버튼 컬러 (여기서 색 바꿔요) ===
+  final _idFieldKey = GlobalKey<FormFieldState<String>>();
+
+  // === 성별 버튼 컬러 (여기서 색 바꿔요) ===
   static const _selBg = Color(0xFFDCE7FF); // 선택됨 배경 (연한 파랑)
   static const _unSelBg = Colors.white; // 선택안됨 배경
   static const _selText = Colors.black87; // 선택됨 글자
@@ -102,6 +104,7 @@ class _JoinPageState extends State<JoinPage> {
         _lastCheckedUsername = '';
         _errorUsernameText = err;
       });
+      _idFieldKey.currentState?.validate();
       return;
     }
 
@@ -140,6 +143,7 @@ class _JoinPageState extends State<JoinPage> {
     } finally {
       if (!mounted) return;
       setState(() => _isCheckingUsername = false);
+      _idFieldKey.currentState?.validate();
     }
   }
 
@@ -155,7 +159,6 @@ class _JoinPageState extends State<JoinPage> {
     final name = _nameController.text.trim();
     final phone = _phoneController.text.trim();
     final email = _emailController.text.trim();
-    final birth = _birthController.text.trim();
 
     if (_isUsernameAvailable != true || _lastCheckedUsername != username) {
       // 아이디 확인 안 했거나, 확인 후 값이 바뀐 경우
@@ -163,6 +166,15 @@ class _JoinPageState extends State<JoinPage> {
       // 아이디 영역으로 스크롤/포커스
       _idFocus.requestFocus();
       return;
+    }
+
+    final birthRaw = _birthController.text.trim(); // 19981209
+    String? birthFormatted;
+    if (birthRaw.length == 8) {
+      birthFormatted =
+      "${birthRaw.substring(0,4)}-${birthRaw.substring(4,6)}-${birthRaw.substring(6,8)}";
+    } else {
+      birthFormatted = birthRaw; // fallback
     }
 
     try {
@@ -180,7 +192,7 @@ class _JoinPageState extends State<JoinPage> {
               'phone': phone,
               'email': email,
               'gender': _gender,
-              'birth': birth,
+              'birth': birthFormatted,
             }),
           )
           .timeout(const Duration(seconds: 8));
@@ -236,6 +248,7 @@ class _JoinPageState extends State<JoinPage> {
                         children: [
                           Expanded(
                             child: _buildTextInput(
+                              fieldKey: _idFieldKey,
                               controller: _usernameController,
                               hintText: '아이디를 입력해주세요.',
                               errorText: _errorUsernameText,
@@ -554,6 +567,7 @@ class _JoinPageState extends State<JoinPage> {
 
   // ===== 실제 입력 필드 =====
   Widget _buildTextInput({
+    Key? fieldKey,
     required TextEditingController controller,
     required String hintText,
     String? labelText,
@@ -570,6 +584,7 @@ class _JoinPageState extends State<JoinPage> {
     TextInputAction? textInputAction,
   }) {
     return TextFormField(
+      key: fieldKey,
       controller: controller,
       keyboardType: keyboardType,
       focusNode: focusNode,

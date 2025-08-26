@@ -163,7 +163,12 @@ class _HomePageState extends State<HomePage> {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8)),
             ),
-            onPressed: () => Navigator.pop(ctx, true),
+            onPressed: () {
+              Navigator.of(context, rootNavigator: true).pop();
+              Navigator.of(context, rootNavigator: true).pushNamedAndRemoveUntil(
+                  '/login', (Route<dynamic> route) => false // 이전 모든 라우트 제거
+              );
+            },
             child: const Text('네'),
           ),
         ],

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:reframe/app/app_shell.dart'; // ✅ 네비바 포함된 쉘
 import 'package:reframe/constants/color.dart';
+import 'package:reframe/pages/branch/map_page.dart';
+import 'package:reframe/pages/customer/application/my_application_page.dart';
 import 'package:reframe/pages/home_page.dart'; // (미사용 가능, 필요 시 유지)
 
 class SuccessEnrollPage extends StatelessWidget {
@@ -58,14 +60,8 @@ class SuccessEnrollPage extends StatelessWidget {
                 height: 48,
                 child: ElevatedButton(
                   onPressed: () {
-                    // 스택을 비우고 네비바 포함된 쉘로 진입
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            const AppShell(), // AppShell이 BottomNav 제공
-                      ),
-                      (route) => false,
-                    );
+                    Navigator.of(context).popUntil(ModalRoute.withName('/deposit/detail'));
+                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => MyApplicationsPage()));
                   },
                   style: ElevatedButton.styleFrom(
                     // 앱의 기본 Primary/OnPrimary 사용
@@ -81,6 +77,21 @@ class SuccessEnrollPage extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 8),
+              TextButton(
+                  onPressed: () {
+                    // 스택을 비우고 네비바 포함된 쉘로 진입
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                        const AppShell(), // AppShell이 BottomNav 제공
+                      ),
+                          (route) => false,
+                    );
+                  },
+                  child: Text("홈으로 가기", style: TextStyle(decoration: TextDecoration.underline,)
+                )
+              )
             ],
           ),
         ),

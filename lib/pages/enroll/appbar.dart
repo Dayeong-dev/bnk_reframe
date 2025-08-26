@@ -6,6 +6,7 @@ import '../../service/enroll_service.dart';
 AppBar buildAppBar({required BuildContext context, EnrollForm? enrollForm, int? productId}) {
   return AppBar(
     title: const Text('상품 가입'),
+    centerTitle: true,
     actions: [
       TextButton(
         onPressed: () async {
@@ -43,11 +44,11 @@ AppBar buildAppBar({required BuildContext context, EnrollForm? enrollForm, int? 
                                 child: OutlinedButton(
                                   onPressed: () => Navigator.pop(ctx, _ExitAction.exitOnly),
                                   style: OutlinedButton.styleFrom(
-                                    side: const BorderSide(color: Colors.redAccent),
-                                    foregroundColor: Colors.redAccent,
+                                    side: BorderSide(width: 1, color: Colors.grey),
                                     minimumSize: const Size(0, 48), // 높이 통일
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8)))
                                   ),
-                                  child: const Text('저장 안함'),
+                                  child: const Text('저장 안함', style: TextStyle(color: Colors.grey),),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -55,9 +56,8 @@ AppBar buildAppBar({required BuildContext context, EnrollForm? enrollForm, int? 
                                 child: ElevatedButton(
                                   onPressed: () => Navigator.pop(ctx, _ExitAction.saveAndExit),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blueAccent,
-                                    foregroundColor: Colors.white,
                                     minimumSize: const Size(0, 48), // 높이 통일
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8)))
                                   ),
                                   child: const FittedBox(
                                     fit: BoxFit.scaleDown,

@@ -1,4 +1,4 @@
-// lib/pages/review/review_page.dart
+// review_page.dart
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -289,35 +289,6 @@ class _ReviewPageState extends State<ReviewPage> {
   String _normalizeSnippet(String s) {
     final t = s.replaceAll(RegExp(r'\s+'), ' ').trim();
     return t.replaceAll('...', '…');
-  }
-
-  // ---------------- 상단 배너 ----------------
-  Widget _presenceBanner(int others) {
-    if (others <= 0) return const SizedBox.shrink();
-    return Container(
-      margin: const EdgeInsets.fromLTRB(_screenHPad, 12, _screenHPad, 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE3F2FD),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF90CAF9)),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.visibility, color: Color(0xFF1565C0)),
-          SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '현재 다른 사용자가 리뷰를 보고 있습니다.',
-              style: TextStyle(
-                color: Color(0xFF0D47A1),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   // ---------------- 공통 위젯 ----------------
@@ -863,7 +834,6 @@ class _ReviewPageState extends State<ReviewPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
-
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         titlePadding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
         contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
@@ -876,7 +846,7 @@ class _ReviewPageState extends State<ReviewPage> {
               '리뷰 삭제',
               style: TextStyle(
                 fontWeight: FontWeight.w800,
-                fontSize: 15, // ↓ 부담 줄이기
+                fontSize: 15,
               ),
             ),
           ],
@@ -886,7 +856,6 @@ class _ReviewPageState extends State<ReviewPage> {
           style: TextStyle(color: Colors.black87, fontSize: 14),
         ),
         actions: [
-          // 테두리 없는 취소 버튼
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
             style: TextButton.styleFrom(
@@ -898,7 +867,6 @@ class _ReviewPageState extends State<ReviewPage> {
             ),
             child: const Text('취소'),
           ),
-          // 브랜드 컬러 삭제 버튼
           ElevatedButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             style: ElevatedButton.styleFrom(
@@ -933,7 +901,6 @@ class _ReviewPageState extends State<ReviewPage> {
     final created = _relative(r.createdAt);
     final mine = _isMine(r);
 
-    // 이름 옆 작은 버튼: 오른쪽 패딩 0(끝열 맞춤)
     final smallBtn = TextButton.styleFrom(
       padding: const EdgeInsets.only(left: 8, right: 0, top: 4, bottom: 4),
       minimumSize: const Size(40, 28),
@@ -990,7 +957,6 @@ class _ReviewPageState extends State<ReviewPage> {
                             child: const Text('삭제'),
                           ),
                         ],
-                        // 리뷰 아이템의 오른쪽 끝 가이드 확보
                         const SizedBox(width: _rightGuide),
                       ],
                     ),
@@ -1030,7 +996,6 @@ class _ReviewPageState extends State<ReviewPage> {
                           ),
                         ],
                         const Spacer(),
-                        // 시간(예: 2일 전)도 같은 끝 가이드에 맞춤
                         Padding(
                           padding: const EdgeInsets.only(right: _rightGuide),
                           child: Text(
@@ -1049,7 +1014,6 @@ class _ReviewPageState extends State<ReviewPage> {
             ],
           ),
           const SizedBox(height: 10),
-          // 본문은 아바타 하단부터 시작: 36(아바타) + 12(간격) = 48 들여쓰기
           const Padding(
             padding: EdgeInsets.only(left: 48),
             child: _ReviewContent(),
@@ -1070,7 +1034,8 @@ class _ReviewPageState extends State<ReviewPage> {
       ),
       body: Column(
         children: [
-          _presenceBanner(_presenceOthers),
+          // 배너 제거: 요청대로 표시하지 않음
+          // _presenceBanner(_presenceOthers),
           _header(),
           _controlRow(),
           Expanded(

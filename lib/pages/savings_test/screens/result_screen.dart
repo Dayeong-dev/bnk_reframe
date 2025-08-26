@@ -6,6 +6,17 @@ import '../../../service/deposit_service.dart';
 import '../../deposit/deposit_detail_page.dart';
 import '../../deposit/deposit_list_page.dart';
 
+/// <br>, <br/>, <br /> 를 공백으로 치환 (대소문자 무시)
+String _br2space(String? s) {
+  if (s == null) return '';
+  final noBr = s.replaceAll(
+    RegExp(r'<\s*br\s*/?\s*>', caseSensitive: false),
+    ' ',
+  );
+  // 공백 정리(여러 칸 -> 한 칸)
+  return noBr.replaceAll(RegExp(r'\s+'), ' ').trim();
+}
+
 class ResultScreen extends StatelessWidget {
   static const routeName = '/savings/result';
   const ResultScreen({super.key});
@@ -17,7 +28,7 @@ class ResultScreen extends StatelessWidget {
     final productId = productIdForResult(code);
     if (productId == null) {
       return Scaffold(
-        appBar: AppBar(), // 기본 앱바
+        appBar: AppBar(),
         body: const SafeArea(
           child: Center(child: Text('알 수 없는 결과 유형')),
         ),
@@ -28,7 +39,7 @@ class ResultScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(), // ✅ 기본 AppBar(뒤로가기 자동)
+      appBar: AppBar(),
       body: SafeArea(
         child: Stack(
           children: [
@@ -71,7 +82,7 @@ class ResultScreen extends StatelessWidget {
                               builder: (_) =>
                                   DepositDetailPage(productId: p.productId),
                               settings:
-                                  const RouteSettings(name: '/deposit/detail'),
+                              const RouteSettings(name: '/deposit/detail'),
                             ),
                           );
                         },
@@ -112,11 +123,11 @@ class ResultScreen extends StatelessWidget {
               ),
             ),
 
-            // ✅ 홈으로 돌아가기 → 루트('/')로 이동 (내비바가 보이는 AppShell로)
+            // 홈으로 돌아가기 → 루트('/')로 이동 (내비바가 보이는 AppShell로)
             Positioned(
               left: 20,
               right: 20,
-              bottom: 60, // 필요시 여백 조절
+              bottom: 60,
               child: SizedBox(
                 height: 48,
                 child: FilledButton(
@@ -131,7 +142,7 @@ class ResultScreen extends StatelessWidget {
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(
                           builder: (_) => const AppShell(initialTab: 1)),
-                      (route) => false,
+                          (route) => false,
                     );
                   },
                   child: const Text(
@@ -149,22 +160,22 @@ class ResultScreen extends StatelessWidget {
 
   // --- helpers ---
   static Widget _cardSkeleton() => Container(
-        height: 160,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF5F5F5),
-          borderRadius: BorderRadius.circular(18),
-        ),
-      );
+    height: 160,
+    decoration: BoxDecoration(
+      color: const Color(0xFFF5F5F5),
+      borderRadius: BorderRadius.circular(18),
+    ),
+  );
 
   static Widget _errorBox(String msg) => Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFF3F3),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFFFCACA)),
-        ),
-        child: Text(msg, style: const TextStyle(color: Colors.red)),
-      );
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFF3F3),
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: const Color(0xFFFFCACA)),
+    ),
+    child: Text(msg, style: const TextStyle(color: Colors.red)),
+  );
 }
 
 /// 브랜드 토큰
@@ -188,6 +199,10 @@ class _RecommendCardFancy extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final maxRateText = '최대 ${product.maxRate.toStringAsFixed(2)}%';
+
+    // <br> 치환 적용 텍스트
+    final productName = _br2space(product.name);
+    final summaryText = _br2space(product.summary);
 
     return InkWell(
       borderRadius: BorderRadius.circular(20),
@@ -213,9 +228,9 @@ class _RecommendCardFancy extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 상단: 상품명 (배지 제거)
+              // 상단: 상품명 - <br> 치환
               Text(
-                product.name,
+                productName,
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
@@ -227,10 +242,10 @@ class _RecommendCardFancy extends StatelessWidget {
 
               const SizedBox(height: 10),
 
-              // 요약
-              if (product.summary.isNotEmpty)
+              // 요약 - <br> 치환
+              if (summaryText.isNotEmpty)
                 Text(
-                  product.summary,
+                  summaryText,
                   style: const TextStyle(
                       fontSize: 13, color: Colors.black87, height: 1.35),
                   maxLines: 2,
@@ -265,7 +280,7 @@ class _RecommendCardFancy extends StatelessWidget {
               const Divider(height: 1, color: Color(0x11000000)),
               const SizedBox(height: 12),
 
-              // CTA: 자세히 보기 (1개만)
+              // CTA: 자세히 보기
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
@@ -279,7 +294,7 @@ class _RecommendCardFancy extends StatelessWidget {
                   onPressed: onDetail,
                   child: const Text('자세히 보기',
                       style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                      TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                 ),
               ),
             ],

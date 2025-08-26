@@ -26,7 +26,6 @@ import 'event/service/deep_link_service.dart';
 import 'event/pages/start_page.dart';
 import 'event/pages/coupons_page.dart';
 
-
 // ── Savings 테스트 페이지 임포트 (기존 main.dart에 있던 것 유지) ─────────
 
 import 'package:reframe/pages/savings_test/screens/start_screen.dart';
@@ -42,7 +41,6 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-
   // 1) 날짜 포맷 로케일 데이터 로드
   await initializeDateFormatting('ko_KR', null);
 
@@ -53,13 +51,11 @@ Future<void> main() async {
     onAuthFailed: (e) => debugPrint('❌ 지도 인증 실패: $e'),
   );
 
-
   // 3) Firebase Core 초기화
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
 
   // 4) 운세 기능: 익명 로그인 보장
 
@@ -70,12 +66,10 @@ Future<void> main() async {
     debugPrint('🔥 익명 로그인 실패: $e\n$st');
   }
 
-
   // 5) 기존 FirebaseService(Analytics 등) 초기화
   final firebaseService = await FirebaseService.init(
     forceRefreshToken: true,
   );
-
 
   runApp(MyApp(firebaseService: firebaseService));
 
@@ -86,7 +80,6 @@ Future<void> main() async {
       debugPrint('⚠️ LiveCouponAnnouncer start failed: $e');
     }
   });
-
 }
 
 class MyApp extends StatelessWidget {
@@ -119,7 +112,6 @@ class MyApp extends StatelessWidget {
           '/savings/question': (_) => const QuestionScreen(),
           '/savings/result': (_) => const ResultScreen(),
 
-
           // 운세 이벤트(선택) 네임드 라우트
 
           '/event/fortune': (_) => const StartPage(),
@@ -134,11 +126,49 @@ class MyApp extends StatelessWidget {
             primary: primaryColor,
             surface: Colors.white,
             background: Colors.white,
-
           ),
+
+          // ✅ ElevatedButton 전역 (흰 버튼 방지 → 무조건 primaryColor)
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(44),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+
+          // ✅ FilledButton 전역 (조건 미충족 시 연한 파랑)
+          filledButtonTheme: FilledButtonThemeData(
+            style: ButtonStyle(
+              minimumSize: const MaterialStatePropertyAll(Size.fromHeight(44)),
+              shape: MaterialStatePropertyAll(
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              backgroundColor: MaterialStateProperty.resolveWith((states) {
+                if (states.contains(MaterialState.disabled)) {
+                  return const Color(0xFFDFE7FF); // ❌ 조건 미충족 시 연한 파랑
+                }
+                return primaryColor; // ✅ 조건 충족 시 진한 primaryColor
+              }),
+              foregroundColor: MaterialStateProperty.resolveWith((states) {
+                if (states.contains(MaterialState.disabled)) {
+                  return const Color(0xFF7C8DB5); // 글씨도 연한 톤
+                }
+                return Colors.white;
+              }),
+              textStyle: const MaterialStatePropertyAll(
+                TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+              ),
+            ),
+          ),
+
+          // ✅ TextButton (기존 유지)
           textButtonTheme: TextButtonThemeData(
             style: TextButton.styleFrom(
-              foregroundColor: Colors.black,   // ← 모든 TextButton 기본 텍스트색
+              foregroundColor: Colors.black,
               textStyle: const TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 15,
@@ -146,35 +176,26 @@ class MyApp extends StatelessWidget {
             ),
           ),
 
-          // ✅ AppBar 전역 스타일
+          // ✅ AppBar 전역 스타일 (기존 유지)
           appBarTheme: const AppBarTheme(
-            centerTitle: true,                     // 타이틀 중앙 정렬
-            backgroundColor: Colors.white,         // AppBar 배경
-            foregroundColor: Colors.black,         // ← 뒤로가기 아이콘 / 텍스트 전부 검정
+            centerTitle: true,
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black,
             elevation: 0,
             surfaceTintColor: Colors.transparent,
-
-            // 타이틀 텍스트 통일: 무조건 볼드, 검정
             titleTextStyle: TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.w700,         // 볼드
+              fontWeight: FontWeight.w700,
               color: Colors.black,
             ),
-
-            // 액션 버튼 텍스트/아이콘도 동일하게
             toolbarTextStyle: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: Colors.black,
             ),
-            iconTheme: IconThemeData(
-              color: Colors.black,                 // 뒤로가기/메뉴 아이콘 색
-            ),
-            actionsIconTheme: IconThemeData(
-              color: Colors.black,                 // 오른쪽 액션 아이콘 색
-            ),
+            iconTheme: IconThemeData(color: Colors.black),
+            actionsIconTheme: IconThemeData(color: Colors.black),
           ),
-
 
           bottomSheetTheme: const BottomSheetThemeData(
             surfaceTintColor: Colors.transparent,
@@ -207,7 +228,8 @@ class _DeepLinkBootstrapperState extends State<DeepLinkBootstrapper> {
       final me = await FortuneAuthService.ensureSignedIn();
 
       final inviter = uri.queryParameters['inviter'];
-      final code = uri.queryParameters['code'] ?? uri.queryParameters['inviteCode'];
+      final code =
+          uri.queryParameters['code'] ?? uri.queryParameters['inviteCode'];
       final inviterOrCode = inviter ?? code;
 
       if (!_navigatedFromLink) {

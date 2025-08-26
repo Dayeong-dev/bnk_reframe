@@ -176,23 +176,35 @@ class _HomePageState extends State<HomePage> {
   Future<T?> _push<T>(Widget page) =>
       Navigator.of(context).push<T>(MaterialPageRoute(builder: (_) => page));
 
-  // 로그아웃
   Future<void> _logout() async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('로그아웃'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16), // ✅ 모달 둥근 보더
+          side: const BorderSide(color: Color(0xFFE0E3E7), width: 1), // ✅ 외곽선
+        ),
+        title:
+            const Text('로그아웃', style: TextStyle(fontWeight: FontWeight.w700)),
         content: const Text('정말 로그아웃하시겠어요?'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('아니요')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('아니요'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('네')),
+            style: FilledButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8), // 버튼 개별 라운드
+              ),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('네'),
+          ),
         ],
       ),
     );
+
     if (ok != true) return;
     await _secureStorage.deleteAll();
     if (!mounted) return;

@@ -16,11 +16,10 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  // ===== 스타일 토큰(앱 톤 맞춤) =====
+  // ===== 스타일 토큰 =====
   static const _brand = Color(0xFF2962FF);
   static const _border = Color(0xFFE6EAF0);
   static const _hint = Colors.black38;
-  static const _titleFg = Color(0xFF0F172A);
 
   final _secureStorage = const FlutterSecureStorage();
 
@@ -83,9 +82,9 @@ class _LoginPageState extends State<LoginPage> {
         final accessToken = data['accessToken'];
         final refreshToken = data['refreshToken'];
 
-        // Memory(전역변수)에 Access Token 저장
+        // 메모리에 AccessToken 저장
         setAccessToken(accessToken);
-        // Secure Storage에 Refresh Token 저장
+        // Secure Storage에 RefreshToken 저장
         await _secureStorage.write(key: "refreshToken", value: refreshToken);
 
         if (!mounted) return;
@@ -140,42 +139,26 @@ class _LoginPageState extends State<LoginPage> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // 로고
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8, bottom: 20),
-                      child: Image.asset(
-                        "assets/images/logo/logo_small.png",
-                        width: 160,
-                        fit: BoxFit.contain,
+                    const SizedBox(height: 40), // 상단 여백
+                    // ===== 로고 =====
+                    Image.asset(
+                      "assets/images/logo/logo_small.png",
+                      width: 160,
+                      fit: BoxFit.contain,
+                    ),
+                    // ===== 로고 바로 아래 한 줄 텍스트(딱 붙음) =====
+                    Text(
+                      '예적금/자산 기능을 이용하려면 로그인해주세요.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.black.withOpacity(0.6),
                       ),
+                      textAlign: TextAlign.center,
                     ),
 
-                    // 타이틀/서브타이틀
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        '로그인',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: _titleFg,
-                          letterSpacing: -0.2,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        '예적금/자산 기능을 이용하려면 로그인해주세요.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.black.withOpacity(0.6),
-                        ),
-                      ),
-                    ),
                     const SizedBox(height: 18),
 
                     // 아이디
@@ -291,7 +274,6 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         TextButton(
                           onPressed: () {
-                            // ✅ 라우터/가드 영향 최소화: rootNavigator 사용
                             Navigator.of(context, rootNavigator: true).push(
                               MaterialPageRoute(
                                   builder: (_) => const JoinPage()),

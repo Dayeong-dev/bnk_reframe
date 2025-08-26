@@ -254,7 +254,7 @@ class _JoinPageState extends State<JoinPage> {
                           ),
                           const SizedBox(width: 8),
                           SizedBox(
-                            height: 52,
+                            height: 50,
                             child: OutlinedButton.icon(
                               onPressed: (_isCheckingUsername || _isLoading)
                                   ? null

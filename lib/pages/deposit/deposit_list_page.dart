@@ -134,22 +134,22 @@ class _DepositListPageState extends State<DepositListPage>
   }
 
   // [beobjin] 20250825 17:36 -  AnalyticsService.logSelectProduct() 로 대체함.
-  // Future<void> _logProductClick(
-  //   DepositProduct item,
-  //   int index, {
-  //   required String source,
-  // }) async {
-  //   await _analytics.logEvent(
-  //     name: 'product_list_click',
-  //     parameters: {
-  //       'product_id': '${item.productId}',
-  //       'product_type': _productTypeOf(item),
-  //       'category': item.category ?? '',
-  //       'pos': index + 1,
-  //       'source': source,
-  //     },
-  //   );
-  // }
+  Future<void> _logProductClick(
+    DepositProduct item,
+    int index, {
+    required String source,
+  }) async {
+    await _analytics.logEvent(
+      name: 'product_list_click',
+      parameters: {
+        'product_id': '${item.productId}',
+        'product_type': _productTypeOf(item),
+        'category': item.category ?? '',
+        'pos': index + 1,
+        'source': source,
+      },
+    );
+  }
 
   void _scheduleImpressionLog(List<DepositProduct> visible, int pageIndex) {
     final ids = visible.map((e) => e.productId).map((v) => '$v').join(',');
@@ -540,13 +540,13 @@ class _DepositListPageState extends State<DepositListPage>
     return InkWell(
       onTap: () async {
         // [beobjin] 20250825 17:36 -  AnalyticsService.logSelectProduct() 로 대체함.
-        //   await _logProductClick(item, index, source: 'grid');
-        await AnalyticsService.logSelectProduct(
-          productId: item.productId,
-          name: item.name,
-          category: item.category,
-          listName: 'deposit_list',
-        );
+        await _logProductClick(item, index, source: 'grid');
+        // await AnalyticsService.logSelectProduct(
+        //   productId: item.productId,
+        //   name: item.name,
+        //   category: item.category,
+        //   listName: 'deposit_list',
+        // );
         if (!mounted) return;
         Navigator.push(
           context,
@@ -680,13 +680,13 @@ class _DepositListPageState extends State<DepositListPage>
         borderRadius: BorderRadius.circular(12),
         onTap: () async {
           // [beobjin] 20250825 17:36 -  AnalyticsService.logSelectProduct() 로 대체함.
-          // await _logProductClick(item, index, source: 'list');
-          await AnalyticsService.logSelectProduct(
-            productId: item.productId,
-            name: item.name,
-            category: item.category,
-            listName: 'deposit_list', // 필요시 리스트명 변경
-          );
+          await _logProductClick(item, index, source: 'list');
+          // await AnalyticsService.logSelectProduct(
+          //   productId: item.productId,
+          //   name: item.name,
+          //   category: item.category,
+          //   listName: 'deposit_list', // 필요시 리스트명 변경
+          // );
           if (!mounted) return;
           Navigator.push(
             context,

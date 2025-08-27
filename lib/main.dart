@@ -118,89 +118,20 @@ class MyApp extends StatelessWidget {
         },
 
         // 👇 전역 AppBar/버튼/폼 스타일
+
         theme: ThemeData(
-          useMaterial3: false,
-          scaffoldBackgroundColor: Colors.white,
+          useMaterial3: false, // M2 스타일 유지
+          scaffoldBackgroundColor: Colors.white, // 앱 전체 배경 흰색
+
           colorScheme: const ColorScheme.light(
-            primary: primaryColor,
-            surface: Colors.white,
-            background: Colors.white,
+            primary: primaryColor, // 전역 primary 색상
+            background: Colors.white, // 배경 흰색
           ),
-
-          // ✅ 전역 Card 모양/색 고정
-          cardTheme: const CardThemeData(
-            color: Colors.white,
-            surfaceTintColor: Colors.transparent, // M3 대비용(지금은 M2라 무시)
-            elevation: 0.6,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(16)),
-            ),
-          ),
-
-          // AppBar
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black,
-            elevation: 0,
-            centerTitle: true,
-            surfaceTintColor: Colors.transparent,
-            titleTextStyle: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: Colors.black,
-            ),
-            // ✅ StatusBar 색상/아이콘 색상 지정
-            systemOverlayStyle: SystemUiOverlayStyle(
-              statusBarColor: Colors.white, // 상단 영역 배경 흰색
-              statusBarIconBrightness: Brightness.dark, // 안드로이드: 검정 아이콘
-              statusBarBrightness: Brightness.light, // iOS: 검정 아이콘
-            ),
-          ),
-
-          // 버튼
-          elevatedButtonTheme: ElevatedButtonThemeData(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: primaryColor,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(0, 44),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-          filledButtonTheme: FilledButtonThemeData(
-            style: FilledButton.styleFrom(
-              backgroundColor: primaryColor,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(0, 44),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-          textButtonTheme: TextButtonThemeData(
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.black,
-              textStyle: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-              ),
-            ),
-          ),
-
-          // 폼 포커스
-          inputDecorationTheme: InputDecorationTheme(
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: primaryColor, width: 2),
-            ),
-          ),
-
-          // 체크/라디오/스위치(민트 방지)
+// 체크/라디오/스위치(민트 방지)
           checkboxTheme: CheckboxThemeData(
             fillColor: MaterialStateProperty.resolveWith((states) {
               if (states.contains(MaterialState.selected)) return primaryColor;
-              return Colors.white; // 비선택 시 배경 흰색
+              return Colors.white;
             }),
             checkColor: MaterialStateProperty.all<Color>(Colors.white),
             side: const BorderSide(color: Color(0xFFE0E3E7)),
@@ -219,17 +150,23 @@ class MyApp extends StatelessWidget {
                 s.contains(MaterialState.selected)
                     ? primaryColor
                     : const Color(0xFFE0E0E0)),
-          ),
-
-          // 성별 선택이 ToggleButtons라면 톤 통일
-          toggleButtonsTheme: ToggleButtonsThemeData(
-            selectedColor: Colors.white,
-            color: Colors.black,
-            fillColor: primaryColor.withOpacity(0.18),
-            selectedBorderColor: primaryColor,
-            borderColor: const Color(0xFFE0E3E7),
-            borderRadius: BorderRadius.circular(12),
-            constraints: const BoxConstraints(minHeight: 44, minWidth: 72),
+          ), // 성별 선택이 ToggleButtons라면 톤 통일 toggleButtonsTheme: ToggleButtonsThemeData( selectedColor: Colors.white, color: Colors.black, fillColor: primaryColor.withOpacity(0.18), selectedBorderColor: primaryColor, borderColor: const Color(0xFFE0E3E7), borderRadius: BorderRadius.circular(12), constraints: const BoxConstraints(minHeight: 44, minWidth: 72), ), ),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Colors.white, // 앱바 배경 흰색
+            foregroundColor: Colors.black, // 아이콘/텍스트 검정
+            elevation: 0,
+            centerTitle: true,
+            surfaceTintColor: Colors.transparent,
+            titleTextStyle: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Colors.black,
+            ),
+            systemOverlayStyle: SystemUiOverlayStyle(
+              statusBarColor: Colors.white, // 상태바 흰색
+              statusBarIconBrightness: Brightness.dark, // 안드로이드 아이콘 검정
+              statusBarBrightness: Brightness.light, // iOS 아이콘 검정
+            ),
           ),
         ),
       ),

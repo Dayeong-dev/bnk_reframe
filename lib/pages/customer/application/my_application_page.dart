@@ -7,17 +7,16 @@ import 'package:reframe/pages/account/account_detail_page.dart';
 import 'package:reframe/service/my_service.dart';
 
 /// ====== 스타일 토큰
-const _bg       = Colors.white;
-const _card     = Colors.white;
-const _line     = Color(0xFFE5E7EB);
-const _tStrong  = Color(0xFF0B0D12);
-const _tWeak    = Color(0xFF6B7280);
-const _brand    = Color(0xFF3182F6);
-const _success  = Color(0xFF16A34A);
-const _warn     = Color(0xFFF59E0B);
-const _muted    = Color(0xFF9CA3AF);
+const _bg = Colors.white;
+const _card = Colors.white;
+const _tStrong = Color(0xFF0B0D12);
+const _tWeak = Color(0xFF6B7280);
+const _brand = Color(0xFF3182F6);
+const _success = Color(0xFF16A34A);
+const _warn = Color(0xFFF59E0B);
+const _muted = Color(0xFF9CA3AF);
 
-final _dateFmt  = DateFormat('yyyy.MM.dd');
+final _dateFmt = DateFormat('yyyy.MM.dd');
 
 class MyApplicationsPage extends StatefulWidget {
   const MyApplicationsPage({super.key});
@@ -30,8 +29,8 @@ class _MyApplicationsPageState extends State<MyApplicationsPage> {
   late Future<List<ProductApplication>> _future;
 
   // ---------- 필터/정렬 상태 ----------
-  String _cat = '전체';   // 전체 / 예금 / 적금 / 입출금자유
-  String _stat = '전체';  // 전체 / 진행중 / 만기 / 해지
+  String _cat = '전체'; // 전체 / 예금 / 적금 / 입출금자유
+  String _stat = '전체'; // 전체 / 진행중 / 만기 / 해지
 
   @override
   void initState() {
@@ -45,7 +44,10 @@ class _MyApplicationsPageState extends State<MyApplicationsPage> {
   }
 
   void _onTap(int accountId) {
-    Navigator.push(context, MaterialPageRoute(builder: (context) => AccountDetailPage(accountId: accountId)));
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (context) => AccountDetailPage(accountId: accountId)));
   }
 
   // ---------- 필터/정렬 로직 ----------
@@ -60,34 +62,23 @@ class _MyApplicationsPageState extends State<MyApplicationsPage> {
       it = it.where((a) {
         final s = a.status?.name.toUpperCase();
         return (_stat == '진행중' && s == 'STARTED') ||
-            (_stat == '만기'   && s == 'CLOSED')  ||
-            (_stat == '해지'   && s == 'CANCELED');
+            (_stat == '만기' && s == 'CLOSED') ||
+            (_stat == '해지' && s == 'CANCELED');
       });
     }
-
-    final list = it.toList();
-
-    int ddayOf(ProductApplication a) {
-      final c = a.closeAt;
-      if (c == null) return 1 << 20; // D-day 없는 항목은 뒤로
-      final today = DateTime.now();
-      final t0 = DateTime(today.year, today.month, today.day);
-      final c0 = DateTime(c.year, c.month, c.day);
-      return c0.difference(t0).inDays;
-    }
-    return list;
+    return it.toList();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FA),
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('내가 가입한 상품'),
         centerTitle: true,
         backgroundColor: _bg,
         foregroundColor: _tStrong,
-        elevation: 0.5,
+        elevation: 0.3,
         surfaceTintColor: _bg,
       ),
       body: FutureBuilder<List<ProductApplication>>(
@@ -108,6 +99,7 @@ class _MyApplicationsPageState extends State<MyApplicationsPage> {
 
           return RefreshIndicator(
             onRefresh: _refresh,
+            color: _brand,
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
@@ -120,35 +112,38 @@ class _MyApplicationsPageState extends State<MyApplicationsPage> {
                   ),
                 ),
                 if (all.isEmpty)
-                  SliverToBoxAdapter(child: _EmptyView(onRefresh: _refresh))
+                  const SliverToBoxAdapter(child: _EmptyView())
                 else if (items.isEmpty)
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 40, 16, 24),
+                      padding: const EdgeInsets.fromLTRB(16, 36, 16, 8),
                       child: Column(
                         children: const [
-                          Icon(Icons.filter_list_off_rounded, size: 48, color: _muted),
-                          SizedBox(height: 12),
-                          Text('선택한 조건에 맞는 상품이 없어요.', style: TextStyle(color: _tStrong, fontWeight: FontWeight.w600)),
-                          SizedBox(height: 6),
+                          Icon(Icons.filter_list_off_rounded,
+                              size: 44, color: _muted),
+                          SizedBox(height: 10),
+                          Text('선택한 조건에 맞는 상품이 없어요.',
+                              style: TextStyle(
+                                  color: _tStrong,
+                                  fontWeight: FontWeight.w600)),
+                          SizedBox(height: 4),
                           Text('필터를 변경해 보세요.', style: TextStyle(color: _tWeak)),
                         ],
                       ),
                     ),
                   )
                 else
-                  SliverList.separated(
-                    itemCount: items.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (_, i) => Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _ApplicationCard(
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
+                    sliver: SliverList.separated(
+                      itemCount: items.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (_, i) => _ApplicationCard(
                         app: items[i],
                         onTap: () => _onTap(items[i].productAccount.id),
                       ),
                     ),
                   ),
-                const SliverToBoxAdapter(child: SizedBox(height: 24)),
               ],
             ),
           );
@@ -174,37 +169,40 @@ class _FilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cats  = ['전체', '예금', '적금', '입출금자유'];
+    final cats = ['전체', '예금', '적금', '입출금자유'];
     final stats = ['전체', '진행중', '만기', '해지'];
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _ChipRow(
-            labels: cats,
-            selected: cat,
-            onSelected: onChangeCat,
+          Expanded(
+            child: _ChipRow(
+              labels: cats,
+              selected: cat,
+              onSelected: onChangeCat,
+            ),
           ),
-          Spacer(),
-          _LabeledDropdown(
+          const SizedBox(width: 8),
+          _PillDropdown(
             value: stat,
             items: stats,
             onChanged: onChangeStat,
-          )
+          ),
         ],
       ),
     );
   }
 }
 
-class _LabeledDropdown extends StatelessWidget {
+/// ====== 드롭다운(자연스러운 pill 스타일 + 그림자, 언더라인/테두리 없음)
+class _PillDropdown extends StatelessWidget {
   final String value;
   final List<String> items;
   final ValueChanged<String> onChanged;
 
-  const _LabeledDropdown({
+  const _PillDropdown({
     required this.value,
     required this.items,
     required this.onChanged,
@@ -212,39 +210,55 @@ class _LabeledDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          height: 40,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: _line),
-            borderRadius: BorderRadius.circular(10),
+    // 메뉴 텍스트 스타일 통일
+    final textStyle = const TextStyle(
+        fontSize: 12, color: _tStrong, fontWeight: FontWeight.w600);
+
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: _card,
+        borderRadius: BorderRadius.circular(999), // ✅ 각진 사각형 제거 → pill
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000), // 8% 블러
+            blurRadius: 10,
+            offset: Offset(0, 4),
           ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: value,
-              isDense: true,
-              items: items
-                  .map((e) => DropdownMenuItem(
-                value: e,
-                child: Text(e, style: const TextStyle(fontSize: 12)),
-              ))
-                  .toList(),
-              onChanged: (v) {
-                if (v != null) onChanged(v);
-              },
-              icon: const Icon(Icons.expand_more_rounded, size: 18),
-            ),
+        ],
+      ),
+      child: DropdownButtonHideUnderline(
+        child: Theme(
+          // 드롭다운 메뉴의 배경/텍스트 톤 살짝 개선
+          data: Theme.of(context).copyWith(
+            // M2 기준 DropdownButton은 메뉴 모양 커스터마이즈가 제한됨.
+            // 가능한 범위 내에서 색/텍스트만 맞춰줌.
+            canvasColor: Colors.white,
+          ),
+          child: DropdownButton<String>(
+            value: value,
+            isDense: true,
+            dropdownColor: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            items: items
+                .map((e) => DropdownMenuItem(
+                      value: e,
+                      child: Text(e, style: textStyle),
+                    ))
+                .toList(),
+            onChanged: (v) {
+              if (v != null) onChanged(v);
+            },
+            icon: const Icon(Icons.expand_more_rounded,
+                size: 18, color: _tStrong),
+            style: textStyle, // 트리거 텍스트 스타일
           ),
         ),
-      ],
+      ),
     );
   }
 }
-
 
 class _ChipRow extends StatelessWidget {
   final List<String> labels;
@@ -274,17 +288,20 @@ class _ChipRow extends StatelessWidget {
               fontSize: 12,
             ),
             selectedColor: _brand,
-            backgroundColor: Colors.white,
-            side: const BorderSide(color: _line),
+            backgroundColor: _card,
+            side: BorderSide.none, // 칩도 더 부드럽게
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             visualDensity: VisualDensity.compact,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(999),
+            ),
           ),
       ],
     );
   }
 }
 
-/// ====== 카드 (핵심만 슬림하게)
+/// ====== 카드 (테두리 없이 그림자만으로 구분)
 class _ApplicationCard extends StatelessWidget {
   final ProductApplication app;
   final VoidCallback? onTap;
@@ -293,28 +310,43 @@ class _ApplicationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dday   = _calcDDay(app.closeAt);
+    final dday = _calcDDay(app.closeAt);
     final status = app.status?.name.toUpperCase() ?? '-';
     final iconPack = _iconByCategory(app.product.category);
 
     String? ddayText;
     if (dday != null) {
-      if (dday < 0) ddayText = '만기 지남';
-      else if (dday == 0) ddayText = 'D-DAY';
-      else ddayText = 'D-$dday';
+      if (dday < 0)
+        ddayText = '만기 지남';
+      else if (dday == 0)
+        ddayText = 'D-DAY';
+      else
+        ddayText = 'D-$dday';
     }
 
     return Material(
-      color: _card,
-      borderRadius: BorderRadius.circular(14),
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: _card,
+            borderRadius: BorderRadius.circular(16),
+            // ✅ 테두리 제거, 그림자만
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x12000000),
+                blurRadius: 16,
+                offset: Offset(0, 8),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
           child: Row(
             children: [
-              _CategoryIcon(icon: iconPack.icon, bg: iconPack.bg, fg: iconPack.fg),
+              _CategoryIcon(
+                  icon: iconPack.icon, bg: iconPack.bg, fg: iconPack.fg),
               const SizedBox(width: 12),
               Expanded(
                 child: Row(
@@ -326,7 +358,7 @@ class _ApplicationCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 15,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w700,
                           color: _tStrong,
                         ),
                       ),
@@ -337,8 +369,10 @@ class _ApplicationCard extends StatelessWidget {
                         ddayText,
                         style: TextStyle(
                           fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: dday != null && dday <= 7 && dday >= 0 ? _warn : _tWeak,
+                          fontWeight: FontWeight.w600,
+                          color: dday != null && dday <= 7 && dday >= 0
+                              ? _warn
+                              : _tWeak,
                         ),
                       ),
                     ],
@@ -374,13 +408,17 @@ class _CatIconPack {
 _CatIconPack _iconByCategory(String? category) {
   final c = (category ?? '').trim();
   if (c == '예금') {
-    return _CatIconPack(Icons.savings_rounded, const Color(0xFFE6F0FF), const Color(0xFF1E66F5));
+    return _CatIconPack(Icons.savings_rounded, const Color(0xFFE6F0FF),
+        const Color(0xFF1E66F5));
   } else if (c == '적금') {
-    return _CatIconPack(Icons.calendar_month_rounded, const Color(0xFFEFFAF0), const Color(0xFF16A34A));
+    return _CatIconPack(Icons.calendar_month_rounded, const Color(0xFFEFFAF0),
+        const Color(0xFF16A34A));
   } else if (c == '입출금자유') {
-    return _CatIconPack(Icons.account_balance_wallet_rounded, const Color(0xFFFFF3E6), const Color(0xFFEA580C));
+    return _CatIconPack(Icons.account_balance_wallet_rounded,
+        const Color(0xFFFFF3E6), const Color(0xFFEA580C));
   }
-  return _CatIconPack(Icons.account_balance_rounded, const Color(0xFFF1F5F9), const Color(0xFF64748B));
+  return _CatIconPack(Icons.account_balance_rounded, const Color(0xFFF1F5F9),
+      const Color(0xFF64748B));
 }
 
 class _CategoryIcon extends StatelessWidget {
@@ -392,8 +430,19 @@ class _CategoryIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 42, height: 42,
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D000000),
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
       alignment: Alignment.center,
       child: Icon(icon, size: 22, color: fg),
     );
@@ -408,16 +457,16 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tone = switch (status) {
-      'STARTED'  => _success,
-      'CLOSED'   => _muted,
+      'STARTED' => _success,
+      'CLOSED' => _muted,
       'CANCELED' => _warn,
-      _          => _muted
+      _ => _muted
     };
     final label = switch (status) {
-      'STARTED'  => '진행중',
-      'CLOSED'   => '만기',
+      'STARTED' => '진행중',
+      'CLOSED' => '만기',
       'CANCELED' => '해지',
-      _          => status
+      _ => status
     };
 
     return Container(
@@ -425,39 +474,44 @@ class _StatusBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: tone.withOpacity(0.12),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: tone.withOpacity(0.3)),
+        // ✅ 테두리 없이 그림자만으로 띄움
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
-      child: Text(label, style: TextStyle(fontSize: 12, color: tone, fontWeight: FontWeight.w600)),
+      child: Text(label,
+          style: TextStyle(
+              fontSize: 12, color: tone, fontWeight: FontWeight.w700)),
     );
   }
 }
 
-/// ====== 상태 뷰들 (공통)
+/// ====== 상태 뷰들 (간단 유지)
 class _EmptyView extends StatelessWidget {
-  final Future<void> Function() onRefresh;
-  const _EmptyView({required this.onRefresh});
+  const _EmptyView();
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      children: [
-        const SizedBox(height: 100),
+      children: const [
+        SizedBox(height: 120),
         Icon(Icons.inbox_rounded, size: 48, color: _muted),
-        const SizedBox(height: 12),
-        const Center(
-          child: Text('가입한 상품이 없어요', style: TextStyle(fontSize: 16, color: _tStrong, fontWeight: FontWeight.w600)),
-        ),
-        const SizedBox(height: 6),
-        const Center(child: Text('상품을 가입하면 이곳에서 확인할 수 있어요.', style: TextStyle(color: _tWeak))),
-        const SizedBox(height: 20),
+        SizedBox(height: 12),
         Center(
-          child: OutlinedButton.icon(
-            onPressed: onRefresh,
-            icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: const Text('새로고침'),
-          ),
+          child: Text('가입한 상품이 없어요',
+              style: TextStyle(
+                  fontSize: 16, color: _tStrong, fontWeight: FontWeight.w600)),
         ),
+        SizedBox(height: 6),
+        Center(
+            child: Text('상품을 가입하면 이곳에서 확인할 수 있어요.',
+                style: TextStyle(color: _tWeak))),
+        SizedBox(height: 20),
       ],
     );
   }
@@ -473,14 +527,15 @@ class _ErrorView extends StatelessWidget {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
-        const SizedBox(height: 100),
-        Icon(Icons.error_outline_rounded, size: 48, color: _warn),
+        const SizedBox(height: 120),
+        const Icon(Icons.error_outline_rounded, size: 48, color: _warn),
         const SizedBox(height: 12),
         Center(
           child: Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 16, color: _tStrong, fontWeight: FontWeight.w600),
+            style: const TextStyle(
+                fontSize: 16, color: _tStrong, fontWeight: FontWeight.w600),
           ),
         ),
         const SizedBox(height: 16),
@@ -504,21 +559,50 @@ class _SkeletonList extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
       itemCount: 6,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (_, __) => Container(
         height: 64,
         decoration: BoxDecoration(
           color: _card,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _line),
+          borderRadius: BorderRadius.circular(16),
+          // ✅ 테두리 없음 + 그림자만
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x13000000),
+              blurRadius: 16,
+              offset: Offset(0, 8),
+            ),
+          ],
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         child: Row(children: [
-          Container(width: 42, height: 42, decoration: BoxDecoration(color: _line, borderRadius: BorderRadius.circular(12))),
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF2F4F7),
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
           const SizedBox(width: 12),
-          Expanded(child: Container(height: 16, color: _line)),
+          Expanded(
+            child: Container(
+              height: 16,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF2F4F7),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
           const SizedBox(width: 8),
-          Container(width: 56, height: 24, decoration: BoxDecoration(color: _line, borderRadius: BorderRadius.circular(999))),
+          Container(
+            width: 56,
+            height: 24,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF2F4F7),
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
         ]),
       ),
     );

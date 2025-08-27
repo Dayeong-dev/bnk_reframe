@@ -61,7 +61,7 @@ class _HomePageState extends State<HomePage> {
 
   // ⭐ 추천 슬라이더: 3개 그리드 한 페이지, 양쪽 ‘반 잘림’ 피킹
   late final PageController _recController =
-      PageController(viewportFraction: 0.9, keepPage: true);
+  PageController(viewportFraction: 0.9, keepPage: true);
 
   List<_RecommendItem> _recommendItems = [];
 
@@ -128,11 +128,11 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _recommendItems = topN
             .map((p) => _RecommendItem(
-                  productId: p.productId!,
-                  title: p.name ?? '상품 ${p.productId}',
-                  caption: p.summary ?? '인기 상품',
-                  subscribers: counts[p.productId] ?? 0,
-                ))
+          productId: p.productId!,
+          title: p.name ?? '상품 ${p.productId}',
+          caption: p.summary ?? '인기 상품',
+          subscribers: counts[p.productId] ?? 0,
+        ))
             .toList();
       });
     } catch (_) {
@@ -171,27 +171,6 @@ class _HomePageState extends State<HomePage> {
           borderRadius: BorderRadius.circular(18),
           side: const BorderSide(color: Color(0xFFE6EAF0)),
         ),
-
-        title:
-            const Text('로그아웃', style: TextStyle(fontWeight: FontWeight.w700)),
-        content: const Text('정말 로그아웃하시겠어요?'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('아니요')),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () {
-              Navigator.of(context, rootNavigator: true).pop();
-              Navigator.of(context, rootNavigator: true).pushNamedAndRemoveUntil(
-                  '/login', (Route<dynamic> route) => false // 이전 모든 라우트 제거
-              );
-            },
-            child: const Text('네'),
-
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
           child: Column(
@@ -230,7 +209,6 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             ],
-
           ),
         ),
       ),
@@ -240,7 +218,7 @@ class _HomePageState extends State<HomePage> {
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginPage()),
-      (route) => false,
+          (route) => false,
     );
   }
 
@@ -330,7 +308,7 @@ class _HomePageState extends State<HomePage> {
                 children: [
                   const Text('마이메뉴 편집',
                       style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                      TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 6),
                   Text('최대 ${temp.length}/3개 선택',
                       style: TextStyle(color: Colors.grey.shade600)),
@@ -340,7 +318,7 @@ class _HomePageState extends State<HomePage> {
                     itemCount: _allMenus.length,
                     physics: const NeverScrollableScrollPhysics(),
                     gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
+                    const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 3,
                       mainAxisExtent: 96,
                       crossAxisSpacing: 10,
@@ -475,9 +453,9 @@ class _HomePageState extends State<HomePage> {
                 .toList();
 
             final cashTotal =
-                demand.fold<int>(0, (s, a) => s + (a.balance ?? 0));
+            demand.fold<int>(0, (s, a) => s + (a.balance ?? 0));
             final savingTotal =
-                product.fold<int>(0, (s, a) => s + (a.balance ?? 0));
+            product.fold<int>(0, (s, a) => s + (a.balance ?? 0));
             final total = cashTotal + savingTotal;
 
             final allAccounts = [...demand, ...product]
@@ -510,19 +488,19 @@ class _HomePageState extends State<HomePage> {
                   _EmptyAccounts(onExplore: () => _push(DepositMainPage()))
                 else ...[
                   ...allAccounts.take(_visibleCount).map((a) => _AccountCard(
-                        title: a.accountName ?? 'BNK 부산은행 계좌',
-                        subtitle: a.accountNumber ?? '-',
-                        balanceText: '${_maskMoney(a.balance ?? 0)} 원',
-                        leading: _fancyProductIcon(a),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) =>
-                                    AccountDetailPage(accountId: a.id)),
-                          );
-                        },
-                      )),
+                    title: a.accountName ?? 'BNK 부산은행 계좌',
+                    subtitle: a.accountNumber ?? '-',
+                    balanceText: '${_maskMoney(a.balance ?? 0)} 원',
+                    leading: _fancyProductIcon(a),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) =>
+                                AccountDetailPage(accountId: a.id)),
+                      );
+                    },
+                  )),
                   if (allAccounts.length > 3)
                     Align(
                       alignment: Alignment.center,
@@ -535,7 +513,7 @@ class _HomePageState extends State<HomePage> {
                           });
                         },
                         style:
-                            TextButton.styleFrom(foregroundColor: Colors.black),
+                        TextButton.styleFrom(foregroundColor: Colors.black),
                         icon: Icon(
                           (_visibleCount < allAccounts.length)
                               ? Icons.keyboard_arrow_down_rounded
@@ -661,9 +639,9 @@ class _TotalHeaderPlain extends StatelessWidget {
             children: [
               Text('총 자산',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey.shade600,
-                        fontWeight: FontWeight.w700,
-                      )),
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w700,
+                  )),
               const SizedBox(width: 6),
               InkWell(
                 onTap: onToggleHide,
@@ -698,9 +676,9 @@ class _TotalHeaderPlain extends StatelessWidget {
               const SizedBox(width: 6),
               Text('원',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.black,
-                        fontWeight: FontWeight.w700,
-                      )),
+                    color: Colors.black,
+                    fontWeight: FontWeight.w700,
+                  )),
             ],
           ),
           const SizedBox(height: 14),
@@ -806,7 +784,7 @@ class _AvgRow extends StatelessWidget {
               child: Text(
                 label,
                 style:
-                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
               ),
             ),
             Expanded(
@@ -1030,16 +1008,16 @@ class _RecommendFlatCard extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(18),
                   child: (item.photoAssetPath != null &&
-                          item.photoAssetPath!.isNotEmpty)
+                      item.photoAssetPath!.isNotEmpty)
                       ? Image.asset(
-                          item.photoAssetPath!,
-                          fit: BoxFit.cover,
-                          // 타입 명시(안전)
-                          errorBuilder: (BuildContext context, Object error,
-                              StackTrace? stackTrace) {
-                            return Icon(s.icon, size: 34, color: s.fg);
-                          },
-                        )
+                    item.photoAssetPath!,
+                    fit: BoxFit.cover,
+                    // 타입 명시(안전)
+                    errorBuilder: (BuildContext context, Object error,
+                        StackTrace? stackTrace) {
+                      return Icon(s.icon, size: 34, color: s.fg);
+                    },
+                  )
                       : Icon(s.icon, size: 34, color: s.fg),
                 ),
               ),
@@ -1251,12 +1229,12 @@ class _AccountCard extends StatelessWidget {
                   Text(
                     subtitle,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.color
-                              ?.withOpacity(.7),
-                        ),
+                      color: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.color
+                          ?.withOpacity(.7),
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -1371,7 +1349,7 @@ class _MyMenuSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visible =
-        allItems.where((m) => selectedKeys.contains(m.key)).take(3).toList();
+    allItems.where((m) => selectedKeys.contains(m.key)).take(3).toList();
 
     return Column(
       children: [

@@ -11,6 +11,7 @@ import 'package:reframe/service/deposit_service.dart';
 import 'package:reframe/model/deposit_product.dart';
 
 /// 브랜드 톤
+const _brandBlue = Color(0xFF2962FF);
 const _cardBg = Color(0xFFF7F9FC);
 const _border = Color(0xFFE3E8F0);
 
@@ -35,7 +36,7 @@ class _ResultPageState extends State<ResultPage> {
 
   Future<void> _prefetchDetails() async {
     final ids =
-        widget.data.products.map((p) => p.productId).whereType<int>().toList();
+    widget.data.products.map((p) => p.productId).whereType<int>().toList();
     if (ids.isEmpty) return;
 
     try {
@@ -82,6 +83,7 @@ class _ResultPageState extends State<ResultPage> {
       ..writeln()
       ..writeln(short)
       ..writeln(detail.isNotEmpty ? '\n$detail' : '')
+    // 공유 본문에 키워드를 포함하려면 아래 줄 유지. 공유에도 숨기려면 이 줄 삭제.
       ..writeln(kw.isNotEmpty ? '\n#$kw' : '')
       ..writeln('\n추천 상품')
       ..writeln(widget.data.products
@@ -104,9 +106,13 @@ class _ResultPageState extends State<ResultPage> {
     final now = DateTime.now();
     final formattedDate = "${now.month}월 ${now.day}일";
 
-    final short = (widget.data.fortune).trim();
-    final kw = (widget.data.keyword ?? '').trim();
-    final hasKw = kw.isNotEmpty;
+    // 하단 네비/홈 인디케이터 여백
+    final bottomSafe = MediaQuery.of(context).padding.bottom;
+    const extraForNav = kBottomNavigationBarHeight;
+    final bottomPadding = 20.0 + extraForNav + bottomSafe;
+
+    final short = (widget.data.fortune).trim(); // 15자 이내 문장
+    final kw = (widget.data.keyword ?? '').trim(); // 단일 키워드
     final hasDetail = (widget.data.content ?? '').isNotEmpty;
 
     return Scaffold(
@@ -114,19 +120,19 @@ class _ResultPageState extends State<ResultPage> {
         title: const Text(""),
         toolbarHeight: 30,
       ),
-
-      /// ✅ 본문: 불필요한 큰 하단 패딩 제거 + 드래그(bounce) 제거
       body: SingleChildScrollView(
-        physics: const ClampingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+        padding: EdgeInsets.fromLTRB(20, 20, 20, bottomPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            /// ===== 헤더(날짜) =====
             _HeaderDateBadge(dateText: '$formattedDate 오늘은'),
             const SizedBox(height: 10),
+
+            /// 짧은 문장(서브타이틀)
             if (short.isNotEmpty)
               Text(
-                short,
+                short, // ex) "새로운 시작을 도전하기 좋은 하루"
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 16,
@@ -135,17 +141,21 @@ class _ResultPageState extends State<ResultPage> {
                   color: Colors.grey[700],
                 ),
               ),
-            if (hasKw) ...[
-              const SizedBox(height: 8),
-              _KeywordSeparatorTag(keyword: kw),
-            ],
+
+            /// 키워드 UI 출력 제거 (구분선/키워드 텍스트 전부 숨김)
             const SizedBox(height: 14),
+
+            /// 운세 본문 영역
             if (hasDetail)
               _FortuneInsightCard(
                 content: widget.data.content!,
-                keyword: kw,
+                keyword: kw, // 팁 생성 용도로만 사용, 화면에는 표시되지 않음
               ),
-            const SizedBox(height: 15),
+
+            /// content 와 추천 타이틀 사이 간격 3배(15 -> 45)
+            const SizedBox(height: 45),
+
+            /// 추천 섹션 타이틀 — 느낌표 + 가운데 정렬
             Text(
               '${widget.args.name} 님에게 추천드려요!',
               textAlign: TextAlign.center,
@@ -156,12 +166,15 @@ class _ResultPageState extends State<ResultPage> {
                 color: Colors.grey[900],
               ),
             ),
+
             const SizedBox(height: 10),
+
+            /// 추천 상품 카드 목록(미니멀 카드)
             if (widget.data.products.isNotEmpty)
               ...widget.data.products.map((p) {
                 final detail = _productDetails[p.productId];
                 final periodText =
-                    (detail?.period ?? 0) > 0 ? "${detail!.period}개월" : null;
+                (detail?.period ?? 0) > 0 ? "${detail!.period}개월" : null;
                 final rateText = (detail?.maxRate ?? 0) > 0
                     ? "최고 ${detail!.maxRate.toStringAsFixed(2)}%"
                     : null;
@@ -179,7 +192,7 @@ class _ResultPageState extends State<ResultPage> {
                           builder: (_) =>
                               DepositDetailPage(productId: p.productId),
                           settings:
-                              const RouteSettings(name: '/deposit/detail'),
+                          const RouteSettings(name: '/deposit/detail'),
                         ),
                       );
                     },
@@ -192,40 +205,40 @@ class _ResultPageState extends State<ResultPage> {
                   ),
                 );
               }).toList(),
-          ],
-        ),
-      ),
 
-      /// ✅ 하단 고정: 앱 프라이머리 컬러 사용 + SafeArea
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _shareFortune,
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
-                elevation: 0,
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+            const SizedBox(height: 0),
+
+            /// 공유 버튼 — 파란 배경 + 흰 글자
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _brandBlue,      // 파란 버튼
+                  foregroundColor: Colors.white,     // 전경색(리플/아이콘 등)
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                onPressed: _shareFortune,
+                child: const Text(
+                  "친구에게 공유하기",
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,             // 흰 글자
+                  ),
                 ),
               ),
-              child: const Text(
-                '친구에게 공유하기',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-              ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 
   String _buildHashtag(String? category, String? summary) {
+    // 화면에서 '키워드'는 숨겼지만, 상품 카드 해시태그는 카테고리/요약 기반으로 유지
     String raw = (category ?? '').trim();
     if (raw.isEmpty) raw = (summary ?? '').trim();
     if (raw.isEmpty) raw = '목돈만들기';
@@ -239,81 +252,37 @@ class _ResultPageState extends State<ResultPage> {
 
 /// ===================== 컴포넌트 =====================
 
+/// 헤더(날짜)
 class _HeaderDateBadge extends StatelessWidget {
   final String dateText;
   const _HeaderDateBadge({required this.dateText});
 
   @override
   Widget build(BuildContext context) {
-    final brandBlue = Theme.of(context).colorScheme.primary;
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text('🔮', style: TextStyle(fontSize: 22)),
+        const Text('', style: TextStyle(fontSize: 22)),
         const SizedBox(width: 8),
         Text(
           dateText,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w800,
-            color: brandBlue,
+            color: _brandBlue,
           ),
         ),
         const SizedBox(width: 8),
-        const Text('✨', style: TextStyle(fontSize: 20)),
+        const Text('', style: TextStyle(fontSize: 20)),
       ],
     );
   }
 }
 
-class _KeywordSeparatorTag extends StatelessWidget {
-  final String keyword;
-  const _KeywordSeparatorTag({required this.keyword});
-
-  @override
-  Widget build(BuildContext context) {
-    final brandBlue = Theme.of(context).colorScheme.primary;
-    return Row(
-      children: [
-        const _GradientLine(),
-        const SizedBox(width: 10),
-        Text(
-          '#$keyword',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w900,
-            color: brandBlue,
-            letterSpacing: 0.2,
-          ),
-        ),
-        const SizedBox(width: 10),
-        const _GradientLine(),
-      ],
-    );
-  }
-}
-
-class _GradientLine extends StatelessWidget {
-  const _GradientLine();
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        height: 1.2,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.transparent, _border, Colors.transparent],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
+/// 운세 인사이트 카드
+/// - 상단 헤더: 🔆 오늘의 인사이트
+/// - 본문: 큰 따옴표 스타일
+/// - 작은 실천 제안: 키워드 기반 1~2개 체크리스트(키워드 텍스트는 표시하지 않음)
 class _FortuneInsightCard extends StatelessWidget {
   final String content;
   final String keyword;
@@ -341,6 +310,7 @@ class _FortuneInsightCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 헤더
             Row(
               children: const [
                 Text('🔆', style: TextStyle(fontSize: 18)),
@@ -357,37 +327,31 @@ class _FortuneInsightCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
 
+            // 본문 (큰 따옴표 스타일)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Text('❝',
+              children: [
+                const Text('❝',
                     style: TextStyle(fontSize: 20, color: Color(0xFF94A3B8))),
-                SizedBox(width: 6),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    // content 바인딩은 아래 Expanded 밖에서 처리
-                    '',
+                    content,
+                    style: const TextStyle(
+                      fontSize: 14.5,
+                      height: 1.55,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF111827),
+                    ),
                   ),
                 ),
-                SizedBox(width: 6),
-                Text('❞',
+                const SizedBox(width: 6),
+                const Text('❞',
                     style: TextStyle(fontSize: 20, color: Color(0xFF94A3B8))),
               ],
             ),
-            // 위 Row에서 content를 넣기 위해 다시 구성
-            Padding(
-              padding: const EdgeInsets.only(left: 26, right: 26),
-              child: Text(
-                content,
-                style: const TextStyle(
-                  fontSize: 14.5,
-                  height: 1.55,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF111827),
-                ),
-              ),
-            ),
 
+            // 작은 실천 제안(있을 때만)
             if (tips.isNotEmpty) ...[
               const SizedBox(height: 12),
               const Divider(height: 1, color: _border),
@@ -402,25 +366,25 @@ class _FortuneInsightCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               ...tips.map((t) => Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('✅ ', style: TextStyle(fontSize: 14)),
-                        Expanded(
-                          child: Text(
-                            t,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              height: 1.5,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF1F2937),
-                            ),
-                          ),
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('✅ ', style: TextStyle(fontSize: 14)),
+                    Expanded(
+                      child: Text(
+                        t,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          height: 1.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1F2937),
                         ),
-                      ],
+                      ),
                     ),
-                  )),
+                  ],
+                ),
+              )),
             ],
           ],
         ),
@@ -428,6 +392,7 @@ class _FortuneInsightCard extends StatelessWidget {
     );
   }
 
+  /// 키워드별 작은 실천 제안 (텍스트는 화면에 표시하지 않음)
   List<String> _tipsFor(String kw) {
     final t = kw.toLowerCase();
     if (t.contains('도전') || t.contains('시작')) {
@@ -449,6 +414,7 @@ class _FortuneInsightCard extends StatelessWidget {
   }
 }
 
+/// 추천 상품 카드 — 미니멀
 class _ProductCard extends StatelessWidget {
   final String title;
   final String hashtag;
@@ -464,7 +430,6 @@ class _ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final brandBlue = Theme.of(context).colorScheme.primary;
     return Ink(
       decoration: BoxDecoration(
         color: _cardBg,
@@ -476,6 +441,7 @@ class _ProductCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            /// 타이틀
             Text(
               title,
               maxLines: 2,
@@ -488,6 +454,8 @@ class _ProductCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
+
+            /// 해시태그(상품 카테고리/요약 기반)
             Text(
               hashtag,
               style: TextStyle(
@@ -497,6 +465,8 @@ class _ProductCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
+
+            /// 하단 정보(기간 / 금리)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -514,10 +484,10 @@ class _ProductCard extends StatelessWidget {
                 if (rateText != null)
                   Text(
                     rateText!,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 16.5,
                       fontWeight: FontWeight.w900,
-                      color: brandBlue,
+                      color: _brandBlue,
                     ),
                   )
                 else

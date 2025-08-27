@@ -66,7 +66,7 @@
 		<true/>
 		<key>UIViewControllerBasedStatusBarAppearance</key>
 		<false/>
-	</dict>
+	
 	<key>NSHealthShareUsageDescription</key>
 	<string>걸음 수를 확인하기 위해 HealthKit 접근이 필요합니다.</string>
 	<key>NSHealthUpdateUsageDescription</key>
@@ -115,9 +115,9 @@
 	<array>
 	<string>nmap</string>
 	</array>
-
-<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-<string>항상 위치를 사용할 수 있도록 허용해주세요.</string>
-
+    <key>NSFaceIDUsageDescription</key>
+    <string>이 앱은 로그인 시 Face ID 인증을 위해 사용자의 얼굴 데이터를 사용합니다.</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>항상 위치를 사용할 수 있도록 허용해주세요.</string>
 </dict>
 </plist>

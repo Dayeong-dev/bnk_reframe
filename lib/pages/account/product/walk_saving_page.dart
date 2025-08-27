@@ -13,32 +13,37 @@ import '../../../model/deposit_payment_log.dart';
 import '../../../model/common.dart';
 import '../../../model/product_account_detail.dart';
 import 'package:reframe/service/account_service.dart';
-
 import '../../../service/walk_service.dart'; // dio, commonUrl
 
-// ===== 토스 스타일 색/타이포 =====
-const _bgCanvas = Color(0xFFF7F8FA); // 화면 배경
-const _textStrong = Color(0xFF0B0D12); // 강한 본문
-const _textWeak = Color(0xFF6B7280); // 연한 본문
-const _line = Color(0xFFE5E7EB); // 아주 옅은 구분선
-const _blue = Color(0xFF0064FF); // Toss Blue
+// ===== 앱 톤앤매너 =====
+const _bgCanvas = Colors.white;
+const _textStrong = Color(0xFF0B0D12);
+const _textWeak = Color(0xFF6B7280);
+const _line = Color(0xFFE5E7EB);
+const _blue = Color(0xFF0064FF);
+
+// 헤더 그라데이션
+const _brand = Color(0xFF306BFF);
+const _brand2 = Color(0xFF3B82F6);
+
+const _warn = Color(0xFF8A4B00);
+const _cardShadow = Color(0x14000000);
 
 final _won =
     NumberFormat.currency(locale: 'ko_KR', symbol: '₩', decimalDigits: 0);
 
-// ===== intl 초기화 없이 쓰는 날짜 포맷 =====
+// ===== intl 없이 쓰는 날짜 포맷 =====
 String _pad2(int n) => n.toString().padLeft(2, '0');
 String fmtYmd(DateTime d) => '${d.year}.${_pad2(d.month)}.${_pad2(d.day)}';
 String fmtYmdE(DateTime d) {
-  // 월=1..일=7 → 일월화수목금토
   const days = ['월', '화', '수', '목', '금', '토', '일'];
   final w = days[(d.weekday - 1) % 7];
   return '${fmtYmd(d)} ($w)';
 }
 
 class _StepProgress {
-  final int total; // 이번 회차 총 걸음
-  final int target; // 목표 (예: 100000)
+  final int total;
+  final int target;
   double get ratio => (total / target).clamp(0.0, 1.0);
   const _StepProgress(this.total, this.target);
 }
@@ -62,21 +67,21 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
   ProductAccountDetail? _detailCache;
 
   bool _paying = false;
+  bool _syncing = false;
+  bool _hideBalance = false;
   int _stepsToday = 0;
 
   final Health _health = Health();
   String _healthStatus = '걸음 연동 준비됨';
 
-  int? _stepsMonthOverride; // 서버 동기화 응답의 이번 달 누적 걸음
-  int? _thresholdOverride; // 월 목표(예: 100000)
-  double? _effRateOverride; // 적용 금리(동기화로 변경되면 반영)
+  int? _stepsMonthOverride;
+  int? _thresholdOverride;
+  double? _effRateOverride;
 
   @override
   void initState() {
     super.initState();
     _future = fetchAccountDetail(widget.accountId);
-
-    // 상세가 로드되면 앱ID를 얻어 요약 조회
     _future.then((detail) async {
       if (!mounted) return;
       _detailCache ??= detail;
@@ -101,7 +106,7 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
     } catch (_) {}
   }
 
-  // --- 걸음수 측정 메서드 ---
+  // --- 권한/걸음 ---
   Future<bool> _ensureHealthPermissions() async {
     if (Platform.isAndroid) {
       final ar = await Permission.activityRecognition.status;
@@ -113,7 +118,6 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
         }
       }
     }
-    // 읽기 권한
     final types = [HealthDataType.STEPS];
     final access = [HealthDataAccess.READ];
 
@@ -137,22 +141,21 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
     return steps ?? 0;
   }
 
-  // --- 가입 상품 정보 데이터 메서드 ---
+  // --- 상세 리프레시 ---
   Future<void> _softRefresh() async {
     try {
       final d = await fetchAccountDetail(widget.accountId);
       if (!mounted) return;
-      setState(() => _detailCache = d); // 화면 유지 + 내용만 업데이트
+      setState(() => _detailCache = d);
     } catch (_) {}
   }
 
+  // --- 납입 처리 ---
   Future<void> _onPressPay(ProductAccountDetail detail) async {
     final nxt = _findNextUnpaid(detail);
     if (nxt == null) return;
 
-    // 가벼운 햅틱
     HapticFeedback.lightImpact();
-
     final ok = await _confirmPayDialog(nxt.round, nxt.amount);
     if (!mounted || !ok) return;
 
@@ -164,14 +167,18 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('다음 회차 납입이 완료되었습니다.')),
+        const SnackBar(
+            content: Text('다음 회차 납입이 완료되었습니다.'),
+            duration: Duration(milliseconds: 1500)),
       );
       await _softRefresh();
     } catch (e) {
       if (!mounted) return;
       final msg = _errorMessage(e);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('실패: $msg')),
+        SnackBar(
+            content: Text('실패: $msg'),
+            duration: const Duration(milliseconds: 1800)),
       );
     } finally {
       if (mounted) setState(() => _paying = false);
@@ -188,7 +195,6 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
   }
 
   DateTime _computeDueDate(DateTime startAt, int round) {
-    // 가입일의 '일자' 기준으로 회차별 예정일 계산 (말일 보정)
     final m0 = DateTime(startAt.year, startAt.month, 1);
     final m = DateTime(m0.year, m0.month + (round - 1), 1);
     final targetDom = startAt.day;
@@ -197,9 +203,8 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
     return DateTime(m.year, m.month, dom);
   }
 
-  // now가 어느 회차(가입일 기준 '월' 구간)에 속하는지 찾기
   int _currentMonthlyRound(DateTime startAt, DateTime now) {
-    int lo = 1, hi = 600; // 넉넉한 상한
+    int lo = 1, hi = 600;
     while (lo < hi) {
       final next = _computeDueDate(startAt, ((lo + hi) >> 1) + 1);
       if (now.isBefore(next)) {
@@ -208,10 +213,9 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
         lo = ((lo + hi) >> 1) + 1;
       }
     }
-    return lo; // now ∈ [due(lo), due(lo+1))
+    return lo;
   }
 
-  // r회차의 집계 기간 [start, end] (end는 inclusive로 1초 뺌)
   Period _monthCycleBounds(DateTime startAt, int round) {
     final s = _computeDueDate(startAt, round);
     final e = _computeDueDate(startAt, round + 1)
@@ -222,8 +226,8 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
   _StepProgress _calcMonthlyProgress(ProductAccountDetail detail) {
     final app = detail.application;
     final target = app.walkThresholdSteps ?? 100000;
-
     if (app.startAt == null) return _StepProgress(0, target);
+
     final now = DateTime.now();
     final roundNow = _currentMonthlyRound(app.startAt!, now);
 
@@ -234,7 +238,6 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
         break;
       }
     }
-
     final total = curLog?.walkStepsTotal ?? 0;
     return _StepProgress(total, target);
   }
@@ -250,10 +253,27 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
     return '알 수 없는 오류';
   }
 
+  Future<void> _openAppSettings() async {
+    final opened = await openAppSettings();
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('설정을 열 수 없었습니다.'),
+            duration: Duration(milliseconds: 1500)),
+      );
+    }
+  }
+
   Future<void> _syncStepsAuto(ProductAccountDetail detail) async {
-    setState(() => _healthStatus = '권한 확인 중...');
+    setState(() {
+      _healthStatus = '권한 확인 중...';
+      _syncing = true;
+    });
     final ok = await _ensureHealthPermissions();
-    if (!ok) return;
+    if (!ok) {
+      setState(() => _syncing = false);
+      return;
+    }
 
     setState(() => _healthStatus = '오늘 걸음 집계 중...');
     final steps = await _fetchTodaySteps();
@@ -264,40 +284,38 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
       _healthStatus = '오늘 걸음: $steps 보';
     });
 
-    // (선택) 서버에 오늘 "누적 걸음수" 전달하여 회차 누적/보너스 확정/금리 업데이트
-    // WalkSyncService.sync(appId, stepsTodayTotal) 에 맞춘 엔드포인트가 있다면 아래처럼 호출
     try {
       final appId = detail.application.id;
-      final r = await fetchWalkSync(appId, steps); // ← 응답 받기
-
+      final r = await fetchWalkSync(appId, steps);
       if (!mounted) return;
       setState(() {
         _stepsMonthOverride = r.stepsThisMonth;
         _thresholdOverride = r.threshold;
         _effRateOverride = r.effectiveRate;
       });
-
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('걸음 동기화 완료')),
+        const SnackBar(
+            content: Text('걸음 동기화 완료'), duration: Duration(milliseconds: 1500)),
       );
     } catch (e) {
       if (!mounted) return;
       final msg = _errorMessage(e);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('동기화 실패: $msg')),
+        SnackBar(
+            content: Text('동기화 실패: $msg'),
+            duration: const Duration(milliseconds: 1800)),
       );
+    } finally {
+      if (mounted) setState(() => _syncing = false);
     }
   }
 
   Future<bool> _confirmPayDialog(int round, int amount) async {
     final formatted = NumberFormat('#,###').format(amount);
-
     final result = await showDialog<bool>(
       context: context,
       builder: (ctx) => _TossSheet(
         title: '$round 회차 납입',
-
-        // 버튼들 — 네가 이미 정의해둔 컴포넌트 그대로 사용
         primary: _TossPrimaryButton(
           label: '납입',
           onPressed: () {
@@ -306,69 +324,23 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
           },
         ),
         secondary: _TossOutlineButton(
-          label: '취소',
-          onPressed: () => Navigator.pop(ctx, false),
-        ),
+            label: '취소', onPressed: () => Navigator.pop(ctx, false)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            // 금액 강조 + 문장
+          children: const [
+            SizedBox(height: 12),
             Align(
               alignment: Alignment.center,
-              child: RichText(
-                text: TextSpan(
-                  children: [
-                    TextSpan(
-                      text: '$formatted원',
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: _textStrong,
-                        height: 1.3,
-                      ),
-                    ),
-                    const TextSpan(
-                      text: ' 을(를) 납입할까요?',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: _textWeak,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // 안내 박스
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Color(0xFFF3F4F6),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: const [
-                  Icon(Icons.info_outline_rounded, size: 18, color: _textWeak),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '확인 시 납입이 진행됩니다. \n납입 취소는 거래내역에서 가능합니다.',
-                      style: TextStyle(
-                          fontSize: 13, color: _textWeak, height: 1.4),
-                    ),
-                  ),
-                ],
+              child: Text(
+                '금액을 확인해 주세요',
+                style: TextStyle(fontSize: 14, color: _textWeak),
               ),
             ),
           ],
         ),
       ),
     );
-
     return result ?? false;
   }
 
@@ -389,14 +361,17 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
             builder: (context, snap) {
               final detail = _detailCache ?? snap.data;
 
-              if (detail == null) {
+              if (detail == null &&
+                  snap.connectionState != ConnectionState.done) {
                 return const Center(child: CircularProgressIndicator());
               }
 
-              if (snap.hasError || !snap.hasData) {
+              if (snap.hasError || detail == null) {
                 return ListView(children: const [
                   SizedBox(height: 140),
-                  Center(child: Text('상세 데이터를 불러오지 못했습니다.')),
+                  Center(
+                      child: Text('상세 데이터를 불러오지 못했습니다.',
+                          style: TextStyle(color: _textWeak))),
                 ]);
               }
 
@@ -412,13 +387,11 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                   ? Period(
                       DateTime(now.year, now.month, 1),
                       DateTime(now.year, now.month + 1, 1)
-                          .subtract(const Duration(seconds: 1)),
-                    )
+                          .subtract(const Duration(seconds: 1)))
                   : _monthCycleBounds(app.startAt!, roundNow);
 
               final step = _calcMonthlyProgress(detail);
 
-              // 응답이 있으면 그걸 우선 사용
               final totalForUI = _stepsMonthOverride ?? step.total;
               final targetForUI = _thresholdOverride ?? step.target;
               final effRateForUI = _effRateOverride ??
@@ -439,87 +412,35 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                   nextDue != null && fmtYmd(nextDue) == fmtYmd(today);
               final bool canPayNow = nextUnpaid != null &&
                   nextDue != null &&
-                  !todayOnly.isBefore(_onlyDate(nextDue)); // 오늘 >= 예정일
+                  !todayOnly.isBefore(_onlyDate(nextDue));
 
               final dueText = nextDue == null
-                  ? '-'
+                  ? null
                   : (_onlyDate(today).isBefore(_onlyDate(nextDue))
                       ? '예정일 ${fmtYmd(nextDue)}'
                       : '연체: ${fmtYmd(nextDue)}부터');
 
+              final baseRate = app.baseRateAtEnroll ?? 0.0;
+              final effRate = effRateForUI ?? baseRate;
+
               return ListView(
                 padding: const EdgeInsets.only(bottom: 24),
                 children: [
-                  // 헤더(화이트) — 잔액 강조
-                  Container(
-                    color: Colors.white,
-                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 상단 타이틀 라인
-                        Row(
-                          children: [
-                            const Icon(CupertinoIcons.creditcard,
-                                size: 18, color: _textWeak),
-                            const SizedBox(width: 6),
-                            Text(
-                              acc?.accountName ?? app.product.name,
-                              style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
-                                  color: _textStrong),
-                            ),
-                            const Spacer(),
-                            Text(acc?.accountNumber ?? '-',
-                                style: const TextStyle(color: _textWeak)),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        const Text('현재 잔액',
-                            style: TextStyle(fontSize: 13, color: _textWeak)),
-                        const SizedBox(height: 6),
-                        DiffHighlight(
-                          marker: principal,
-                          highlightOnFirstBuild: true,
-                          child: MoneyCountUp(
-                            value: principal,
-                            formatter: _won,
-                            animateOnFirstBuild: true, // 첫 진입에도 촤라락
-                            duration: const Duration(milliseconds: 650),
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineSmall, // (원하면 더 크게)
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            _TossChip(
-                                text: '기본 ${_pct(app.baseRateAtEnroll)}',
-                                icon: CupertinoIcons.percent),
-                            _TossChip(
-                                text: '적용 ${_pct(effRateForUI)}',
-                                icon: Icons.trending_up),
-                            if (nextDue != null)
-                              _TossChip(
-                                text: dueText,
-                                icon: CupertinoIcons.calendar,
-                                tone: (nextDue != null &&
-                                        !_onlyDate(today)
-                                            .isBefore(_onlyDate(nextDue)))
-                                    ? _ChipTone.warning // 연체면 경고 톤
-                                    : _ChipTone.neutral,
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
+                  // ===== 파란 그라데이션 헤더 (요청 레이아웃) =====
+                  _BlueHeaderCard(
+                    productName: app.product.name,
+                    accountName: acc?.accountName,
+                    accountNumber: acc?.accountNumber ?? '-',
+                    principal: principal,
+                    hideBalance: _hideBalance,
+                    onToggleHide: () =>
+                        setState(() => _hideBalance = !_hideBalance),
+                    baseRate: baseRate,
+                    effectiveRate: effRate,
+                    dueText: dueText,
                   ),
 
-                  // 걸음 카드
+                  // ===== 걸음 카드 =====
                   _Section(
                     child: Row(
                       children: [
@@ -534,32 +455,43 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                               const SizedBox(height: 10),
                               AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 200),
-                                child: Text(
-                                  '$_stepsToday 걸음',
-                                  key: ValueKey(_stepsToday),
-                                  style: const TextStyle(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w800,
-                                      color: _textStrong),
-                                ),
+                                child: Text('$_stepsToday 걸음',
+                                    key: ValueKey(_stepsToday),
+                                    style: const TextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w800,
+                                        color: _textStrong)),
                               ),
                               const SizedBox(height: 6),
-                              Text(
-                                _healthStatus,
-                                style: const TextStyle(
-                                    fontSize: 12, color: _textWeak),
-                              ),
+                              Text(_healthStatus,
+                                  style: const TextStyle(
+                                      fontSize: 12, color: _textWeak)),
+                              if (_healthStatus.startsWith('❌')) ...[
+                                const SizedBox(height: 6),
+                                _TossTextButton(
+                                    label: '권한 설정 열기',
+                                    onPressed: _openAppSettings),
+                              ],
                             ],
                           ),
                         ),
                         const SizedBox(width: 12),
-                        _TossOutlineButton(
-                          label: '걸음 동기화',
-                          onPressed: () => _syncStepsAuto(detail),
+                        SizedBox(
+                          height: 52,
+                          child: _syncing
+                              ? const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 16),
+                                  child: CupertinoActivityIndicator(),
+                                )
+                              : _TossOutlineButton(
+                                  label: '걸음 동기화',
+                                  onPressed: () => _syncStepsAuto(detail)),
                         ),
                       ],
                     ),
                   ),
+
+                  // ===== 이번 회차 진행 =====
                   _Section(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -575,15 +507,15 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          '기간: ${fmtYmd(bounds.start)} ~ ${fmtYmd(bounds.end)}',
-                          style: const TextStyle(color: _textWeak),
-                        ),
+                            '기간: ${fmtYmd(bounds.start)} ~ ${fmtYmd(bounds.end)}',
+                            style: const TextStyle(color: _textWeak)),
                         const SizedBox(height: 12),
                         AnimatedStepBar(total: totalForUI, target: targetForUI),
                       ],
                     ),
                   ),
-                  // 다음 납입 + CTA
+
+                  // ===== 다음 납입 + CTA =====
                   _Section(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -592,7 +524,8 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                         const SizedBox(height: 10),
                         _KvRow('회차',
                             nextUnpaid == null ? '-' : '${nextUnpaid.round}회차'),
-                        _KvRow('예정일', nextDue == null ? '-' : fmtYmdE(nextDue)),
+                        _KvRow(
+                            '예정일', nextDue == null ? '-' : fmtYmdE(nextDue!)),
                         _KvRow(
                             '회차 금액',
                             nextUnpaid == null
@@ -611,7 +544,7 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                     ),
                   ),
 
-                  // 요약
+                  // ===== 요약 =====
                   _Section(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -631,7 +564,7 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                     ),
                   ),
 
-                  // 납입 현황
+                  // ===== 납입 현황 =====
                   _Section(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -657,6 +590,8 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                                 ListTile(
                                   dense: true,
                                   contentPadding: EdgeInsets.zero,
+                                  visualDensity:
+                                      const VisualDensity(vertical: -2),
                                   title: Text(
                                       '${e.round}회차  ${_won.format(e.amount)}',
                                       style: const TextStyle(
@@ -688,7 +623,307 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
   }
 }
 
-// ====== 재사용 UI (토스풍) ======
+// ====================== 파란 그라데이션 헤더 ======================
+// 제목(상품명·계좌번호) ↓ 현재 잔액 ↓ 기본/적용금리 (한 줄 정렬)
+// 우상단: 자산 숨기기 버튼 / 오른쪽 끝: 연체 칩(있을 때만, 회색)
+class _BlueHeaderCard extends StatelessWidget {
+  final String productName;
+  final String? accountName;
+  final String accountNumber;
+  final int principal;
+  final bool hideBalance;
+  final VoidCallback onToggleHide;
+  final double baseRate;
+  final double effectiveRate;
+  final String? dueText;
+
+  const _BlueHeaderCard({
+    super.key,
+    required this.productName,
+    required this.accountName,
+    required this.accountNumber,
+    required this.principal,
+    required this.hideBalance,
+    required this.onToggleHide,
+    required this.baseRate,
+    required this.effectiveRate,
+    this.dueText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final title = accountName?.trim().isNotEmpty == true
+        ? accountName!.trim()
+        : productName;
+    final isOverdue = (dueText ?? '').startsWith('연체');
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [_brand2, _brand],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x22000000),
+            blurRadius: 16,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // === 상단: 타이틀 + 계좌번호 + 숨기기 ===
+            Row(
+              children: [
+                const Icon(CupertinoIcons.creditcard_fill,
+                    size: 18, color: Colors.white),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: RichText(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: title,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const TextSpan(text: '  ·  '),
+                        TextSpan(
+                          text: accountNumber,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white.withOpacity(.92),
+                          ),
+                        ),
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  visualDensity:
+                      const VisualDensity(horizontal: -2, vertical: -2),
+                  onPressed: onToggleHide,
+                  icon: Icon(
+                    hideBalance ? CupertinoIcons.eye_slash : CupertinoIcons.eye,
+                    size: 20,
+                    color: Colors.white.withOpacity(.95),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // === 현재 잔액 ===
+            Text('현재 잔액',
+                style: TextStyle(color: Colors.white.withOpacity(.85))),
+            const SizedBox(height: 6),
+            hideBalance
+                ? Container(
+                    height: 30,
+                    width: 180,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  )
+                : DiffHighlight(
+                    marker: principal,
+                    highlightOnFirstBuild: true,
+                    child: MoneyCountUp(
+                      value: principal,
+                      formatter: _won,
+                      animateOnFirstBuild: true,
+                      duration: const Duration(milliseconds: 650),
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+            const SizedBox(height: 14),
+
+            // === 하단: 기본/적용/연체 (한 줄 정렬) ===
+            Row(
+              children: [
+                // 기본금리
+                const _BaseRateTextChip(),
+                const SizedBox(width: 4),
+                Text(
+                  '${baseRate.toStringAsFixed(2)}%',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(width: 16),
+
+                // 적용금리(노란색 + ↑ 펄스)
+                const _EffRateTextChip(),
+                const SizedBox(width: 4),
+                _EffRateNumber(from: baseRate, to: effectiveRate),
+
+                // 오른쪽 끝: 연체 칩(연한 회색)
+                const Spacer(),
+                if (isOverdue) _OverdueBadge(text: dueText!),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// === 텍스트 라벨: "기본"
+class _BaseRateTextChip extends StatelessWidget {
+  const _BaseRateTextChip({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return const Text(
+      '기본',
+      style: TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.w800,
+        fontSize: 12,
+        letterSpacing: 0.2,
+      ),
+    );
+  }
+}
+
+// === 텍스트 라벨: "적용"
+class _EffRateTextChip extends StatelessWidget {
+  const _EffRateTextChip({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return const Text(
+      '적용',
+      style: TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.w800,
+        fontSize: 12,
+        letterSpacing: 0.2,
+      ),
+    );
+  }
+}
+
+// === 적용 금리 숫자 (노란색 + 크게 + 카운트업 + ↑ 펄스)
+class _EffRateNumber extends StatefulWidget {
+  final double from;
+  final double to;
+  const _EffRateNumber({super.key, required this.from, required this.to});
+  @override
+  State<_EffRateNumber> createState() => _EffRateNumberState();
+}
+
+class _EffRateNumberState extends State<_EffRateNumber>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    if (widget.to > widget.from) {
+      _pulse.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final up = widget.to > widget.from;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: widget.from, end: widget.to),
+      duration: const Duration(milliseconds: 700),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, _) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '${value.toStringAsFixed(2)}%',
+              style: TextStyle(
+                color: Colors.amber.shade300,
+                fontWeight: FontWeight.w900,
+                fontSize: 20,
+                shadows: const [
+                  Shadow(
+                    blurRadius: 6,
+                    color: Color(0x55000000),
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+            ),
+            if (up) ...[
+              const SizedBox(width: 4),
+              FadeTransition(
+                opacity: _pulse.drive(Tween(begin: .45, end: 1.0)),
+                child: const Icon(
+                  CupertinoIcons.arrow_up_right_circle_fill,
+                  size: 16,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+// === 연체 칩 (연한 회색)
+class _OverdueBadge extends StatelessWidget {
+  final String text;
+  const _OverdueBadge({super.key, required this.text});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F4F6), // 연한 회색 배경
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withOpacity(.25)),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Color(0xFF374151), // 진회색 텍스트
+          fontWeight: FontWeight.w800,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
+
+// ====================== 공용 섹션/버튼/칩 ======================
 class _Section extends StatelessWidget {
   final Widget child;
   const _Section({required this.child});
@@ -700,6 +935,10 @@ class _Section extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: _line),
+          boxShadow: const [
+            BoxShadow(color: _cardShadow, blurRadius: 10, offset: Offset(0, 2))
+          ],
         ),
         padding: const EdgeInsets.all(16),
         child: child,
@@ -742,43 +981,6 @@ class _KvRow extends StatelessWidget {
 
 enum _ChipTone { neutral, success, warning }
 
-class _TossChip extends StatelessWidget {
-  final String text;
-  final IconData icon;
-  final _ChipTone tone;
-  const _TossChip(
-      {required this.text, required this.icon, this.tone = _ChipTone.neutral});
-
-  @override
-  Widget build(BuildContext context) {
-    Color fg;
-    Color bg;
-    switch (tone) {
-      case _ChipTone.success:
-        fg = const Color(0xFF0A7A33);
-        bg = const Color(0xFFE8F5ED);
-        break;
-      case _ChipTone.warning:
-        fg = const Color(0xFF8A4B00);
-        bg = const Color(0xFFFFF3E0);
-        break;
-      default:
-        fg = const Color(0xFF1F2937);
-        bg = const Color(0xFFF3F4F6);
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration:
-          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 14, color: fg),
-        const SizedBox(width: 6),
-        Text(text, style: TextStyle(color: fg, fontWeight: FontWeight.w600)),
-      ]),
-    );
-  }
-}
-
 class _StatusPill extends StatelessWidget {
   final String text;
   final _ChipTone tone;
@@ -793,7 +995,7 @@ class _StatusPill extends StatelessWidget {
         bg = const Color(0xFFE8F5ED);
         break;
       case _ChipTone.warning:
-        fg = const Color(0xFF8A4B00);
+        fg = _warn;
         bg = const Color(0xFFFFF3E0);
         break;
       default:
@@ -855,7 +1057,7 @@ class _TossOutlineButton extends StatelessWidget {
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           foregroundColor: _textStrong,
-          side: const BorderSide(color: _line),
+          side: const BorderSide(color: _line, width: 1),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -880,7 +1082,7 @@ class _TossTextButton extends StatelessWidget {
   }
 }
 
-// 바텀시트 느낌의 토스풍 다이얼로그(얕은 여백, 둥근 모서리)
+// 바텀시트 느낌의 토스풍 다이얼로그
 class _TossSheet extends StatelessWidget {
   final String title;
   final Widget child;
@@ -912,13 +1114,11 @@ class _TossSheet extends StatelessWidget {
             child,
             if (secondary != null) ...[
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(child: secondary!), // 취소 버튼
-                  const SizedBox(width: 8), // 버튼 간격
-                  Expanded(child: primary), // 납입 버튼
-                ],
-              ),
+              Row(children: [
+                Expanded(child: secondary!),
+                const SizedBox(width: 8),
+                Expanded(child: primary)
+              ]),
             ] else ...[
               const SizedBox(height: 12),
               primary,
@@ -932,9 +1132,10 @@ class _TossSheet extends StatelessWidget {
 
 String _pct(num? v) => '${(v ?? 0).toStringAsFixed(2)}%';
 
+// ===== 걸음 진행바 =====
 class AnimatedStepBar extends StatefulWidget {
-  final int total; // 현재 걸음
-  final int target; // 목표 걸음
+  final int total;
+  final int target;
   final Duration duration;
   final Curve curve;
 
@@ -956,7 +1157,6 @@ class _AnimatedStepBarState extends State<AnimatedStepBar> {
   @override
   void didUpdateWidget(covariant AnimatedStepBar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 목표는 동일하지만 total 값이 갱신된 경우 이전 ratio 기억
     if (oldWidget.total != widget.total || oldWidget.target != widget.target) {
       _prevRatio =
           (oldWidget.total / (oldWidget.target == 0 ? 1 : oldWidget.target))
@@ -969,7 +1169,6 @@ class _AnimatedStepBarState extends State<AnimatedStepBar> {
     final targetRatio =
         (widget.total / (widget.target == 0 ? 1 : widget.target))
             .clamp(0.0, 1.0);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -985,6 +1184,7 @@ class _AnimatedStepBarState extends State<AnimatedStepBar> {
                 value: value,
                 minHeight: 10,
                 backgroundColor: Colors.grey.withOpacity(0.15),
+                valueColor: const AlwaysStoppedAnimation<Color>(_blue),
               );
             },
           ),
@@ -998,10 +1198,8 @@ class _AnimatedStepBarState extends State<AnimatedStepBar> {
             curve: widget.curve,
             builder: (context, value, _) {
               final curr = (value * widget.target).round();
-              return Text(
-                '$curr / ${widget.target} 보',
-                style: Theme.of(context).textTheme.bodySmall,
-              );
+              return Text('$curr / ${widget.target} 보',
+                  style: Theme.of(context).textTheme.bodySmall);
             },
           ),
         ),

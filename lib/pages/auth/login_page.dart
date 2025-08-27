@@ -8,6 +8,8 @@ import 'package:reframe/constants/api_constants.dart';
 import 'package:reframe/pages/auth/auth_store.dart';
 import 'package:reframe/pages/auth/join_page.dart';
 
+import '../../common/biometric_auth.dart';
+
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -16,11 +18,10 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  // ===== 스타일 토큰(앱 톤 맞춤) =====
+  // ===== 스타일 토큰 =====
   static const _brand = Color(0xFF2962FF);
   static const _border = Color(0xFFE6EAF0);
   static const _hint = Colors.black38;
-  static const _titleFg = Color(0xFF0F172A);
 
   final _secureStorage = const FlutterSecureStorage();
 
@@ -83,9 +84,9 @@ class _LoginPageState extends State<LoginPage> {
         final accessToken = data['accessToken'];
         final refreshToken = data['refreshToken'];
 
-        // Memory(전역변수)에 Access Token 저장
+        // 메모리에 AccessToken 저장
         setAccessToken(accessToken);
-        // Secure Storage에 Refresh Token 저장
+        // Secure Storage에 RefreshToken 저장
         await _secureStorage.write(key: "refreshToken", value: refreshToken);
 
         if (!mounted) return;
@@ -97,6 +98,9 @@ class _LoginPageState extends State<LoginPage> {
           context,
           MaterialPageRoute(builder: (_) => const AppShell()),
         );
+
+        await _maybeOfferEnableBiometric();
+
       } else if (response.statusCode == 401) {
         if (!mounted) return;
         setState(() => _error = '아이디 또는 비밀번호가 잘못되었습니다.');
@@ -113,6 +117,86 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  Future<void> _maybeOfferEnableBiometric() async {
+    final secure = _secureStorage;
+    final already = await secure.read(key: 'biometricEnabled');
+    if (already == 'true') return; // 이미 ON
+
+    final supported = await BiometricAuth.isSupportedAndEnrolled();
+    if (!supported) return; // 미지원/미등록 → 제안 안함
+
+    if (!mounted) return;
+    final agree = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false, // 외부 클릭 닫힘 방지
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20), // 둥근 모서리
+          ),
+          backgroundColor: Colors.white, // 배경색
+          title: Center(
+            child: Text(
+              '생체로 자동 로그인 보호',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0B0D12),
+              ),
+              textAlign: TextAlign.center, // 혹시 모를 줄바꿈 대비
+            ),
+          ),
+          content: const Text(
+            '앱 실행 시 생체인증으로\n자동 로그인을 보호할까요?',
+            style: TextStyle(
+              fontSize: 16,
+              height: 1.4,
+              color: Color(0xFF6B7280),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          actionsAlignment: MainAxisAlignment.spaceEvenly, // 버튼 정렬
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.grey[700],
+                textStyle: const TextStyle(fontSize: 15),
+              ),
+              child: const Text('나중에'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF3182F6), // Toss 블루 같은 포인트 컬러
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+              child: const Text('켜기'),
+            ),
+          ],
+        );
+      },
+    );
+
+
+    if (agree == true) {
+      final ok = await BiometricAuth.authenticate('생체 인증으로 자동로그인을 보호합니다');
+      if (ok) {
+        await secure.write(key: 'biometricEnabled', value: 'true');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('생체 인증 보호가 켜졌습니다')),
+          );
+        }
+      }
+    }
+  }
+
   @override
   void dispose() {
     _usernameController.dispose();
@@ -124,89 +208,76 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    final insets = MediaQuery.of(context).viewInsets;
-    final isKeyboardOpen = insets.bottom > 0;
+    final mq = MediaQuery.of(context);
+    final viewInsets = mq.viewInsets; // 키보드 높이 포함
+    final viewportHeight = mq.size.height - viewInsets.bottom; // 키보드만큼 뺀 화면 높이
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: AnimatedPadding(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          padding: EdgeInsets.only(bottom: isKeyboardOpen ? insets.bottom : 0),
-          child: Center(
+      resizeToAvoidBottomInset: false, // ✅ 자동 이중 밀기 방지
+      body: MediaQuery.removePadding( // ✅ SafeArea 하단 패딩 제거 (이중여백 방지)
+        context: context,
+        removeBottom: true,
+        child: SafeArea(
+          top: true,
+          bottom: false,
+          child: GestureDetector(
+            onTap: () => FocusScope.of(context).unfocus(),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              // 스크롤 컨텐츠가 최소한 '키보드 제외한 화면 높이'를 채우게 함
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // 로고
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8, bottom: 20),
-                      child: Image.asset(
-                        "assets/images/logo/logo_small.png",
-                        width: 160,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
+                constraints: BoxConstraints(minHeight: viewportHeight),
+                child: Align(
+                  alignment: Alignment.topCenter, // ✅ Center 대신 상단 정렬
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const SizedBox(height: 0),
+                          Image.asset(
+                            "assets/images/logo/logo_small.png",
+                            width: 220,
+                            fit: BoxFit.contain,
+                          ),
+                          Text(
+                            '예적금/자산 기능을 이용하려면 로그인해주세요.',
+                            style: TextStyle(fontSize: 13, color: Colors.black.withOpacity(0.6)),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 18),
 
-                    // 타이틀/서브타이틀
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        '로그인',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: _titleFg,
-                          letterSpacing: -0.2,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        '예적금/자산 기능을 이용하려면 로그인해주세요.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.black.withOpacity(0.6),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
+                          // 아이디
+                          _buildTextField(
+                            controller: _usernameController,
+                            hintText: '아이디를 입력하세요.',
+                            focusNode: _idFocus,
+                            prefix: const Icon(Icons.person_outline, size: 20),
+                            onFieldSubmitted: (_) => _pwFocus.requestFocus(),
+                          ),
+                          const SizedBox(height: 12),
 
-                    // 아이디
-                    _buildTextField(
-                      controller: _usernameController,
-                      hintText: '아이디를 입력하세요.',
-                      focusNode: _idFocus,
-                      prefix: const Icon(Icons.person_outline, size: 20),
-                      onFieldSubmitted: (_) => _pwFocus.requestFocus(),
-                    ),
-                    const SizedBox(height: 12),
+                          // 비밀번호
+                          _buildTextField(
+                            controller: _passwordController,
+                            hintText: '비밀번호를 입력하세요.',
+                            focusNode: _pwFocus,
+                            obscureText: _obscurePw,
+                            prefix: const Icon(Icons.lock_outline, size: 20),
+                            onFieldSubmitted: (_) =>
+                            (_isButtonEnabled && !_isLoading) ? _login() : null,
+                          ),
+                          const SizedBox(height: 10),
 
-                    // 비밀번호
-                    _buildTextField(
-                      controller: _passwordController,
-                      hintText: '비밀번호를 입력하세요.',
-                      focusNode: _pwFocus,
-                      obscureText: _obscurePw,
-                      prefix: const Icon(Icons.lock_outline, size: 20),
-                      onFieldSubmitted: (_) =>
-                          (_isButtonEnabled && !_isLoading) ? _login() : null,
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // 에러 배너(있을 때만)
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 180),
-                      child: (_error == null || _error!.isEmpty)
-                          ? const SizedBox(height: 0)
-                          : Container(
+                          // 에러 배너(있을 때만)
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 180),
+                            child: (_error == null || _error!.isEmpty)
+                                ? const SizedBox(height: 0)
+                                : Container(
                               key: const ValueKey('error'),
                               width: double.infinity,
                               margin: const EdgeInsets.only(bottom: 4),
@@ -215,7 +286,7 @@ class _LoginPageState extends State<LoginPage> {
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFFF1F1),
                                 border:
-                                    Border.all(color: const Color(0xFFFFD5D5)),
+                                Border.all(color: const Color(0xFFFFD5D5)),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
@@ -236,31 +307,31 @@ class _LoginPageState extends State<LoginPage> {
                                 ],
                               ),
                             ),
-                    ),
-
-                    const SizedBox(height: 6),
-
-                    // 로그인 버튼
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton(
-                        onPressed:
-                            (_isButtonEnabled && !_isLoading) ? _login : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _isButtonEnabled
-                              ? _brand
-                              : const Color(0xFFBFC7D5),
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor: const Color(0xFFE6EAF0),
-                          disabledForegroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
                           ),
-                        ),
-                        child: _isLoading
-                            ? const SizedBox(
+
+                          const SizedBox(height: 6),
+
+                          // 로그인 버튼
+                          SizedBox(
+                            width: double.infinity,
+                            height: 48,
+                            child: ElevatedButton(
+                              onPressed:
+                              (_isButtonEnabled && !_isLoading) ? _login : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _isButtonEnabled
+                                    ? _brand
+                                    : const Color(0xFFBFC7D5),
+                                foregroundColor: Colors.white,
+                                disabledBackgroundColor: const Color(0xFFE6EAF0),
+                                disabledForegroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: _isLoading
+                                  ? const SizedBox(
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
@@ -268,7 +339,7 @@ class _LoginPageState extends State<LoginPage> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Text(
+                                  : const Text(
                                 '로그인',
                                 style: TextStyle(
                                   fontSize: 16,
@@ -276,41 +347,43 @@ class _LoginPageState extends State<LoginPage> {
                                   letterSpacing: 0.2,
                                 ),
                               ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // 하단 링크
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text(
-                          '아직 계정이 없으신가요?',
-                          style: TextStyle(fontSize: 12, color: Colors.black54),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            // ✅ 라우터/가드 영향 최소화: rootNavigator 사용
-                            Navigator.of(context, rootNavigator: true).push(
-                              MaterialPageRoute(
-                                  builder: (_) => const JoinPage()),
-                            );
-                          },
-                          child: const Text(
-                            "회원가입",
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 12,
-                              decoration: TextDecoration.underline,
                             ),
                           ),
-                        )
-                      ],
-                    ),
 
-                    const SizedBox(height: 8),
-                  ],
+                          const SizedBox(height: 12),
+
+                          // 하단 링크
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text(
+                                '아직 계정이 없으신가요?',
+                                style: TextStyle(fontSize: 12, color: Colors.black54),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.of(context, rootNavigator: true).push(
+                                    MaterialPageRoute(
+                                        builder: (_) => const JoinPage()),
+                                  );
+                                },
+                                child: const Text(
+                                  "회원가입",
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 12,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              )
+                            ],
+                          ),
+
+                          const SizedBox(height: 8),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),

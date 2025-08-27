@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:reframe/model/account.dart';
+import 'package:reframe/model/global_avg_response.dart';
 
 import '../core/interceptors/http.dart';
 import '../model/account_transaction.dart';
@@ -105,5 +106,19 @@ Future<void> depositToGroup(int accountId,
       error: '입금 실패',
       type: DioExceptionType.badResponse,
     );
+  }
+}
+
+Future<GlobalAvgResponse> getGlobalAvg() async {
+  try {
+    final response = await dio.get('/mobile/account/global-avg');
+
+    if (response.statusCode == 200) {
+      return GlobalAvgResponse.fromJson(response.data);
+    } else {
+      throw Exception('서버 오류: ${response.statusCode}');
+    }
+  } catch (e) {
+    throw Exception('연결 실패: $e');
   }
 }

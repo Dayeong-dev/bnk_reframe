@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -231,14 +232,19 @@ class _DepositMainPageState extends State<DepositMainPage> {
     );
   }
 
-  // ===== 이자 계산기 =====
+  // ===== 이자 계산기 (★개선: 슬라이더 원과 게이지 동속) =====
+  // ===== 이자 계산기 (원/게이지 동속) =====
   void showInterestCalculator(BuildContext context, DepositProduct product) {
     const double modalScale = 1.0;
 
     final amountController = TextEditingController(text: "1,000,000");
     final FocusNode amountFocus = FocusNode();
 
-    int months = product.period > 0 ? product.period : 1;
+    // 상태는 double로 유지 → thumb/게이지 동일 속도
+    double monthsValue = (product.period > 0 ? product.period : 1).toDouble();
+    // ✅ 로컬 함수로 정수 개월 계산 (게터 금지)
+    int monthsInt() => monthsValue.round();
+
     final double rate = product.maxRate;
     int interestResult = 0;
 
@@ -253,7 +259,8 @@ class _DepositMainPageState extends State<DepositMainPage> {
     void calculate(StateSetter s) {
       final amount =
           int.tryParse(amountController.text.replaceAll(",", "")) ?? 0;
-      final interest = (amount * (rate / 100) * (months / 12)).round();
+      // 표시·계산은 정수 개월 사용
+      final interest = (amount * (rate / 100) * (monthsInt() / 12)).round();
       s(() => interestResult = interest);
     }
 
@@ -324,6 +331,8 @@ class _DepositMainPageState extends State<DepositMainPage> {
                                 fontSize: 12 * modalScale),
                           ),
                           const SizedBox(height: 14),
+
+                          // ─ 상품 요약
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: sectionBox(),
@@ -350,6 +359,8 @@ class _DepositMainPageState extends State<DepositMainPage> {
                             ),
                           ),
                           const SizedBox(height: 10),
+
+                          // ─ 예치금 입력
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: sectionBox(),
@@ -454,6 +465,8 @@ class _DepositMainPageState extends State<DepositMainPage> {
                             ),
                           ),
                           const SizedBox(height: 10),
+
+                          // ─ 가입기간 (상태=double, 표시는 정수)
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: sectionBox(),
@@ -469,7 +482,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
                                             fontSize: 14 * modalScale,
                                             fontWeight: FontWeight.w800,
                                             color: AppTokens.ink)),
-                                    Text("$months 개월",
+                                    Text("${monthsInt()} 개월",
                                         style: TextStyle(
                                             fontWeight: FontWeight.w800,
                                             fontSize: 14 * modalScale)),
@@ -477,21 +490,25 @@ class _DepositMainPageState extends State<DepositMainPage> {
                                 ),
                                 const SizedBox(height: 10),
                                 const SizedBox(height: 2),
-                                _SliderWithLine(
-                                  value: months.toDouble(),
+                                LaggedSlider(
+                                  value: monthsValue, // double 상태 유지
                                   min: 1,
                                   max: 36,
-                                  divisions: 35,
+                                  divisions: 35, // 개월 단위 끊김
+                                  accentColor: AppTokens.accent, // 프로젝트 토큰 사용
                                   onChanged: (v) {
-                                    months = v.toInt();
-                                    s(() {});
-                                    calculate(s);
+                                    monthsValue = v; // thumb는 즉시 반응
+                                    s(() {}); // UI 갱신
+                                    calculate(s); // 계산은 round()한 개월로
                                   },
+                                  // lagMs: 110,           // 필요시 지연 강도 조절 (80~160 권장)
                                 ),
                               ],
                             ),
                           ),
                           const SizedBox(height: 10),
+
+                          // ─ 예상 결과
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: sectionBox(),
@@ -555,6 +572,7 @@ class _DepositMainPageState extends State<DepositMainPage> {
                             ),
                           ),
                           const SizedBox(height: 14),
+
                           SizedBox(
                             width: double.infinity,
                             height: 48 * modalScale,
@@ -1197,6 +1215,54 @@ class DotKVRow extends StatelessWidget {
   }
 }
 
+class _DottedBar extends StatelessWidget {
+  final Color color;
+  final double thickness;
+  final double dash;
+  final double gap;
+
+  const _DottedBar({
+    required this.color,
+    this.thickness = 2,
+    this.dash = 3,
+    this.gap = 4,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (_, constraints) {
+        final w = constraints.maxWidth;
+        if (w <= 0) {
+          return const SizedBox.shrink();
+        }
+        // dash + gap 패턴이 몇 개 들어갈지 계산
+        final pattern = dash + gap;
+        final count = (w / pattern).floor().clamp(1, 10000);
+
+        return SizedBox(
+          width: w,
+          height: thickness,
+          child: Row(
+            children: List.generate(count, (i) {
+              final isLast = i == count - 1;
+              return Container(
+                width: dash,
+                height: thickness,
+                margin: EdgeInsets.only(right: isLast ? 0 : gap),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(thickness / 2),
+                ),
+              );
+            }),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _DottedDivider extends StatelessWidget {
   const _DottedDivider();
   @override
@@ -1245,112 +1311,188 @@ class _DotsPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-class _SliderWithLine extends StatelessWidget {
+/// 페인트/커스텀트랙 없이 Stack + Animation 으로 구현한 '딜레이 게이지' 슬라이더
+class LaggedSlider extends StatefulWidget {
   final double value;
   final double min;
   final double max;
   final int? divisions;
   final ValueChanged<double> onChanged;
 
-  const _SliderWithLine({
+  /// 게이지가 thumb(원)을 따라오는 속도(ms). 클수록 더 느리게.
+  final int lagMs;
+
+  /// 게이지/thumb 색상 (ex. AppTokens.accent)
+  final Color accentColor;
+
+  /// 배경 트랙 색상
+  final Color trackColor;
+
+  /// thumb 반지름(px)
+  final double thumbRadius;
+
+  /// 게이지(활성 바) 두께(px)
+  final double stroke;
+
+  const LaggedSlider({
+    super.key,
     required this.value,
     required this.min,
     required this.max,
-    this.divisions,
     required this.onChanged,
+    this.divisions,
+    this.lagMs = 110,
+    this.accentColor = const Color(0xFF2962FF),
+    this.trackColor = const Color(0xFFCAD3DF),
+    this.thumbRadius = 10.0,
+    this.stroke = 3.0,
   });
 
-  static const double _thumbRadius = 10.0;
-  static const double _stroke = 3.0;
-  static const double kTrackInset = _thumbRadius + (_stroke / 2);
-
   @override
-  Widget build(BuildContext context) {
-    final factor = ((value - min) / (max - min)).clamp(0.0, 1.0);
-    return SizedBox(
-      height: 44,
-      child: Stack(
-        alignment: Alignment.centerLeft,
-        children: [
-          const Positioned.fill(
-              child: _DottedTrack(horizontalInset: kTrackInset)),
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _ActiveLinePainter(
-                factor: factor,
-                horizontalInset: kTrackInset,
-                color: AppTokens.accent,
-                strokeWidth: _stroke,
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                trackHeight: 0,
-                activeTrackColor: Colors.transparent,
-                inactiveTrackColor: Colors.transparent,
-                thumbShape: const RoundSliderThumbShape(
-                    enabledThumbRadius: _thumbRadius),
-                thumbColor: AppTokens.accent,
-                overlayColor: AppTokens.accent.withOpacity(.12),
-              ),
-              child: Slider(
-                value: value,
-                min: min,
-                max: max,
-                divisions: divisions,
-                onChanged: onChanged,
-                label: "${value.toInt()} 개월",
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  State<LaggedSlider> createState() => _LaggedSliderState();
 }
 
-class _ActiveLinePainter extends CustomPainter {
-  final double factor;
-  final double horizontalInset;
-  final Color color;
-  final double strokeWidth;
+class _LaggedSliderState extends State<LaggedSlider>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ac;
+  late Animation<double> _anim;
+  double _from = 0.0;
+  double _to = 0.0;
 
-  const _ActiveLinePainter({
-    required this.factor,
-    required this.horizontalInset,
-    required this.color,
-    this.strokeWidth = 3,
-  });
+  double _denom() {
+    final d = (widget.max - widget.min);
+    // 0 분모 방지
+    return d.abs() < 1e-9 ? 1.0 : d;
+  }
+
+  double _norm(double v) => ((v - widget.min) / _denom()).clamp(0.0, 1.0);
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final left = horizontalInset;
-    final right = size.width - horizontalInset;
-    final usable = (right - left).clamp(0.0, size.width);
-    final thumbCenterX = (left + usable * factor).clamp(left, right);
-    final y = size.height / 2;
+  void initState() {
+    super.initState();
+    _ac = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: widget.lagMs),
+    );
+    _from = _to = _norm(widget.value);
+    _anim = Tween<double>(begin: _from, end: _to)
+        .animate(CurvedAnimation(parent: _ac, curve: Curves.easeOutCubic));
+  }
 
-    final p = Paint()
-      ..color = color
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.butt;
-
-    final startX = left;
-    final endX = (thumbCenterX - strokeWidth / 2).clamp(left, right);
-
-    if (endX > startX) {
-      canvas.drawLine(Offset(startX, y), Offset(endX, y), p);
+  @override
+  void didUpdateWidget(covariant LaggedSlider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final newTo = _norm(widget.value);
+    // 값 혹은 지연 시간 변하면 부드럽게 새 목표로
+    if ((_to - newTo).abs() > 1e-6 || widget.lagMs != oldWidget.lagMs) {
+      _from = _anim.value; // 현재 위치에서 이어서
+      _to = newTo;
+      _ac
+        ..duration = Duration(milliseconds: widget.lagMs)
+        ..reset();
+      _anim = Tween<double>(begin: _from, end: _to)
+          .animate(CurvedAnimation(parent: _ac, curve: Curves.easeOutCubic));
+      _ac.forward();
     }
   }
 
   @override
-  bool shouldRepaint(covariant _ActiveLinePainter old) =>
-      old.factor != factor ||
-      old.color != color ||
-      old.strokeWidth != strokeWidth ||
-      old.horizontalInset != horizontalInset;
+  void dispose() {
+    _ac.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // thumb가 튀어나가지 않게 좌우 여백(thumb 중심과 게이지 끝 정렬)
+    final double pad = widget.thumbRadius + (widget.stroke / 2);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double usable =
+            (constraints.maxWidth - pad * 2).clamp(0.0, constraints.maxWidth);
+
+        return SizedBox(
+          height: 44,
+          child: Stack(
+            children: [
+              // ── 배경 트랙 ──
+              // ── 배경 트랙(점선) ──
+              Positioned.fill(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: pad),
+                  child: Center(
+                    child: _DottedBar(
+                      color: widget.trackColor, // 기존 trackColor 재사용
+                      thickness: 2, // 선 두께
+                      dash: 3, // 대시 길이
+                      gap: 4, // 대시 사이 간격
+                    ),
+                  ),
+                ),
+              ),
+
+              // ── 활성 게이지(thumb을 '살짝' 늦게 따라옴) ──
+              Positioned.fill(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: pad),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: AnimatedBuilder(
+                      animation: _anim,
+                      builder: (_, __) {
+                        final double w = usable * _anim.value;
+                        return Container(
+                          width: w,
+                          height: widget.stroke,
+                          decoration: BoxDecoration(
+                            color: widget.accentColor,
+                            borderRadius:
+                                BorderRadius.circular(widget.stroke / 2),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+
+              // ── 실제 Slider (트랙은 투명, thumb만) ──
+              Positioned.fill(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: pad),
+                  child: SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 0,
+                      activeTrackColor: Colors.transparent,
+                      inactiveTrackColor: Colors.transparent,
+                      thumbShape: RoundSliderThumbShape(
+                        enabledThumbRadius: widget.thumbRadius,
+                      ),
+                      thumbColor: widget.accentColor,
+                      // 드래그시 연한 원(오버레이) 제거 → 지연 착시 방지
+                      overlayColor: Colors.transparent,
+                      overlayShape:
+                          const RoundSliderOverlayShape(overlayRadius: 0),
+                      showValueIndicator: ShowValueIndicator.never,
+                    ),
+                    child: Slider(
+                      value: widget.value,
+                      min: widget.min,
+                      max: widget.max,
+                      divisions: widget.divisions,
+                      onChanged: widget.onChanged,
+                      label: "${widget.value.round()} 개월", // 표기는 정수
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 
 /// 탭 애니메이션

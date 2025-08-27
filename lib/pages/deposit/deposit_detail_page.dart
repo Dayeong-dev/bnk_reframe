@@ -1,3 +1,4 @@
+// deposit_detail_page.dart
 import 'dart:async';
 import 'dart:convert';
 
@@ -29,6 +30,9 @@ import 'package:reframe/env/app_endpoints.dart';
 
 // 내가 방금 쓴 리뷰 억제용(간단 버퍼)
 import 'package:reframe/utils/recent_my_review.dart';
+
+// ⬇️ OverlayEntry 안전 제거용
+import 'package:flutter/scheduler.dart';
 
 /// =======================================================
 ///  DepositDetailPage (심플 센터 정렬 버전)
@@ -107,6 +111,21 @@ class _FadeSlideInOnVisibleState extends State<FadeSlideInOnVisible>
 class _DepositDetailPageState extends State<DepositDetailPage>
     with TickerProviderStateMixin {
   DepositProduct? product;
+
+  /// OverlayEntry를 build/layout/paint 중에도 안전하게 제거
+  void _safeRemoveEntry(OverlayEntry? entry) {
+    if (entry == null) return;
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase != SchedulerPhase.idle) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        try { entry.remove(); } catch (_) {}
+      });
+    } else {
+      try { entry.remove(); } catch (_) {}
+    }
+  }
+
+  /// 다른 사람 수(나 제외)
   int _presenceCount = 0;
 
   // Analytics
@@ -122,7 +141,7 @@ class _DepositDetailPageState extends State<DepositDetailPage>
   AnimationController? _toastAC;
   Timer? _toastTimer;
 
-  // ===== 상단 플로팅 토스트 (Presence) — 이번에 추가 =====
+  // ===== 상단 플로팅 토스트 (Presence) =====
   OverlayEntry? _presenceToastEntry;
   AnimationController? _presenceToastAC;
   Timer? _presenceToastTimer;
@@ -180,15 +199,16 @@ class _DepositDetailPageState extends State<DepositDetailPage>
 
   @override
   void dispose() {
-    // 리뷰 토스트 정리
+    // 리뷰 토스트 정리 (안전 제거)
     _toastTimer?.cancel();
     _toastAC?.dispose();
-    _toastEntry?.remove();
+    _safeRemoveEntry(_toastEntry);
+    _toastEntry = null;
 
-    // Presence 토스트 정리
+    // Presence 토스트 정리 (안전 제거)
     _presenceToastTimer?.cancel();
     _presenceToastAC?.dispose();
-    _presenceToastEntry?.remove();
+    _hidePresenceToast(immediate: true);
 
     // WS 정리
     _wsSub?.cancel();
@@ -209,7 +229,7 @@ class _DepositDetailPageState extends State<DepositDetailPage>
       // 첫 진입 시 presence가 이미 잡혀있다면(>0) 한 프레임 뒤 토스트 노출
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_presenceCount > 0 && mounted) {
-          _showPresenceToast('지금 $_presenceCount명이 같이 보고 있어요👀');
+          _showPresenceToast('현재 $_presenceCount명의 고객이 조회 중입니다');
         }
       });
     } catch (e) {
@@ -241,7 +261,7 @@ class _DepositDetailPageState extends State<DepositDetailPage>
           final type = msg['type'] as String?;
           if (type == 'review_created' && mounted) {
             final snippet =
-                _normalizeSnippet((msg['contentSnippet'] as String?) ?? '');
+            _normalizeSnippet((msg['contentSnippet'] as String?) ?? '');
             final rating = (msg['rating'] as num?)?.toInt() ?? 0;
 
             final suppress = RecentMyReviewBuffer.I.shouldSuppress(
@@ -253,14 +273,14 @@ class _DepositDetailPageState extends State<DepositDetailPage>
             return;
           }
 
-          // ✅ presence 반영
+          // presence 수신: 서버 count(나 포함) → 다른 사람 수로 변환
           if (type == 'presence') {
             final n = (msg['count'] as num?)?.toInt() ?? 0;
+            final others = n > 0 ? (n - 1) : 0; // ✅ 나 제외
             if (mounted) {
-              setState(() => _presenceCount = n);
-              // 0명이면 숨김, 1명 이상이면 10초 플로팅 표시(갱신 시 타이머 리셋)
-              if (n > 0) {
-                _showPresenceToast('현재 ${n}명의 고객이 조회 중입니다');
+              setState(() => _presenceCount = others);
+              if (others > 0) {
+                _showPresenceToast('현재 ${others}명의 고객이 조회 중입니다');
               } else {
                 _hidePresenceToast(immediate: true);
               }
@@ -285,28 +305,29 @@ class _DepositDetailPageState extends State<DepositDetailPage>
     return t.replaceAll('...', '…');
   }
 
-  /// ======= 상단 플로팅 알림(UI) — 리뷰 알림(기존) =======
+  /// ======= 상단 플로팅 알림(UI) — 리뷰 알림 =======
   void _showTopToast(
-    String text, {
-    Duration duration = const Duration(seconds: 3),
-  }) {
-    // 이전 토스트 정리
+      String text, {
+        Duration duration = const Duration(seconds: 3),
+      }) {
+    // 이전 토스트 정리 (안전 제거)
     _toastTimer?.cancel();
     _toastAC?.dispose();
-    _toastEntry?.remove();
+    _safeRemoveEntry(_toastEntry);
+    _toastEntry = null;
 
     _toastAC = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 250));
     final fade = CurvedAnimation(parent: _toastAC!, curve: Curves.easeOutCubic);
     final slide = Tween<Offset>(begin: const Offset(0, -0.2), end: Offset.zero)
         .animate(
-            CurvedAnimation(parent: _toastAC!, curve: Curves.easeOutCubic));
+        CurvedAnimation(parent: _toastAC!, curve: Curves.easeOutCubic));
 
     _toastEntry = OverlayEntry(
       builder: (context) {
         final safeTop = MediaQuery.of(context).padding.top;
         return IgnorePointer(
-          ignoring: false, // ✅ 탭 가능 (리뷰 페이지 이동)
+          ignoring: false, // 탭 가능 (리뷰 페이지 이동)
           child: Stack(children: [
             Positioned.fill(
               child: Align(
@@ -319,22 +340,35 @@ class _DepositDetailPageState extends State<DepositDetailPage>
                       opacity: fade,
                       child: GestureDetector(
                         onTap: () {
-                          // 토스트 제거 후 리뷰 페이지로 이동
+                          // 토스트 제거 후 리뷰 페이지로 이동 (안전 제거)
                           _toastTimer?.cancel();
                           _toastAC?.stop();
-                          _toastEntry?.remove();
+                          _safeRemoveEntry(_toastEntry);
                           _toastEntry = null;
                           _toastAC?.dispose();
                           _toastAC = null;
 
                           final p = product;
                           if (p != null) {
+                            // 리뷰로 이동 시 detail의 WS를 닫아 중복 카운트 방지
+                            _hidePresenceToast(immediate: true);
+                            try {
+                              _wsSub?.cancel();
+                            } catch (_) {}
+                            try {
+                              _ws?.sink.close(ws_status.goingAway);
+                            } catch (_) {}
+                            _wsSub = null;
+                            _ws = null;
+
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => ReviewPage(
                                   productId: p.productId,
                                   productName: p.name,
+                                  // 나 제외한 인원 그대로 전달
+                                  presenceOthers: _presenceCount,
                                 ),
                               ),
                             );
@@ -342,7 +376,7 @@ class _DepositDetailPageState extends State<DepositDetailPage>
                         },
                         child: Material(
                           color: Colors.transparent,
-                          elevation: 0, // ✅ 그림자 없음(컨테이너 박스섀도우만)
+                          elevation: 0,
                           borderRadius: BorderRadius.circular(20),
                           child: Container(
                             constraints: const BoxConstraints(maxWidth: 560),
@@ -351,18 +385,17 @@ class _DepositDetailPageState extends State<DepositDetailPage>
                               vertical: 10,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.grey[100], // ✅ 흰 배경
+                              color: Colors.grey[100],
                               borderRadius: BorderRadius.circular(20),
-                              // ✅ 거의 안 보이는 수준의 그림자
                               boxShadow: const [
                                 BoxShadow(
-                                  color: Color(0x11000000), // ~7% 투명도
+                                  color: Color(0x11000000),
                                   blurRadius: 3,
                                   offset: Offset(0, 1),
                                 ),
                               ],
                               border: Border.all(
-                                color: Color(0x14000000), // 은은한 테두리
+                                color: Color(0x14000000),
                                 width: 1,
                               ),
                             ),
@@ -371,17 +404,17 @@ class _DepositDetailPageState extends State<DepositDetailPage>
                               children: const [
                                 Icon(
                                   Icons.notifications_active_rounded,
-                                  color: Colors.amber, // ✅ 노란 종
+                                  color: Colors.amber,
                                   size: 18,
                                 ),
                                 SizedBox(width: 8),
                                 Flexible(
                                   child: Text(
-                                    '이 상품의 새로운 리뷰가 등록되었습니다', // ✅ 고정 문구
+                                    '이 상품의 새로운 리뷰가 등록되었습니다',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      color: Colors.black87, // ✅ 어두운 텍스트
+                                      color: Colors.black87,
                                       fontWeight: FontWeight.w800,
                                       height: 1.2,
                                     ),
@@ -405,12 +438,12 @@ class _DepositDetailPageState extends State<DepositDetailPage>
     Overlay.of(context, rootOverlay: true).insert(_toastEntry!);
     _toastAC!.forward();
 
-    // 자동 닫힘
+    // 자동 닫힘 (안전 제거)
     _toastTimer = Timer(duration, () async {
       try {
         await _toastAC?.reverse();
       } finally {
-        _toastEntry?.remove();
+        _safeRemoveEntry(_toastEntry);
         _toastEntry = null;
         _toastAC?.dispose();
         _toastAC = null;
@@ -418,20 +451,21 @@ class _DepositDetailPageState extends State<DepositDetailPage>
     });
   }
 
-  /// ======= 상단 플로팅 알림(UI) — Presence 토스트(신규) =======
+  /// ======= 상단 플로팅 알림(UI) — Presence 토스트 =======
   void _showPresenceToast(String text) {
-    // 기존 타이머/애니메이션/엔트리 정리 후 재생성(갱신 시 깔끔)
+    // 기존 타이머/애니메이션/엔트리 정리 후 재생성(갱신 시 깔끔) — 안전 제거
     _presenceToastTimer?.cancel();
     _presenceToastAC?.dispose();
-    _presenceToastEntry?.remove();
+    _safeRemoveEntry(_presenceToastEntry);
+    _presenceToastEntry = null;
 
     _presenceToastAC = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 260));
     final fade =
-        CurvedAnimation(parent: _presenceToastAC!, curve: Curves.easeOutCubic);
+    CurvedAnimation(parent: _presenceToastAC!, curve: Curves.easeOutCubic);
     final slide = Tween<Offset>(begin: const Offset(0, -0.25), end: Offset.zero)
         .animate(CurvedAnimation(
-            parent: _presenceToastAC!, curve: Curves.easeOutCubic));
+        parent: _presenceToastAC!, curve: Curves.easeOutCubic));
 
     _presenceToastEntry = OverlayEntry(
       builder: (context) {
@@ -478,12 +512,16 @@ class _DepositDetailPageState extends State<DepositDetailPage>
                                   const Icon(Icons.visibility,
                                       size: 16, color: Color(0xFF1565C0)),
                                   const SizedBox(width: 6),
-                                  Text(
-                                    text, // 예: "현재 3명 열람 중"
-                                    style: const TextStyle(
-                                      color: Color(0xFF0D47A1),
-                                      fontWeight: FontWeight.w800,
-                                      height: 1.2,
+                                  Flexible(
+                                    child: Text(
+                                      text, // 예: "현재 n명의 고객이 조회 중입니다"
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Color(0xFF0D47A1),
+                                        fontWeight: FontWeight.w800,
+                                        height: 1.2,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -515,21 +553,22 @@ class _DepositDetailPageState extends State<DepositDetailPage>
     _presenceToastTimer?.cancel();
     if (_presenceToastEntry == null) return;
 
-    if (immediate) {
-      _presenceToastEntry?.remove();
+    void cleanup() {
+      _safeRemoveEntry(_presenceToastEntry);
       _presenceToastEntry = null;
       _presenceToastAC?.dispose();
       _presenceToastAC = null;
+    }
+
+    if (immediate) {
+      cleanup();
       return;
     }
 
     try {
       await _presenceToastAC?.reverse();
     } finally {
-      _presenceToastEntry?.remove();
-      _presenceToastEntry = null;
-      _presenceToastAC?.dispose();
-      _presenceToastAC = null;
+      cleanup();
     }
   }
 
@@ -636,11 +675,10 @@ class _DepositDetailPageState extends State<DepositDetailPage>
       ),
       bottomNavigationBar: _bottomActionBar(),
       body: ListView(
-        controller: _scroll, // ✅ 스크롤 감지
+        controller: _scroll, // 스크롤 감지
         padding: EdgeInsets.fromLTRB(16, 16, 16, 12 + safeBottom),
         physics: const ClampingScrollPhysics(),
         children: [
-          // ✅ (삭제됨) 레이아웃 차지하던 presence 칩
           FadeSlideInOnVisible(child: _buildHeader(product!)),
           const SizedBox(height: 18),
           _sectionDivider("상품 상세"),
@@ -672,14 +710,25 @@ class _DepositDetailPageState extends State<DepositDetailPage>
                   if (!mounted) return;
                   final p = product;
                   if (p != null) {
+                    // 리뷰 페이지로 이동하기 전에 detail의 WS/토스트 정리 → 중복 카운트 방지
+                    _hidePresenceToast(immediate: true);
+                    try {
+                      _wsSub?.cancel();
+                    } catch (_) {}
+                    try {
+                      _ws?.sink.close(ws_status.goingAway);
+                    } catch (_) {}
+                    _wsSub = null;
+                    _ws = null;
+
                     Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => ReviewPage(
                           productId: p.productId,
                           productName: p.name,
-                          presenceOthers:
-                              (_presenceCount > 0) ? (_presenceCount - 1) : 0,
+                          // 이미 나 제외 값으로 유지됨
+                          presenceOthers: _presenceCount,
                         ),
                       ),
                     );
@@ -710,13 +759,12 @@ class _DepositDetailPageState extends State<DepositDetailPage>
                     if (!mounted) return;
 
                     if (rv == null) {
-                      // 로그인 필요(401) or 실명인증 필요/만료(428/500-메시지)
                       final result = await Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const RealnameVerificationPage()),
                       );
 
-                      if(result) {
+                      if (result) {
                         Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => FirstStepPage(product: product!)),
@@ -920,7 +968,7 @@ class _DepositDetailPageState extends State<DepositDetailPage>
     try {
       final decodedOnce = jsonDecode(detail);
       final decoded =
-          decodedOnce is String ? jsonDecode(decodedOnce) : decodedOnce;
+      decodedOnce is String ? jsonDecode(decodedOnce) : decodedOnce;
 
       if (decoded is List &&
           decoded.isNotEmpty &&
@@ -983,7 +1031,7 @@ class _DepositDetailPageState extends State<DepositDetailPage>
     final String content = fixLineBreaks(e['content'] ?? '');
     final String rawImageUrl = e['imageURL'] ?? '';
     final String imageUrl =
-        rawImageUrl.startsWith('/') ? 'assets$rawImageUrl' : rawImageUrl;
+    rawImageUrl.startsWith('/') ? 'assets$rawImageUrl' : rawImageUrl;
 
     return Center(
       child: ConstrainedBox(
@@ -1028,42 +1076,42 @@ class _DepositDetailPageState extends State<DepositDetailPage>
                     width: double.infinity,
                     child: imageUrl.startsWith("http")
                         ? Image.network(
-                            imageUrl,
-                            fit: BoxFit.contain,
-                            alignment: Alignment.center,
-                            filterQuality: FilterQuality.medium,
-                            loadingBuilder: (c, child, p) => p == null
-                                ? child
-                                : const Center(
-                                    child: SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    ),
-                                  ),
-                            errorBuilder: (c, e, s) => const Center(
-                              child: Icon(
-                                Icons.broken_image,
-                                size: 42,
-                                color: Colors.black26,
-                              ),
-                            ),
-                          )
-                        : Image.asset(
-                            imageUrl,
-                            fit: BoxFit.contain,
-                            alignment: Alignment.center,
-                            filterQuality: FilterQuality.medium,
-                            errorBuilder: (c, e, s) => const Center(
-                              child: Icon(
-                                Icons.broken_image,
-                                size: 42,
-                                color: Colors.black26,
-                              ),
-                            ),
+                      imageUrl,
+                      fit: BoxFit.contain,
+                      alignment: Alignment.center,
+                      filterQuality: FilterQuality.medium,
+                      loadingBuilder: (c, child, p) => p == null
+                          ? child
+                          : const Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
                           ),
+                        ),
+                      ),
+                      errorBuilder: (c, e, s) => const Center(
+                        child: Icon(
+                          Icons.broken_image,
+                          size: 42,
+                          color: Colors.black26,
+                        ),
+                      ),
+                    )
+                        : Image.asset(
+                      imageUrl,
+                      fit: BoxFit.contain,
+                      alignment: Alignment.center,
+                      filterQuality: FilterQuality.medium,
+                      errorBuilder: (c, e, s) => const Center(
+                        child: Icon(
+                          Icons.broken_image,
+                          size: 42,
+                          color: Colors.black26,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
             ],
@@ -1085,14 +1133,12 @@ class _DepositDetailPageState extends State<DepositDetailPage>
   Widget _footerCard(String title, String content) {
     // 공통: 타이틀/빈 블록 정리
     final normalized = title == '금리/이율 안내'
-        // 표 영역만 남기고, 선행 빈 블록 제거 (개행→<br> 변환 금지)
         ? _stripLeadingGaps(
-            cutHeadBeforeFirstTable(content, titleToStrip: title),
-          )
-        // 일반 안내는 줄바꿈 정규화 후 <br> 변환
+      cutHeadBeforeFirstTable(content, titleToStrip: title),
+    )
         : toHtmlBreaks(
-            normalizeHtml(content, titleToStrip: title),
-          );
+      normalizeHtml(content, titleToStrip: title),
+    );
 
     return Card(
       color: Colors.white,

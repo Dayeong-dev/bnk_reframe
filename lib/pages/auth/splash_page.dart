@@ -10,6 +10,7 @@ import 'package:reframe/pages/auth/auth_store.dart';
 import 'package:reframe/pages/auth/login_page.dart';
 
 import '../../constants/api_constants.dart';
+import '../../common/biometric_auth.dart';
 
 enum CheckResult { toLogin, toHome }
 
@@ -61,46 +62,42 @@ class _SplashPageState extends State<SplashPage> {
       final biometricEnabled =
           await _secureStorage.read(key: "biometricEnabled");
 
-      // if (refreshToken != null && biometricEnabled == 'true') {
-      //   final didAuthenticate = await _auth.authenticate(
-      //     localizedReason: "생체 인증으로 로그인하세요.",
-      //   );
-      //
-      //   if (didAuthenticate) {
-      //     Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AppShell()));
-      //     return;
-      //   }
-      // }
-
-      if (refreshToken != null && refreshToken.isNotEmpty) {
-        Uri url = Uri.parse("$apiBaseUrl/mobile/auth/refresh");
-
-        final response = await http
-            .post(url,
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: jsonEncode({'refreshToken': refreshToken}))
-            .timeout(const Duration(seconds: 8)); // 8초 제한
-
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-
-          final accessToken = data['accessToken'] as String;
-          final refreshToken = data['refreshToken'] as String;
-
-          // Memory(전역변수)에 Access Token 저장
-          setAccessToken(accessToken);
-          // Secure Storage에 Refresh Token 저장
-          await _secureStorage.write(key: "refreshToken", value: refreshToken);
-
-          return CheckResult.toHome;
-        } else {
-          await _secureStorage.delete(key: "refreshToken");
-          return CheckResult.toLogin;
-        }
+      if(refreshToken == null || refreshToken.isEmpty) {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AppShell()));
+        return CheckResult.toLogin;
       }
-      return CheckResult.toLogin;
+
+      if(biometricEnabled == "true") {
+        final didAuthenticate = await BiometricAuth.authenticate('자동 로그인을 위해 생체인증이 필요합니다');
+        if (!didAuthenticate) return CheckResult.toLogin;
+      }
+
+      Uri url = Uri.parse("$apiBaseUrl/mobile/auth/refresh");
+
+      final response = await http
+          .post(url,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({'refreshToken': refreshToken}))
+          .timeout(const Duration(seconds: 8)); // 8초 제한
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        final accessToken = data['accessToken'] as String;
+        final refreshToken = data['refreshToken'] as String;
+
+        // Memory(전역변수)에 Access Token 저장
+        setAccessToken(accessToken);
+        // Secure Storage에 Refresh Token 저장
+        await _secureStorage.write(key: "refreshToken", value: refreshToken);
+
+        return CheckResult.toHome;
+      } else {
+        await _secureStorage.delete(key: "refreshToken");
+        return CheckResult.toLogin;
+      }
     } on TimeoutException {
       return CheckResult.toLogin;
     } catch (e) {

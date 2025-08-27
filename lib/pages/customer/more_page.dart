@@ -97,12 +97,12 @@ class MorePage extends StatelessWidget {
 
                 // ======================= 나의 서비스 =======================
                 const _SectionHeader('나의 서비스'),
-                const SizedBox(height:8),
+                const SizedBox(height: 8),
 
                 _ServiceTile(
                   section: _SectionKind.myServices,
                   iconData: Icons.show_chart,
-                  title: '대시보드 테스트',
+                  title: '내 자산 추이',
                   trailingInfo: '계좌 · 포트폴리오 · 분석',
                   onTap: () {
                     Navigator.push(
@@ -160,7 +160,8 @@ class MorePage extends StatelessWidget {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const MyApplicationsPage()),
+                      MaterialPageRoute(
+                          builder: (_) => const MyApplicationsPage()),
                     );
                   },
                 ),

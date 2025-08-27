@@ -642,6 +642,7 @@ class _SingleSavingGoalCard extends StatelessWidget {
                         style: const TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 16,
+                          color: Colors.black,
                         ),
                       ),
                     ),
@@ -694,9 +695,16 @@ class _SingleSavingGoalCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 TextButton.icon(
                   onPressed: () => onOpenSheet(acc),
-                  icon: const Icon(Icons.settings_outlined),
-                  label: const Text('목표 설정'),
-                ),
+                  icon: const Icon(Icons.settings_outlined,
+                      color: Colors.black), // ✅ 아이콘 검정
+                  label: const Text(
+                    '목표 설정',
+                    style: TextStyle(color: Colors.black), // ✅ 텍스트 검정
+                  ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.black, // ✅ 기본색 고정
+                  ),
+                )
               ],
             ),
           ],

@@ -758,9 +758,6 @@ class _AverageCompareCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('내 자산 vs 평균',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 12),
           _AvgRow(
             label: '내 총자산',
             valueText: showMasked ? '••••• 원' : '${fmt(myTotal)} 원',
@@ -785,61 +782,79 @@ class _AvgRow extends StatelessWidget {
   final String valueText;
   final double ratio;
   final Color color;
+
   const _AvgRow({
     required this.label,
     required this.valueText,
     required this.ratio,
     required this.color,
   });
+
   @override
   Widget build(BuildContext context) {
-    return Row(
+    const double _barH = 10; // 막대바 높이
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-            width: 72,
-            child: Text(label,
-                style: const TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w700))),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                height: 18,
-                child: Stack(children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE9ECF1),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                  FractionallySizedBox(
-                    widthFactor: ratio,
-                    child: Container(
+        // 1) 라벨과 막대바를 같은 줄에 배치
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center, // 라벨 ↔ 막대바 높이 맞춤
+          children: [
+            SizedBox(
+              width: 72,
+              child: Text(
+                label,
+                style:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              ),
+            ),
+            Expanded(
+              child: SizedBox(
+                height: _barH,
+                child: Stack(
+                  children: [
+                    Container(
                       decoration: BoxDecoration(
-                        color: color,
+                        color: const Color(0xFFE9ECF1),
                         borderRadius: BorderRadius.circular(999),
-                        boxShadow: [
-                          BoxShadow(
-                              color: color.withOpacity(0.35),
-                              blurRadius: 10,
-                              spreadRadius: 1)
-                        ],
                       ),
                     ),
-                  ),
-                ]),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                valueText,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.black87,
+                    FractionallySizedBox(
+                      widthFactor: ratio,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: BorderRadius.circular(999),
+                          boxShadow: [
+                            BoxShadow(
+                              color: color.withOpacity(0.35),
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 4),
+
+        // 2) 값 텍스트는 막대바 밑에 배치
+        Padding(
+          padding: const EdgeInsets.only(left: 72), // 라벨 영역만큼 들여쓰기
+          child: Text(
+            valueText,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: Colors.black87,
+            ),
           ),
         ),
       ],

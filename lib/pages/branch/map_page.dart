@@ -772,15 +772,14 @@ class _MapPageState extends State<MapPage> {
   Widget _distancePill(String text) => _pillOutlined(text);
 
   // ===== 모달(바텀시트)
+  // ===== 장소 상세 바텀시트 (모달, 카메라 이동은 _placeCard에서 수행 후 여기 호출) =====
   void _showPlaceSheet(Place p) {
     final hasTel = (p.tel != null && p.tel!.trim().isNotEmpty);
     final km = (p.distanceM / 1000).toStringAsFixed(2);
 
     showModalBottomSheet(
       context: context,
-      // showDragHandle: false,
       isScrollControlled: true,
-
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -797,7 +796,7 @@ class _MapPageState extends State<MapPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 헤더: 지점명 + (아래) 거리/운영시간 pill
+                // 헤더: 아이콘 + 이름 + (거리/운영시간) + 즐겨찾기
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -819,7 +818,7 @@ class _MapPageState extends State<MapPage> {
                           ),
                           const SizedBox(height: 8),
                           Wrap(
-                            spacing: 10, // 배경이 없으니 간격을 조금 더 넉넉히
+                            spacing: 10,
                             runSpacing: 6,
                             children: [
                               _pillPlain('$km km', icon: Icons.place_outlined),
@@ -834,6 +833,7 @@ class _MapPageState extends State<MapPage> {
                       tooltip: isFav ? '즐겨찾기 제거' : '즐겨찾기 추가',
                       onPressed: () async {
                         await _toggleFavorite(p, silent: true);
+                        // 시트/페이지 상태 모두 갱신
                         setState(() {});
                         setModalState(() {});
                       },
@@ -844,7 +844,7 @@ class _MapPageState extends State<MapPage> {
                 ),
                 const SizedBox(height: 12),
 
-                // 주소 (화이트 카드) — 주소 옆 아이콘 제거
+                // 주소
                 _sectionWhite(
                   title: '주소',
                   child: Row(
@@ -887,6 +887,7 @@ class _MapPageState extends State<MapPage> {
 
                 const SizedBox(height: 12),
 
+                // 액션 버튼들
                 Row(
                   children: [
                     Expanded(
@@ -945,17 +946,57 @@ class _MapPageState extends State<MapPage> {
     );
   }
 
+// ▼ 추가
+  PersistentBottomSheetController? _filterController;
+
   // ===== 필터/설정 =====
+  // ▼ 클래스 필드에 이미 있으면 유지
+
+// ===== 필터/설정 =====
   void _openFilters() {
     setState(() => _radiusKm = _radiusKm.clamp(1, 20));
-    showModalBottomSheet(
-      context: context,
-      // showDragHandle: false,
-      builder: (_) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+
+    // 이미 열려 있으면 닫기(토글)
+    if (_filterController != null) {
+      _filterController!.close();
+      _filterController = null;
+      return;
+    }
+
+    // ✅ 모달 아님: barrier(스크림) 자체가 생기지 않음
+    _filterController = _scaffoldKey.currentState!.showBottomSheet(
+      (ctx) => _buildFilterSheet(ctx),
+      backgroundColor: Colors.transparent, // 시트 배경은 위젯에서 지정
+      elevation: 0,
+    );
+
+    // 닫힐 때 정리
+    _filterController!.closed.whenComplete(() {
+      if (!mounted) return;
+      setState(() => _filterController = null);
+    });
+  }
+
+  Widget _buildFilterSheet(BuildContext ctx) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 12,
+              offset: Offset(0, -4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // 헤더
             Row(
               children: [
                 const Expanded(
@@ -964,10 +1005,10 @@ class _MapPageState extends State<MapPage> {
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
-                // ✅ 완료 버튼(우측 정렬)
                 TextButton(
                   onPressed: () {
-                    Navigator.pop(context);
+                    _filterController?.close();
+                    _filterController = null;
                     _searchNearby(fromCamera: true);
                   },
                   child: const Text('완료'),
@@ -975,25 +1016,33 @@ class _MapPageState extends State<MapPage> {
               ],
             ),
             const SizedBox(height: 8),
+
+            // 반경 슬라이더
             Row(
               children: [
                 const Text('반경', style: TextStyle(fontWeight: FontWeight.w600)),
                 Expanded(
                   child: StatefulBuilder(
-                    builder: (ctx, setSheetState) {
-                      return Slider(
-                        value: _radiusKm.clamp(1, 20),
-                        min: 1,
-                        max: 20,
-                        divisions: 19,
-                        label: '${_radiusKm.toStringAsFixed(0)}km',
-                        onChanged: (v) {
-                          setSheetState(() {});
-                          setState(() => _radiusKm = v.clamp(1, 20));
-                        },
-                        onChangeEnd: (_) {
-                          // 슬라이더 놓았을 때 미리 반영하고 싶다면 유지
-                        },
+                    builder: (sctx, setSheetState) {
+                      return SliderTheme(
+                        // ✅ 나머지 스타일은 전부 현재 테마값 유지
+                        data: SliderTheme.of(sctx).copyWith(
+                          // ✨ 여기 두 줄만! 연한 파란줄(비활성 트랙) 제거
+                          inactiveTrackColor: Colors.transparent,
+                          disabledInactiveTrackColor: Colors.transparent,
+                        ),
+                        child: Slider(
+                          value: _radiusKm.clamp(1, 20),
+                          min: 1,
+                          max: 20,
+                          divisions: 19, // 스텝 유지
+                          // label 사용 중이면 그대로 두어도 됨
+                          label: '${_radiusKm.toStringAsFixed(0)}km',
+                          onChanged: (v) {
+                            setSheetState(() {});
+                            setState(() => _radiusKm = v.clamp(1, 20));
+                          },
+                        ),
                       );
                     },
                   ),

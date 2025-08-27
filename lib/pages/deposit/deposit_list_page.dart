@@ -605,7 +605,7 @@ class _DepositListPageState extends State<DepositListPage>
             Padding(
               // ✅ 상/하 동일 패딩으로 통일 (12,10,12,10 → 12,10,12,10 권장)
               //   * 지금 코드 하단에 SizedBox(6)가 있었는데, 아래에서 제거해 상/하 완전 대칭
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -907,8 +907,9 @@ class _DepositListPageState extends State<DepositListPage>
     );
   }
 
+  // ⛳️ 기존 _buildGridForPage 통으로 교체
   Widget _buildGridForPage(List<DepositProduct> visible, int totalForPage) {
-    // 그리드 셀 비율(높이)은 기존과 동일하게 유지
+    // 레이아웃 여백/간격은 그대로
     const crossAxisCount = 2;
     const hPad = 12.0;
     const vPadTop = 8.0;
@@ -916,41 +917,30 @@ class _DepositListPageState extends State<DepositListPage>
     const crossAxisSpacing = 10.0;
     const mainAxisSpacing = 10.0;
 
-    const targetAspect = 1.06;
+    // ✅ 카드 "고정 높이"로 누적 오차 제거 (필요시 192~200 사이로 미세조정)
+    const double kGridTileExtent = 188;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final gridWidth = constraints.maxWidth -
-            (hPad * 2) -
-            (crossAxisSpacing * (crossAxisCount - 1));
-        final tileWidth = gridWidth / crossAxisCount;
-
-        final rawHeight = tileWidth / targetAspect;
-        final tileHeight = rawHeight.ceilToDouble();
-
-        return CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverPadding(
-              padding:
-                  const EdgeInsets.fromLTRB(hPad, vPadTop, hPad, vPadBottom),
-              sliver: SliverGrid(
-                delegate: SliverChildBuilderDelegate(
-                  (context, i) => _gridCard(visible[i], i),
-                  childCount: visible.length,
-                ),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: crossAxisCount,
-                  mainAxisSpacing: mainAxisSpacing,
-                  crossAxisSpacing: crossAxisSpacing,
-                  mainAxisExtent: tileHeight,
-                ),
-              ),
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(hPad, vPadTop, hPad, vPadBottom),
+          sliver: SliverGrid(
+            delegate: SliverChildBuilderDelegate(
+              (context, i) => _gridCard(visible[i], i),
+              childCount: visible.length,
             ),
-            SliverToBoxAdapter(child: _moreLessArea(totalForPage)),
-          ],
-        );
-      },
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              mainAxisSpacing: mainAxisSpacing,
+              crossAxisSpacing: crossAxisSpacing,
+              // ✅ 핵심: 고정 높이로 지정
+              mainAxisExtent: kGridTileExtent,
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(child: _moreLessArea(totalForPage)),
+      ],
     );
   }
 }

@@ -5,6 +5,7 @@ import 'dart:ui' show FontFeature, ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:reframe/event/pages/start_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:reframe/constants/number_format.dart';
@@ -202,7 +203,13 @@ class _HomePageState extends State<HomePage> {
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12)),
                       ),
-                      onPressed: () => Navigator.pop(ctx, true),
+                      onPressed: () {
+                        Navigator.of(context, rootNavigator: true).pop();
+                        Navigator.of(context, rootNavigator: true).pushNamedAndRemoveUntil(
+                            '/login', (Route<dynamic> route) => false // 이전 모든 라우트 제거
+                        );
+                        _secureStorage.deleteAll();
+                      },
                       child: const Text('네'),
                     ),
                   ),
@@ -254,7 +261,7 @@ class _HomePageState extends State<HomePage> {
         _push(const MyServiceTestPage());
         break;
       case 'event2':
-        _push(const StartScreen());
+        _push(const StartPage());
         break;
       case 'coupon':
         _push(const CouponsScreen());
@@ -270,7 +277,9 @@ class _HomePageState extends State<HomePage> {
 
   /* ───────── 마이메뉴 편집 모달: 배경/그림자 제거, 아이콘+텍스트만 ───────── */
   Future<void> _editMyMenu() async {
-    final initial = _selectedKeys.toSet();
+    // ⬇️ 여기로 올립니다: 다이얼로그 생애주기 동안 유지될 임시 선택값
+    var temp = _selectedKeys.toSet();
+
     final result = await showDialog<List<String>>(
       context: context,
       barrierDismissible: true,
@@ -283,7 +292,6 @@ class _HomePageState extends State<HomePage> {
         ),
         child: StatefulBuilder(
           builder: (ctx, setSheet) {
-            final temp = initial.toSet();
             final primary = Theme.of(ctx).colorScheme.primary;
 
             void toggle(String k) {
@@ -291,14 +299,14 @@ class _HomePageState extends State<HomePage> {
                 temp.remove(k);
               } else {
                 if (temp.length >= 3) {
-                  ScaffoldMessenger.of(ctx).showSnackBar(
+                  ScaffoldMessenger.of(context).showSnackBar( // ← ctx 대신 context 사용 권장
                     const SnackBar(content: Text('최대 3개까지 선택할 수 있어요.')),
                   );
                   return;
                 }
                 temp.add(k);
               }
-              setSheet(() {});
+              setSheet(() {}); // 동일한 temp를 다시 그리기
             }
 
             return Padding(
@@ -307,8 +315,7 @@ class _HomePageState extends State<HomePage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text('마이메뉴 편집',
-                      style:
-                      TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 6),
                   Text('최대 ${temp.length}/3개 선택',
                       style: TextStyle(color: Colors.grey.shade600)),
@@ -317,8 +324,7 @@ class _HomePageState extends State<HomePage> {
                     shrinkWrap: true,
                     itemCount: _allMenus.length,
                     physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                    const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 3,
                       mainAxisExtent: 96,
                       crossAxisSpacing: 10,
@@ -333,7 +339,6 @@ class _HomePageState extends State<HomePage> {
                         child: Stack(
                           clipBehavior: Clip.none,
                           children: [
-                            // 배경/보더/그림자 없이 아이콘 + 텍스트만
                             Center(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -342,18 +347,10 @@ class _HomePageState extends State<HomePage> {
                                   const SizedBox(height: 8),
                                   Text(m.title,
                                       style: const TextStyle(
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 12)),
+                                          fontWeight: FontWeight.w800, fontSize: 12)),
                                 ],
                               ),
                             ),
-                            // 선택 체크(프라이머리 아이콘만)
-                            if (selected)
-                              const Positioned(
-                                right: 6,
-                                top: 6,
-                                child: Icon(Icons.check_circle, size: 22),
-                              ),
                             if (selected)
                               Positioned(
                                 right: 6,
@@ -402,7 +399,7 @@ class _HomePageState extends State<HomePage> {
       ),
     );
 
-    if (result != null && result.isNotEmpty) {
+    if (result != null) {
       setState(() => _selectedKeys = result.take(3).toList());
       _saveMyMenuSelection(_selectedKeys);
     }
@@ -891,7 +888,7 @@ class _RecommendSimpleSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("차수현님을 위한",
+              Text("윤다영님을 위한",
                   style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,

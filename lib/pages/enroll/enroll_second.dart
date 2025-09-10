@@ -977,27 +977,21 @@ class _AmountSectionState extends State<AmountSection> {
         border: Border.all(color: theme.dividerColor),
       ),
       padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('납입 금액',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontSize: kTitleSize,
-                      fontWeight: FontWeight.w800,
-                    )),
-                const SizedBox(height: 4),
-                Text('월 납입 금액(만원)을 입력하세요',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontSize: kSubSize,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    )),
-              ],
-            ),
-          ),
+          Text('납입 금액',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontSize: kTitleSize,
+                fontWeight: FontWeight.w800,
+              )),
+          const SizedBox(height: 4),
+          Text('월 납입 금액(만원)을 입력하세요',
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontSize: kSubSize,
+                color: theme.colorScheme.onSurfaceVariant,
+              )),
+          const SizedBox(height: 12),
           CompactNumberField(
             controller: _controller,
             focusNode: _focus,
@@ -1012,7 +1006,7 @@ class _AmountSectionState extends State<AmountSection> {
                 widget.onChanged(n);
               }
             },
-          ),
+          )
         ],
       ),
     );

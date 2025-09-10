@@ -63,13 +63,9 @@ class _SplashPageState extends State<SplashPage> {
           await _secureStorage.read(key: "biometricEnabled");
 
       if(refreshToken == null || refreshToken.isEmpty) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AppShell()));
+        Navigator.pushReplacement(
+            context, MaterialPageRoute(builder: (context) => LoginPage()));
         return CheckResult.toLogin;
-      }
-
-      if(biometricEnabled == "true") {
-        final didAuthenticate = await BiometricAuth.authenticate('자동 로그인을 위해 생체인증이 필요합니다');
-        if (!didAuthenticate) return CheckResult.toLogin;
       }
 
       Uri url = Uri.parse("$apiBaseUrl/mobile/auth/refresh");
@@ -92,6 +88,11 @@ class _SplashPageState extends State<SplashPage> {
         setAccessToken(accessToken);
         // Secure Storage에 Refresh Token 저장
         await _secureStorage.write(key: "refreshToken", value: refreshToken);
+
+        if(biometricEnabled == "true") {
+          final didAuthenticate = await BiometricAuth.authenticate('자동 로그인을 위해 생체인증이 필요합니다');
+          if (!didAuthenticate) return CheckResult.toLogin;
+        }
 
         return CheckResult.toHome;
       } else {

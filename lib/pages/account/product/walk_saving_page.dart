@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:health/health.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -8,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:dio/dio.dart';
 
+import '../../../common/biometric_auth.dart';
 import '../../../constants/text_animation.dart';
 import '../../../model/deposit_payment_log.dart';
 import '../../../model/common.dart';
@@ -64,6 +66,7 @@ class WalkSavingPage extends StatefulWidget {
 
 class _WalkSavingPageState extends State<WalkSavingPage> {
   late Future<ProductAccountDetail> _future;
+  final _secure = const FlutterSecureStorage();
   ProductAccountDetail? _detailCache;
 
   bool _paying = false;
@@ -155,6 +158,8 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
     final nxt = _findNextUnpaid(detail);
     if (nxt == null) return;
 
+
+
     HapticFeedback.lightImpact();
     final ok = await _confirmPayDialog(nxt.round, nxt.amount);
     if (!mounted || !ok) return;
@@ -183,6 +188,17 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
     } finally {
       if (mounted) setState(() => _paying = false);
     }
+  }
+
+  // 생체 인증 진행
+  Future<bool> requireBiometricForEnroll() async {
+    // 정책 A: 생체 보호 ON 사용자에게만 요구
+    final enabled = await _secure.read(key: 'biometricEnabled');
+    if (enabled == 'true') {
+      final ok = await BiometricAuth.authenticateOnlyBio('상품 가입을 위해 본인 확인이 필요합니다');
+      return ok;
+    }
+    return true;
   }
 
   // ===== 도메인 헬퍼 =====
@@ -418,7 +434,8 @@ class _WalkSavingPageState extends State<WalkSavingPage> {
                   ? null
                   : (_onlyDate(today).isBefore(_onlyDate(nextDue))
                       ? '예정일 ${fmtYmd(nextDue)}'
-                      : '연체: ${fmtYmd(nextDue)}부터');
+                      : _onlyDate(today) == _onlyDate(nextDue)
+                      ? '납입일 ${_onlyDate(today)}' : '연체: ${fmtYmd(nextDue)}부터');
 
               final baseRate = app.baseRateAtEnroll ?? 0.0;
               final effRate = effRateForUI ?? baseRate;

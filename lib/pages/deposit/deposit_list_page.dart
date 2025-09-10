@@ -688,8 +688,7 @@ class _DepositListPageState extends State<DepositListPage>
           //   listName: 'deposit_list', // 필요시 리스트명 변경
           // );
           if (!mounted) return;
-          Navigator.push(
-            context,
+          Navigator.of(context, rootNavigator: true).push(
             MaterialPageRoute(
               builder: (_) => DepositDetailPage(productId: item.productId),
               settings: const RouteSettings(name: '/deposit/detail'),

@@ -1,6 +1,5 @@
 # BNK Reframe App
 ### Flutter 기반 은행상품 안내 및 가입 모바일 앱
-A new Flutter project.
 
 이 레포지토리는 **BNK Reframe 2차 프로젝트**의 사용자 모바일 애플리케이션입니다. <br>
 예적금 상품 탐색, 본인인증 및 가입, 이벤트/리워드, 오늘의 운세, AI 챗봇 등 다양한 기능을 제공합니다. <br>

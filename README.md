@@ -52,6 +52,12 @@ A new Flutter project.
 - **문서/데이터**: PDF 뷰어(pdfrx), JSON 기반 오프라인 지점/ATM 데이터
 - **그 외**: 앱 딥링크(App Links), 공유(Share Plus)
 
+## 📚 참고 문서
+- [와이어프레임](https://github.com/Dayeong-dev/bnk-project-2/blob/main/docs/BNK_2차_프로젝트_와이어프레임.pdf)
+- [플로우차트(로그인)](https://github.com/Dayeong-dev/bnk-project-2/blob/main/docs/BNK_2차_프로젝트_플로우차트_로그인.png)
+- [플로우차트(상품 가입)](https://github.com/Dayeong-dev/bnk-project-2/blob/main/docs/BNK_2차_프로젝트_플로우차트_상품가입.png)
+- [플로우차트(예적금 탐색)](https://github.com/Dayeong-dev/bnk-project-2/blob/main/docs/BNK_2차_프로젝트_플로우차트_예적금.png)
+
 ## ⚙️ 실행 방법
 ```bash
 # 의존성 설치

@@ -56,7 +56,7 @@ class _HomePageState extends State<HomePage> {
   final _auth = LocalAuthentication();
 
   // 페이지 게이트: 계좌 + 평균자산 모두 끝난 뒤 화면 표시
-  late final Future<_HomeBundle> _homeFuture = _loadHomeBundle();
+  late Future<_HomeBundle> _homeFuture = _loadHomeBundle();
 
   int _visibleCount = 3;
 
@@ -422,151 +422,159 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       body: SafeArea(
-        child: FutureBuilder<_HomeBundle>(
-          future: _homeFuture,
-          builder: (context, snap) {
-            if (snap.connectionState != ConnectionState.done) {
-              return const ColoredBox(
-                color: Colors.white,
-                child: Center(child: CircularProgressIndicator()),
-              );
-            }
-            if (snap.hasError) {
-              return _ErrorView(
-                error: '${snap.error}',
-                onRetry: () => setState(() {}),
-              );
-            }
+        child: RefreshIndicator(
+          onRefresh: () async {
+            setState(() {
+              _homeFuture = _loadHomeBundle();
+            });
+            await _homeFuture;
+          },
+          child: FutureBuilder<_HomeBundle>(
+            future: _homeFuture,
+            builder: (context, snap) {
+              if (snap.connectionState != ConnectionState.done) {
+                return const ColoredBox(
+                  color: Colors.white,
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              if (snap.hasError) {
+                return _ErrorView(
+                  error: '${snap.error}',
+                  onRetry: () => setState(() {}),
+                );
+              }
 
-            final bundle = snap.data!;
-            final accounts = bundle.accounts;
-            final avgAsset = bundle.avgUserTotal;
+              final bundle = snap.data!;
+              final accounts = bundle.accounts;
+              final avgAsset = bundle.avgUserTotal;
 
-            final demand = accounts
-                .where((a) => a.accountType == AccountType.demand)
-                .toList();
-            final product = accounts
-                .where((a) => a.accountType == AccountType.product)
-                .toList();
+              final demand = accounts
+                  .where((a) => a.accountType == AccountType.demand)
+                  .toList();
+              final product = accounts
+                  .where((a) => a.accountType == AccountType.product)
+                  .toList();
 
-            final cashTotal =
-            demand.fold<int>(0, (s, a) => s + (a.balance ?? 0));
-            final savingTotal =
-            product.fold<int>(0, (s, a) => s + (a.balance ?? 0));
-            final total = cashTotal + savingTotal;
+              final cashTotal =
+              demand.fold<int>(0, (s, a) => s + (a.balance ?? 0));
+              final savingTotal =
+              product.fold<int>(0, (s, a) => s + (a.balance ?? 0));
+              final total = cashTotal + savingTotal;
 
-            final allAccounts = [...demand, ...product]
-              ..sort((a, b) => (b.balance ?? 0).compareTo(a.balance ?? 0));
+              final allAccounts = [...demand, ...product]
+                ..sort((a, b) => (b.balance ?? 0).compareTo(a.balance ?? 0));
 
-            if (_visibleCount > allAccounts.length) {
-              _visibleCount = math.min(3, allAccounts.length);
-            }
+              if (_visibleCount > allAccounts.length) {
+                _visibleCount = math.min(3, allAccounts.length);
+              }
 
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
-              children: [
-                // 총자산 헤더
-                _TotalHeaderPlain(
-                  totalText: _maskMoney(total),
-                  hideOn: _hideAssets,
-                  onToggleHide: () =>
-                      setState(() => _hideAssets = !_hideAssets),
-                  onDeposit: () => _push(DepositMainPage()),
-                ),
-                const SizedBox(height: 12),
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
+                children: [
+                  // 총자산 헤더
+                  _TotalHeaderPlain(
+                    totalText: _maskMoney(total),
+                    hideOn: _hideAssets,
+                    onToggleHide: () =>
+                        setState(() => _hideAssets = !_hideAssets),
+                    onDeposit: () => _push(DepositMainPage()),
+                  ),
+                  const SizedBox(height: 12),
 
-                // 내 계좌
-                const Padding(
-                  padding: EdgeInsets.only(left: 6, bottom: 8),
-                  child: Text('내 계좌',
-                      style: TextStyle(fontWeight: FontWeight.w800)),
-                ),
-                if (allAccounts.isEmpty)
-                  _EmptyAccounts(onExplore: () => _push(DepositMainPage()))
-                else ...[
-                  ...allAccounts.take(_visibleCount).map((a) => _AccountCard(
-                    title: a.accountName ?? 'BNK 부산은행 계좌',
-                    subtitle: a.accountNumber ?? '-',
-                    balanceText: '${_maskMoney(a.balance ?? 0)} 원',
-                    leading: _fancyProductIcon(a),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) =>
-                                AccountDetailPage(accountId: a.id)),
-                      );
-                    },
-                  )),
-                  if (allAccounts.length > 3)
-                    Align(
-                      alignment: Alignment.center,
-                      child: TextButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _visibleCount = (_visibleCount < allAccounts.length)
-                                ? allAccounts.length
-                                : math.min(3, allAccounts.length);
-                          });
-                        },
-                        style:
-                        TextButton.styleFrom(foregroundColor: Colors.black),
-                        icon: Icon(
-                          (_visibleCount < allAccounts.length)
-                              ? Icons.keyboard_arrow_down_rounded
-                              : Icons.keyboard_arrow_up_rounded,
-                          size: 22,
-                        ),
-                        label: Text(
-                          (_visibleCount < allAccounts.length)
-                              ? '더보기'
-                              : '간략히 보기',
-                          style: const TextStyle(fontWeight: FontWeight.w700),
+                  // 내 계좌
+                  const Padding(
+                    padding: EdgeInsets.only(left: 6, bottom: 8),
+                    child: Text('내 계좌',
+                        style: TextStyle(fontWeight: FontWeight.w800)),
+                  ),
+                  if (allAccounts.isEmpty)
+                    _EmptyAccounts(onExplore: () => _push(DepositMainPage()))
+                  else ...[
+                    ...allAccounts.take(_visibleCount).map((a) => _AccountCard(
+                      title: a.accountName ?? 'BNK 부산은행 계좌',
+                      subtitle: a.accountNumber ?? '-',
+                      balanceText: '${_maskMoney(a.balance ?? 0)} 원',
+                      leading: _fancyProductIcon(a),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) =>
+                                  AccountDetailPage(accountId: a.id)),
+                        );
+                      },
+                    )),
+                    if (allAccounts.length > 3)
+                      Align(
+                        alignment: Alignment.center,
+                        child: TextButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _visibleCount = (_visibleCount < allAccounts.length)
+                                  ? allAccounts.length
+                                  : math.min(3, allAccounts.length);
+                            });
+                          },
+                          style:
+                          TextButton.styleFrom(foregroundColor: Colors.black),
+                          icon: Icon(
+                            (_visibleCount < allAccounts.length)
+                                ? Icons.keyboard_arrow_down_rounded
+                                : Icons.keyboard_arrow_up_rounded,
+                            size: 22,
+                          ),
+                          label: Text(
+                            (_visibleCount < allAccounts.length)
+                                ? '더보기'
+                                : '간략히 보기',
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
                         ),
                       ),
+                  ],
+
+                  const SizedBox(height: 16),
+
+                  // 평균자산
+
+                  _RaisedSection(
+                    child: _AverageCompareCard(
+                      myTotal: _hideAssets ? 0 : total,
+                      avgTotal: avgAsset,
+                      showMasked: _hideAssets,
                     ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // 마이메뉴
+                  _RaisedSection(
+                    child: _MyMenuSection(
+                      allItems: _allMenus,
+                      selectedKeys: _selectedKeys,
+                      onTapItem: _openMenu,
+                      onEdit: _editMyMenu,
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ⭐ 실시간 추천: 제목 + 3개 피킹 슬라이더(양쪽 패딩 없음)
+
+                  _RaisedSection(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+                    child: _RecommendSimpleSection(
+                      items: _recommendItems,
+                      onTapItem: (pid) =>
+                          _push(DepositDetailPage(productId: pid)),
+                      onMore: () => _push(DepositMainPage()),
+                    ),
+                  ),
                 ],
-
-                const SizedBox(height: 16),
-
-                // 평균자산
-
-                _RaisedSection(
-                  child: _AverageCompareCard(
-                    myTotal: _hideAssets ? 0 : total,
-                    avgTotal: avgAsset,
-                    showMasked: _hideAssets,
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // 마이메뉴
-                _RaisedSection(
-                  child: _MyMenuSection(
-                    allItems: _allMenus,
-                    selectedKeys: _selectedKeys,
-                    onTapItem: _openMenu,
-                    onEdit: _editMyMenu,
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // ⭐ 실시간 추천: 제목 + 3개 피킹 슬라이더(양쪽 패딩 없음)
-
-                _RaisedSection(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-                  child: _RecommendSimpleSection(
-                    items: _recommendItems,
-                    onTapItem: (pid) =>
-                        _push(DepositDetailPage(productId: pid)),
-                    onMore: () => _push(DepositMainPage()),
-                  ),
-                ),
-              ],
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );

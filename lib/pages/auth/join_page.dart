@@ -65,11 +65,15 @@ class _JoinPageState extends State<JoinPage> {
     super.initState();
     _usernameController.addListener(() {
       // 아이디 변경 시 중복확인 상태 초기화
-      setState(() {
-        _isUsernameAvailable = null;
-        _lastCheckedUsername = '';
-        _errorUsernameText = null;
-      });
+      final username = _usernameController.text.trim();
+
+      if(_lastCheckedUsername != username) {
+        setState(() {
+          _isUsernameAvailable = null;
+          _lastCheckedUsername = '';
+          _errorUsernameText = null;
+        });
+      }
     });
   }
 

@@ -760,7 +760,7 @@ class _DepositDetailPageState extends State<DepositDetailPage>
                       await getProductInputFormat(product!.productId);
                     } catch(e) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('앱에서 가입 불가한 상품입니다. 오프라인 매장을 이용해주세요.')),
+                        const SnackBar(content: Text('해당 상품은 앱에서 가입할 수 없습니다. 가까운 영업점을 방문해 가입을 진행해주세요.')),
                       );
                       return;
                     }

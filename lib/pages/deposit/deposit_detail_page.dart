@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
+import 'package:reframe/model/product_input_format.dart';
 import 'package:reframe/model/realname_verification.dart';
 import 'package:reframe/pages/auth/realname_verification_page.dart';
 import 'package:reframe/pages/enroll/enroll_first.dart';
@@ -755,6 +756,15 @@ class _DepositDetailPageState extends State<DepositDetailPage>
 
                   RealnameVerification? rv;
                   try {
+                    try {
+                      await getProductInputFormat(product!.productId);
+                    } catch(e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('앱에서 가입 불가한 상품입니다. 오프라인 매장을 이용해주세요.')),
+                      );
+                      return;
+                    }
+
                     rv = await checkStatus();
                     if (!mounted) return;
 
